@@ -109,20 +109,13 @@ export function SiteHeader() {
                     onClick={(e) => onNavClick(e, link.href)}
                     aria-current={linkActive ? "location" : undefined}
                     className={cn(
-                      "relative inline-flex h-10 cursor-pointer items-center rounded-full px-4 text-base font-medium transition-all duration-200 select-none active:scale-95",
+                      "inline-flex h-10 cursor-pointer items-center rounded-full px-4 text-base font-medium transition-all duration-200 select-none active:scale-95",
                       linkActive
                         ? "bg-brand-50 text-brand-900"
                         : "text-brand-700 hover:bg-brand-50 hover:text-brand-900",
                     )}
                   >
                     {link.label}
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "absolute inset-x-4 -bottom-px h-0.5 origin-center rounded-full bg-brand-800 transition-transform duration-300",
-                        linkActive ? "scale-x-100" : "scale-x-0",
-                      )}
-                    />
                   </Link>
                 </li>
               );
