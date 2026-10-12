@@ -26,7 +26,7 @@ export default async function AdminPanelLayout({
         <AdminSidebar admin={admin} />
         <SidebarInset className="min-w-0 bg-neutral-50">
           <AdminHeader />
-          <div className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-5 lg:px-8 lg:py-6">
             {children}
           </div>
         </SidebarInset>

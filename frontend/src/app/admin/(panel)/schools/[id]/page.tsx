@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, Contact, MapPin, School, StickyNote, UserRound } from "lucide-react";
+import { Clock, Contact, MapPin, School, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BOARD_LABELS, PROGRAM_LABELS, STATUS_LABELS } from "@/features/schools/constants";
 import { CopyButton } from "@/features/schools/copy-button";
@@ -17,13 +17,13 @@ const EMPTY = "—";
 function Panel({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
     <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-      <h2 className="flex items-center gap-2.5 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm font-semibold text-neutral-950">
+      <h2 className="flex items-center gap-2.5 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-sm font-semibold text-neutral-950">
         <span className="flex size-6 items-center justify-center rounded-md border border-amber-200 bg-amber-50 text-amber-600 [&_svg]:size-3.5">
           {icon}
         </span>
         {title}
       </h2>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 sm:grid-cols-3">{children}</dl>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 px-4 py-3 sm:grid-cols-3">{children}</dl>
     </section>
   );
 }
@@ -52,7 +52,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
   if (!school) notFound();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <header className="flex flex-col gap-4 rounded-xl bg-neutral-950 px-5 py-4 text-white xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold tracking-[0.2em] text-white/50 uppercase">School profile</p>
@@ -90,8 +90,8 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
         </div>
       </header>
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <div className="space-y-4">
+      <div className="grid items-start gap-3 lg:grid-cols-2">
+        <div className="space-y-3">
           <Panel title="School details" icon={<School />}>
             <Field label="School name">{school.name}</Field>
             <Field label="School code">{school.code}</Field>
@@ -101,16 +101,11 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
             <Field label="Student strength">
               {school.studentStrength ? formatNumber(school.studentStrength) : null}
             </Field>
-            <Field label="Programs" span={3}>
+            <Field label="Principal">{school.principalName}</Field>
+            <Field label="Programs" span={2}>
               {school.programs.length > 0
                 ? school.programs.map((program) => PROGRAM_LABELS[program]).join(", ")
                 : null}
-            </Field>
-          </Panel>
-
-          <Panel title="Principal" icon={<UserRound />}>
-            <Field label="Name" span={3}>
-              {school.principalName}
             </Field>
           </Panel>
 
@@ -121,7 +116,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
           </Panel>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Panel title="Address" icon={<MapPin />}>
             <Field label="Address" span={3}>
               {school.addressLine}
