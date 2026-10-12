@@ -28,15 +28,13 @@ NODE_ENV=development
 PORT=4000
 CORS_ORIGIN=http://localhost:3000
 DATABASE_URL=postgresql://user:password@host-pooler.region.aws.neon.tech/neondb?sslmode=verify-full
-DIRECT_URL=postgresql://user:password@host.region.aws.neon.tech/neondb?sslmode=verify-full
 JWT_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 JWT_EXPIRES_IN_HOURS=8
 ADMIN_EMAIL=admin@vitaran.com
 ADMIN_PASSWORD_HASH=
 ```
 
-- `DATABASE_URL` — Neon **pooled** connection (`…-pooler…`, `sslmode=verify-full`)
-- `DIRECT_URL` — Neon **direct** connection (no `-pooler`), used for migrations
+- `DATABASE_URL` — Neon connection string (`sslmode=verify-full`)
 - `JWT_SECRET` — at least 32 characters (`openssl rand -base64 48`)
 - `ADMIN_EMAIL` — admin login email
 - `ADMIN_PASSWORD_HASH` — scrypt hash from the helper below
@@ -153,10 +151,7 @@ Login is limited to 10 attempts per 15 minutes, keyed by email.
 
 ## Database
 
-Prisma 7 with the `pg` adapter.
-
-- App runtime uses `DATABASE_URL` (pooled).
-- Migrations use `DIRECT_URL` (`prisma.config.ts`).
+Prisma 7 with the `pg` adapter. The app and migrations both use `DATABASE_URL`.
 
 Useful scripts (run from `backend/`):
 
@@ -195,6 +190,6 @@ npm run typecheck
 ## Production notes
 
 - Do not use a short or reused admin password. Generate a new hash with `hash-password` and keep `JWT_SECRET` unique per environment.
-- Set `NODE_ENV=production`, a strict `CORS_ORIGIN`, and `sslmode=verify-full` on both database URLs.
-- Run `npm run db:deploy` against `DIRECT_URL` before starting the API.
+- Set `NODE_ENV=production`, a strict `CORS_ORIGIN`, and `sslmode=verify-full` on `DATABASE_URL`.
+- Run `npm run db:deploy` before starting the API.
 - The frontend session cookie is `Secure` in production and scoped to `/admin`.
