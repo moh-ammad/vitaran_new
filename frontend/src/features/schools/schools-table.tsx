@@ -1,0 +1,72 @@
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { School } from "@/types/school";
+import { formatDate } from "@/utils/format";
+import { BOARD_LABELS } from "./constants";
+import { SchoolRowActions } from "./school-row-actions";
+import { SchoolStatusBadge } from "./school-status-badge";
+
+export function SchoolsTable({ schools }: { schools: School[] }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="pl-4">School</TableHead>
+          <TableHead>Board</TableHead>
+          <TableHead className="hidden lg:table-cell">Location</TableHead>
+          <TableHead className="hidden md:table-cell">Contact</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="hidden xl:table-cell">Registered</TableHead>
+          <TableHead className="w-12 pr-4">
+            <span className="sr-only">Actions</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {schools.map((school) => (
+          <TableRow key={school.id}>
+            <TableCell className="max-w-72 pl-4">
+              <Link
+                href={`/admin/schools/${school.id}`}
+                className="block truncate font-medium text-brand-900 hover:underline"
+              >
+                {school.name}
+              </Link>
+              <span className="font-mono text-xs text-muted-foreground">{school.code}</span>
+            </TableCell>
+            <TableCell>
+              <Badge variant="secondary">{BOARD_LABELS[school.board]}</Badge>
+            </TableCell>
+            <TableCell className="hidden lg:table-cell">
+              <span className="block">{school.city}</span>
+              <span className="text-xs text-muted-foreground">{school.state}</span>
+            </TableCell>
+            <TableCell className="hidden max-w-56 md:table-cell">
+              <span className="block truncate">{school.contactName}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {school.contactEmail}
+              </span>
+            </TableCell>
+            <TableCell>
+              <SchoolStatusBadge status={school.status} />
+            </TableCell>
+            <TableCell className="hidden text-muted-foreground xl:table-cell">
+              {formatDate(school.createdAt)}
+            </TableCell>
+            <TableCell className="pr-4 text-right">
+              <SchoolRowActions school={school} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}

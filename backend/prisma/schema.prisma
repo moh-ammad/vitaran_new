@@ -1,0 +1,58 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SchoolBoard {
+  CBSE
+  ICSE
+  STATE
+  IB
+  IGCSE
+  OTHER
+}
+
+enum SchoolStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum Program {
+  INTEGRATED
+  ADVANCED
+  REVISED_ADVANCED
+  OLYMPIAD
+  OLYMPIAD_PRIMARY
+}
+
+model School {
+  id              String       @id @default(uuid()) @db.Uuid
+  serial          Int          @unique @default(autoincrement())
+  name            String       @db.VarChar(200)
+  board           SchoolBoard
+  status          SchoolStatus @default(ACTIVE)
+  programs        Program[]
+  principalName   String?      @map("principal_name") @db.VarChar(120)
+  contactName     String       @map("contact_name") @db.VarChar(120)
+  contactEmail    String       @map("contact_email") @db.VarChar(254)
+  contactPhone    String       @map("contact_phone") @db.VarChar(20)
+  addressLine     String       @map("address_line") @db.VarChar(300)
+  city            String       @db.VarChar(100)
+  state           String       @db.VarChar(100)
+  pincode         String       @db.VarChar(6)
+  studentStrength Int?         @map("student_strength")
+  notes           String?      @db.VarChar(1000)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@index([board])
+  @@index([createdAt])
+  @@map("schools")
+}
