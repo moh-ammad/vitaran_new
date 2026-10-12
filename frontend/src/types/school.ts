@@ -38,11 +38,21 @@ export type School = {
   pincode: string;
   studentStrength: number | null;
   notes: string | null;
+  accountEmail: string | null;
+  accountPhone: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export type SchoolInput = Omit<School, "id" | "code" | "createdAt" | "updatedAt">;
+export type SchoolInput = Omit<
+  School,
+  "id" | "code" | "accountEmail" | "accountPhone" | "createdAt" | "updatedAt"
+> & {
+  accountEmail: string;
+  accountPhone: string;
+  /** Omitted on update to keep the current password. */
+  password?: string;
+};
 
 export type Pagination = {
   page: number;

@@ -12,7 +12,7 @@ export default async function EditSchoolPage({ params }: PageProps<"/admin/schoo
   if (!school) notFound();
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div>
       <PageHeader
         title={`Edit ${school.name}`}
         description={`School code ${school.code}`}

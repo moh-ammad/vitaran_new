@@ -44,6 +44,12 @@ export async function getSchool(id: string): Promise<School | null> {
   }
 }
 
+export function getAccountAvailability(email: string, excludeId?: string) {
+  const query = new URLSearchParams({ email });
+  if (excludeId) query.set("excludeId", excludeId);
+  return adminApi<{ emailTaken: boolean }>(`/schools/account-availability?${query}`);
+}
+
 export function createSchool(input: SchoolInput) {
   return adminApi<School>("/schools", { method: "POST", body: input });
 }

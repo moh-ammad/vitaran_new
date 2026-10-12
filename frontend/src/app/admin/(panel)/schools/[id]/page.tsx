@@ -122,6 +122,24 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
 
           <Card>
             <CardHeader>
+              <CardTitle>Login account</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              {school.accountEmail ? (
+                <>
+                  <p className="font-medium break-words text-brand-900">{school.accountEmail}</p>
+                  <p className="text-muted-foreground">{school.accountPhone}</p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  Not set up yet. Edit the school to add sign-in details.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Record</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">

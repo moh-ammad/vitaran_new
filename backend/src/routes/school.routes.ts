@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createSchool,
   deleteSchool,
+  getAccountAvailability,
   getSchool,
   getSchoolStats,
   listSchools,
@@ -10,6 +11,7 @@ import {
 import { requireAdmin } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import {
+  accountAvailabilityQuerySchema,
   createSchoolSchema,
   listSchoolsQuerySchema,
   schoolIdParamsSchema,
@@ -22,6 +24,11 @@ schoolRouter.use(requireAdmin);
 
 schoolRouter.get("/", validate(listSchoolsQuerySchema, "query"), listSchools);
 schoolRouter.get("/stats", getSchoolStats);
+schoolRouter.get(
+  "/account-availability",
+  validate(accountAvailabilityQuerySchema, "query"),
+  getAccountAvailability,
+);
 schoolRouter.post("/", validate(createSchoolSchema), createSchool);
 schoolRouter.get("/:id", validate(schoolIdParamsSchema, "params"), getSchool);
 schoolRouter.patch(
