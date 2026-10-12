@@ -14,6 +14,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getAdminBreadcrumbs } from "@/features/admin/navigation";
+import { AdminBackButton } from "./admin-back-button";
 
 export function AdminHeader() {
   const crumbs = getAdminBreadcrumbs(usePathname());
@@ -21,6 +22,7 @@ export function AdminHeader() {
   return (
     <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-brand-100 bg-white/90 px-4 backdrop-blur">
       <SidebarTrigger className="-ml-1 text-brand-800" />
+      <AdminBackButton />
       <Separator orientation="vertical" className="mr-2 data-vertical:h-4" />
       <Breadcrumb>
         <BreadcrumbList>

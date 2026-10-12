@@ -38,11 +38,24 @@ export type School = {
   pincode: string;
   studentStrength: number | null;
   notes: string | null;
+  accountEmail: string | null;
+  accountPhone: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export type SchoolInput = Omit<School, "id" | "code" | "createdAt" | "updatedAt">;
+/** Admin detail view; `password` is null for schools created before it was stored. */
+export type SchoolDetail = School & { password: string | null };
+
+export type SchoolInput = Omit<
+  School,
+  "id" | "code" | "accountEmail" | "accountPhone" | "createdAt" | "updatedAt"
+> & {
+  accountEmail: string;
+  accountPhone: string;
+  /** Omitted on update to keep the current password. */
+  password?: string;
+};
 
 export type Pagination = {
   page: number;
