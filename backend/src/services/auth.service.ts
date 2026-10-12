@@ -1,8 +1,8 @@
+import { timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "../config/env.js";
 import type { LoginInput } from "../schemas/auth.schema.js";
 import { AppError } from "../utils/app-error.js";
-import { verifyPassword } from "../utils/password.js";
 
 const JWT_ALGORITHM = "HS256";
 const JWT_ISSUER = "vitaran-api";
@@ -23,11 +23,11 @@ export type LoginResult = {
 type AuthConfig = {
   secret: Uint8Array;
   adminEmail: string;
-  adminPasswordHash: string;
+  adminPassword: string;
 };
 
 function getAuthConfig(): AuthConfig {
-  if (!env.JWT_SECRET || !env.ADMIN_EMAIL || !env.ADMIN_PASSWORD_HASH) {
+  if (!env.JWT_SECRET || !env.ADMIN_EMAIL || !env.ADMIN_PASSWORD) {
     throw new AppError(
       503,
       "Admin authentication is not configured",
@@ -39,8 +39,20 @@ function getAuthConfig(): AuthConfig {
   return {
     secret: new TextEncoder().encode(env.JWT_SECRET),
     adminEmail: env.ADMIN_EMAIL,
-    adminPasswordHash: env.ADMIN_PASSWORD_HASH,
+    adminPassword: env.ADMIN_PASSWORD,
   };
+}
+
+function passwordsMatch(provided: string, expected: string): boolean {
+  const left = Buffer.from(provided);
+  const right = Buffer.from(expected);
+
+  if (left.length !== right.length) {
+    timingSafeEqual(right, right);
+    return false;
+  }
+
+  return timingSafeEqual(left, right);
 }
 
 function invalidCredentials(): AppError {
@@ -50,11 +62,7 @@ function invalidCredentials(): AppError {
 export async function loginAdmin(input: LoginInput): Promise<LoginResult> {
   const config = getAuthConfig();
 
-  // Always run the hash check so response time doesn't reveal whether the email matched.
-  const passwordMatches = await verifyPassword(
-    input.password,
-    config.adminPasswordHash,
-  );
+  const passwordMatches = passwordsMatch(input.password, config.adminPassword);
 
   if (input.email !== config.adminEmail || !passwordMatches) {
     throw invalidCredentials();

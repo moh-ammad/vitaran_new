@@ -13,8 +13,7 @@
     "db:studio": "prisma studio",
     "start": "node dist/server.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "hash-password": "tsx src/scripts/hash-password.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

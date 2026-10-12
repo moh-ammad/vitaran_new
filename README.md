@@ -31,24 +31,18 @@ DATABASE_URL=postgresql://user:password@host-pooler.region.aws.neon.tech/neondb?
 JWT_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 JWT_EXPIRES_IN_HOURS=8
 ADMIN_EMAIL=admin@vitaran.com
-ADMIN_PASSWORD_HASH=
+ADMIN_PASSWORD=your-admin-password
 ```
 
 - `DATABASE_URL` — Neon connection string (`sslmode=verify-full`)
 - `JWT_SECRET` — at least 32 characters (`openssl rand -base64 48`)
-- `ADMIN_EMAIL` — admin login email
-- `ADMIN_PASSWORD_HASH` — scrypt hash from the helper below
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — admin login (plain password)
 
-Generate a password hash (minimum 12 characters):
+Then:
 
 ```bash
+cd backend
 npm install
-npm run hash-password -- "your-strong-password"
-```
-
-Paste the printed `scrypt:…` value into `ADMIN_PASSWORD_HASH`, then:
-
-```bash
 npx prisma generate
 npm run db:migrate
 npm run dev
@@ -174,7 +168,6 @@ npm run build          # prisma generate && tsc
 npm start
 npm run lint
 npm run typecheck
-npm run hash-password -- "<password>"
 ```
 
 **Frontend**
@@ -189,7 +182,7 @@ npm run typecheck
 
 ## Production notes
 
-- Do not use a short or reused admin password. Generate a new hash with `hash-password` and keep `JWT_SECRET` unique per environment.
+- Use a strong `ADMIN_PASSWORD` and a unique `JWT_SECRET` per environment.
 - Set `NODE_ENV=production`, a strict `CORS_ORIGIN`, and `sslmode=verify-full` on `DATABASE_URL`.
 - Run `npm run db:deploy` before starting the API.
 - The frontend session cookie is `Secure` in production and scoped to `/admin`.
