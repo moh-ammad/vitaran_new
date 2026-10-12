@@ -35,8 +35,9 @@ import {
   PROGRAMS,
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
-  type School,
+  type SchoolDetail,
 } from "@/types/school";
+import { smoothScrollToElement, useSmoothWheelScroll } from "@/hooks/use-smooth-scroll";
 import {
   createSchoolAction,
   isEmailTakenAction,
@@ -67,6 +68,7 @@ import {
   getPhoneHint,
   toPhoneDigits,
   readFormValues,
+  sameFormValues,
   type SchoolFormErrors,
   type SchoolFormField,
   type SchoolFormMode,
@@ -74,7 +76,7 @@ import {
   type SchoolFormValues,
 } from "./schema";
 
-type SchoolFormProps = { school?: School };
+type SchoolFormProps = { school?: SchoolDetail };
 
 const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[value] }));
 const statusItems = SCHOOL_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }));
@@ -113,7 +115,14 @@ const capitalized = {
 const NEUTRAL_THEME =
   "text-neutral-950 [--primary:var(--color-neutral-950)] [--primary-foreground:var(--color-white)] [--foreground:var(--color-neutral-950)] [--muted:var(--color-neutral-100)] [--muted-foreground:var(--color-neutral-500)] [--border:var(--color-neutral-200)] [--input:var(--color-neutral-300)] [--ring:var(--color-neutral-400)]";
 
-function toFormValues(school?: School): SchoolFormValues {
+const ROOMY_CONTROLS =
+  "[&_[data-slot=input]]:h-10 [&_[data-slot=input]]:px-3 [&_[data-slot=select-trigger]]:h-10! [&_[data-slot=select-trigger]]:px-3";
+
+// The edit page lists every section at once, so its headings need more weight.
+const BOLD_SECTION_HEADINGS =
+  "[&_[data-slot=section-heading]]:text-sm [&_[data-slot=section-heading]]:font-bold [&_[data-slot=section-heading]]:text-neutral-950";
+
+function toFormValues(school?: SchoolDetail): SchoolFormValues {
   if (!school) return { status: "ACTIVE", programs: [] };
 
   return {
@@ -133,6 +142,7 @@ function toFormValues(school?: School): SchoolFormValues {
     notes: school.notes ?? "",
     accountEmail: school.accountEmail ?? "",
     accountPhone: school.accountPhone ?? "",
+    password: school.password ?? "",
   };
 }
 
@@ -171,6 +181,7 @@ export function SchoolForm({ school }: SchoolFormProps) {
       action={formAction}
       pending={pending}
       initialValues={failed?.values ?? draft.values ?? toFormValues(school)}
+      savedValues={school ? toFormValues(school) : undefined}
       serverErrors={failed?.fieldErrors ?? {}}
       errorMessage={failed?.fieldErrors ? failed.message : undefined}
       cancelHref={cancelHref}
@@ -186,6 +197,8 @@ type SchoolFormWizardProps = {
   action: (formData: FormData) => void;
   pending: boolean;
   initialValues: SchoolFormValues;
+  /** The school as stored; edits only offer Save once the form differs from it. */
+  savedValues?: SchoolFormValues;
   serverErrors: SchoolFormErrors;
   errorMessage?: string;
   cancelHref: string;
@@ -199,12 +212,15 @@ function SchoolFormWizard({
   action,
   pending,
   initialValues,
+  savedValues,
   serverErrors,
   errorMessage,
   cancelHref,
   onCancel,
   onDraftChange,
 }: SchoolFormWizardProps) {
+  const isEdit = mode === "edit";
+  useSmoothWheelScroll(isEdit);
   const searchParams = useSearchParams();
   const formRef = useRef<HTMLFormElement>(null);
   // Inputs are uncontrolled, so their defaults must stay fixed after mount;
@@ -217,6 +233,9 @@ function SchoolFormWizard({
   const [maxReached, setMaxReached] = useState(() => getReachableStep(values, mode));
   const [clientErrors, setClientErrors] = useState<SchoolFormErrors>({});
   const [takenEmails, setTakenEmails] = useState<string[]>([]);
+  const [dirty, setDirty] = useState(
+    () => !!savedValues && !sameFormValues(initialValues, savedValues),
+  );
   const emailCheckTimers = useRef<Partial<Record<EmailField, ReturnType<typeof setTimeout>>>>({});
 
   useEffect(() => {
@@ -224,17 +243,17 @@ function SchoolFormWizard({
     return () => Object.values(timers).forEach(clearTimeout);
   }, []);
 
-  const isEdit = mode === "edit";
   const errors: SchoolFormErrors = { ...serverErrors, ...clientErrors };
   const isLast = step === LAST_STEP;
 
   // Replace (not push) so steps never add history entries: the browser and
   // header Back buttons leave the form, while the URL still restores the step.
   useEffect(() => {
+    if (isEdit) return;
     const params = new URLSearchParams(window.location.search);
     params.set(STEP_SEARCH_PARAM, SCHOOL_FORM_STEPS[step].id);
     window.history.replaceState(null, "", `?${params}`);
-  }, [step]);
+  }, [step, isEdit]);
 
   const readValues = () => readFormValues(new FormData(formRef.current!));
 
@@ -271,8 +290,24 @@ function SchoolFormWizard({
     if (onDraftChange && formRef.current) onDraftChange(formRef.current);
   };
 
+  const updateDirty = () => {
+    if (savedValues && formRef.current) setDirty(!sameFormValues(readValues(), savedValues));
+  };
+
   // Base UI updates its hidden inputs after the change callback returns.
-  const saveDraftSoon = () => setTimeout(saveDraft);
+  const saveDraftSoon = () =>
+    setTimeout(() => {
+      saveDraft();
+      updateDirty();
+    });
+
+  const scrollToFirstInvalid = () =>
+    requestAnimationFrame(() => {
+      const invalidField = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
+      if (!invalidField) return;
+      smoothScrollToElement(invalidField);
+      invalidField.focus({ preventScroll: true });
+    });
 
   const showStep = (index: number) => {
     setDirection(index >= step ? "next" : "prev");
@@ -297,6 +332,20 @@ function SchoolFormWizard({
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (isEdit) {
+      if (!dirty) {
+        event.preventDefault();
+        return;
+      }
+      const formErrors = validate(readValues());
+      if (Object.keys(formErrors).length > 0) {
+        event.preventDefault();
+        setClientErrors(formErrors);
+        scrollToFirstInvalid();
+      }
+      return;
+    }
+
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const intent = submitter?.dataset.intent ?? (isLast ? "submit" : "next");
 
@@ -317,6 +366,7 @@ function SchoolFormWizard({
 
   const handleChange = (event: FormEvent<HTMLFormElement>) => {
     saveDraft();
+    updateDirty();
     const field = (event.target as HTMLInputElement).name as SchoolFormField;
     if (!errors[field]) return;
     const fieldErrors = validate(readValues())[field];
@@ -335,13 +385,17 @@ function SchoolFormWizard({
 
   const invalid = (name: SchoolFormField) => (errors[name] ? true : undefined);
 
-  const panel = (index: number) => ({
-    hidden: step !== index,
-    className: cn(
-      "space-y-6",
-      direction === "next" ? "animate-step-in-next" : "animate-step-in-prev",
-    ),
-  });
+  // Editing shows every section on one page; registering goes step by step.
+  const panel = (index: number) =>
+    isEdit
+      ? { hidden: false, className: "space-y-6" }
+      : {
+          hidden: step !== index,
+          className: cn(
+            "space-y-6",
+            direction === "next" ? "animate-step-in-next" : "animate-step-in-prev",
+          ),
+        };
 
   return (
     <form
@@ -350,7 +404,12 @@ function SchoolFormWizard({
       onSubmit={handleSubmit}
       onChange={handleChange}
       noValidate
-      className={cn("scroll-mt-20 space-y-4", NEUTRAL_THEME)}
+      className={cn(
+        "scroll-mt-20 space-y-4",
+        NEUTRAL_THEME,
+        ROOMY_CONTROLS,
+        isEdit && BOLD_SECTION_HEADINGS,
+      )}
     >
       {errorMessage && (
         <div
@@ -362,19 +421,23 @@ function SchoolFormWizard({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-        <div className="border-b border-neutral-200 px-5 py-5 md:px-8">
-          <SchoolFormStepper
-            steps={SCHOOL_FORM_STEPS}
-            current={step}
-            reachable={Math.max(maxReached, step)}
-            onSelect={goToStep}
-          />
-        </div>
+      {/* `overflow-clip` (not hidden) keeps the sticky edit footer working. */}
+      <div className="overflow-clip rounded-2xl border border-neutral-200 bg-white shadow-sm">
+        {!isEdit && (
+          <div className="border-b border-neutral-200 px-5 py-5 md:px-8">
+            <SchoolFormStepper
+              steps={SCHOOL_FORM_STEPS}
+              current={step}
+              reachable={Math.max(maxReached, step)}
+              onSelect={goToStep}
+            />
+          </div>
+        )}
 
-        <div className="overflow-hidden">
-          <div className="p-5 md:p-8">
+        <div className="overflow-clip">
+          <div className={cn("p-5 md:p-8", isEdit && "space-y-8")}>
             <div {...panel(0)}>
+              {isEdit && <SectionHeading>School details</SectionHeading>}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
                 <Field data-invalid={invalid("name")} className="md:col-span-2">
                   <FieldLabel htmlFor="name" className="capitalize">School name *</FieldLabel>
@@ -448,14 +511,14 @@ function SchoolFormWizard({
                   </Field>
                   <Field data-invalid={invalid("password")}>
                     <FieldLabel htmlFor="password">
-                      {isEdit ? "New password" : "Password *"}
+                      {isEdit ? "Password" : "Password *"}
                     </FieldLabel>
                     <Input
                       {...fieldProps("password")}
                       type="text"
                       autoComplete="off"
                       spellCheck={false}
-                      placeholder={isEdit ? "Leave blank to keep current" : undefined}
+                      placeholder={isEdit ? "Set a password" : undefined}
                     />
                     {error("password")}
                   </Field>
@@ -464,6 +527,7 @@ function SchoolFormWizard({
             </div>
 
             <div {...panel(1)}>
+              {isEdit && <SectionHeading>Programs</SectionHeading>}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {PROGRAMS.map((program) => (
                   <FieldLabel key={program} htmlFor={`program-${program}`}>
@@ -555,6 +619,23 @@ function SchoolFormWizard({
             </div>
           </div>
 
+          {isEdit ? (
+            <footer className="sticky bottom-0 z-10 flex min-h-17 items-center justify-between gap-2 border-t border-neutral-200 bg-white/95 px-5 py-3 backdrop-blur md:px-8">
+              <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>
+                Cancel
+              </Link>
+              {dirty && (
+                <Button
+                  type="submit"
+                  disabled={pending}
+                  className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200"
+                >
+                  {pending ? <Loader2 className="animate-spin" /> : <Save />}
+                  Save changes
+                </Button>
+              )}
+            </footer>
+          ) : (
           <footer className="flex items-center justify-between gap-2 border-t border-neutral-200 px-5 py-4 md:px-8">
             <Link href={cancelHref} onClick={onCancel} className={buttonVariants({ variant: "ghost" })}>
               Cancel
@@ -567,31 +648,41 @@ function SchoolFormWizard({
                 </Button>
               )}
               {!isLast && (
-                <Button type="submit" data-intent="next" variant={isEdit ? "outline" : "default"}>
+                <Button type="submit" data-intent="next">
                   Continue
                   <ArrowRight />
                 </Button>
               )}
-              {(isLast || isEdit) && (
+              {isLast && (
                 <Button type="submit" data-intent="submit" disabled={pending}>
                   {pending ? <Loader2 className="animate-spin" /> : <Save />}
-                  {isEdit ? "Save changes" : "Register school"}
+                  Register school
                 </Button>
               )}
             </div>
           </footer>
+          )}
         </div>
       </div>
     </form>
   );
 }
 
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <h3
+      data-slot="section-heading"
+      className="border-b border-neutral-200 pb-2 text-xs font-semibold tracking-wider text-neutral-500 uppercase"
+    >
+      {children}
+    </h3>
+  );
+}
+
 function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-3">
-      <h3 className="border-b border-neutral-200 pb-2 text-xs font-semibold tracking-wider text-neutral-500 uppercase">
-        {title}
-      </h3>
+      <SectionHeading>{title}</SectionHeading>
       {children}
     </section>
   );
@@ -605,8 +696,8 @@ function SchoolFormSkeleton() {
       </div>
       <div className="space-y-4 p-5 md:p-8">
         <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-11 w-full" />
+        <Skeleton className="h-11 w-full" />
         <Skeleton className="h-24 w-full" />
       </div>
     </div>

@@ -44,6 +44,9 @@ export type School = {
   updatedAt: string;
 };
 
+/** Admin detail view; `password` is null for schools created before it was stored. */
+export type SchoolDetail = School & { password: string | null };
+
 export type SchoolInput = Omit<
   School,
   "id" | "code" | "accountEmail" | "accountPhone" | "createdAt" | "updatedAt"

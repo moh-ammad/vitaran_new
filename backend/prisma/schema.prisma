@@ -51,6 +51,8 @@ model School {
   accountEmail    String?      @unique @map("account_email") @db.VarChar(254)
   accountPhone    String?      @unique @map("account_phone") @db.VarChar(20)
   passwordHash    String?      @map("password_hash") @db.VarChar(255)
+  /// AES-256-GCM so admins can view the password; sign-in always checks the hash.
+  passwordEncrypted String?    @map("password_encrypted") @db.VarChar(512)
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 

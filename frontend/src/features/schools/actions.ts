@@ -34,13 +34,15 @@ function fieldErrorsFromApi(details: unknown) {
   return Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined;
 }
 
+// Admins can already see an existing school's password, so edits keep it in the form.
 function errorState(
+  mode: SchoolFormMode,
   values: SchoolFormValues,
   extra: { message?: string; fieldErrors?: SchoolFormErrors },
 ): SchoolFormState {
   return {
     status: "error",
-    values: withoutPasswords(values),
+    values: mode === "edit" ? values : withoutPasswords(values),
     submittedAt: Date.now(),
     ...extra,
   };
@@ -55,7 +57,7 @@ async function saveSchool(
   const parsed = getSchoolFormSchema(mode).safeParse(values);
 
   if (!parsed.success) {
-    return errorState(values, {
+    return errorState(mode, values, {
       message: "Please fix the highlighted fields.",
       fieldErrors: z.flattenError(parsed.error).fieldErrors,
     });
@@ -70,22 +72,22 @@ async function saveSchool(
 
     if (error instanceof ApiError && (error.status === 400 || error.status === 409)) {
       const fieldErrors = fieldErrorsFromApi(error.details);
-      return errorState(values, {
+      return errorState(mode, values, {
         message: fieldErrors ? "Please fix the highlighted fields." : error.message,
         fieldErrors,
       });
     }
 
     if (error instanceof ApiError && error.status === 404) {
-      return errorState(values, { message: "This school no longer exists." });
+      return errorState(mode, values, { message: "This school no longer exists." });
     }
 
     if (error instanceof ApiError && error.status < 500) {
-      return errorState(values, { message: error.message });
+      return errorState(mode, values, { message: error.message });
     }
 
     console.error("Failed to save school", error);
-    return errorState(values, {
+    return errorState(mode, values, {
       message: "We couldn't save the school right now. Please try again.",
     });
   }

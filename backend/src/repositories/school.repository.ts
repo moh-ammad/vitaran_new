@@ -53,6 +53,14 @@ export function findSchoolById(id: string) {
   return prisma.school.findUnique({ where: { id } });
 }
 
+export function findSchoolByAccount(account: { email?: string; phone?: string }) {
+  return prisma.school.findFirst({
+    where: account.email
+      ? { accountEmail: { equals: account.email, mode: "insensitive" } }
+      : { accountPhone: account.phone },
+  });
+}
+
 /** An email belongs to one school, whether as its login or its contact email. */
 export async function isEmailUsedByOtherSchool(email: string, excludeId?: string) {
   const match = { equals: email, mode: "insensitive" } as const;

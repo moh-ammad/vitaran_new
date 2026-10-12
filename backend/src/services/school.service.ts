@@ -7,20 +7,24 @@ import type {
   UpdateSchoolInput,
 } from "../schemas/school.schema.js";
 import { AppError } from "../utils/app-error.js";
-import { hashPassword } from "../utils/password.js";
+import { hashPassword, verifyPassword } from "../utils/password.js";
+import { decryptSecret, encryptSecret } from "../utils/secret-box.js";
 
 export type SchoolDto = Omit<
   School,
-  "serial" | "passwordHash" | "createdAt" | "updatedAt"
+  "serial" | "passwordHash" | "passwordEncrypted" | "createdAt" | "updatedAt"
 > & {
   code: string;
   createdAt: string;
   updatedAt: string;
 };
 
+export type SchoolDetailDto = SchoolDto & { password: string | null };
+
 export function toSchoolDto(school: School): SchoolDto {
-  const { serial, passwordHash, ...rest } = school;
+  const { serial, passwordHash, passwordEncrypted, ...rest } = school;
   void passwordHash;
+  void passwordEncrypted;
 
   return {
     ...rest,
@@ -28,6 +32,20 @@ export function toSchoolDto(school: School): SchoolDto {
     createdAt: school.createdAt.toISOString(),
     updatedAt: school.updatedAt.toISOString(),
   };
+}
+
+async function sealPassword(password: string) {
+  return {
+    passwordHash: await hashPassword(password),
+    passwordEncrypted: encryptSecret(password),
+  };
+}
+
+/** Re-sealing an unchanged password would rotate the hash and sign the school out. */
+async function passwordChanged(id: string, password: string) {
+  const current = await schoolRepository.findSchoolById(id);
+  if (!current?.passwordHash || !current.passwordEncrypted) return true;
+  return !(await verifyPassword(password, current.passwordHash));
 }
 
 export async function getAccountAvailability({ email, excludeId }: AccountAvailabilityQuery) {
@@ -75,24 +93,25 @@ export async function listSchools(query: ListSchoolsQuery) {
   };
 }
 
-export async function getSchool(id: string): Promise<SchoolDto> {
+/** Admin-only view: includes the school's sign-in password. */
+export async function getSchool(id: string): Promise<SchoolDetailDto> {
   const school = await schoolRepository.findSchoolById(id);
 
   if (!school) {
     throw new AppError(404, "School not found");
   }
 
-  return toSchoolDto(school);
+  return {
+    ...toSchoolDto(school),
+    password: school.passwordEncrypted ? decryptSecret(school.passwordEncrypted) : null,
+  };
 }
 
 export async function createSchool({ password, ...input }: CreateSchoolInput) {
   await assertAccountAvailable(input);
 
   return toSchoolDto(
-    await schoolRepository.createSchool({
-      ...input,
-      passwordHash: await hashPassword(password),
-    }),
+    await schoolRepository.createSchool({ ...input, ...(await sealPassword(password)) }),
   );
 }
 
@@ -102,10 +121,12 @@ export async function updateSchool(
 ) {
   await assertAccountAvailable(input, id);
 
+  const seal = password && (await passwordChanged(id, password));
+
   return toSchoolDto(
     await schoolRepository.updateSchool(id, {
       ...input,
-      ...(password && { passwordHash: await hashPassword(password) }),
+      ...(seal && password ? await sealPassword(password) : {}),
     }),
   );
 }

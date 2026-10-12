@@ -237,6 +237,9 @@
   html {
     @apply scroll-smooth font-sans;
     scroll-padding-top: 5rem;
+    /* Reserve the scrollbar's space so pages near one screen tall don't jitter as it toggles. */
+    scrollbar-gutter: stable;
+    overscroll-behavior-y: none;
   }
   h1,
   h2,

@@ -140,7 +140,17 @@ export function readFormValues(formData: FormData): SchoolFormValues {
   return values;
 }
 
-/** Passwords must never be echoed back to the client or stored in drafts. */
+/** True when both hold the same field values, ignoring program order. */
+export function sameFormValues(a: SchoolFormValues, b: SchoolFormValues): boolean {
+  const programs = (values: SchoolFormValues) => [...(values.programs ?? [])].sort().join(",");
+
+  return (
+    programs(a) === programs(b) &&
+    TEXT_FIELDS.every((field) => (a[field] ?? "") === (b[field] ?? ""))
+  );
+}
+
+/** New-school passwords are never echoed back or stored in drafts. */
 export function withoutPasswords({ password, ...values }: SchoolFormValues): SchoolFormValues {
   void password;
   return values;
