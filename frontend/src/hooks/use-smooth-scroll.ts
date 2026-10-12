@@ -61,13 +61,24 @@ export function useSmoothWheelScroll(enabled = true, ease = 0.08) {
     let frame = 0;
 
     const step = () => {
-      const distance = target - window.scrollY;
+      // The page can shrink mid-glide; never chase a position that no longer exists.
+      target = clamp(target, 0, maxScroll());
+      const before = window.scrollY;
+      const distance = target - before;
+
       if (Math.abs(distance) < SETTLE_PX) {
         jumpTo(target);
         frame = 0;
         return;
       }
-      jumpTo(window.scrollY + distance * ease);
+
+      jumpTo(before + distance * ease);
+      // Sub-pixel steps may not move the page at all; finish instead of looping.
+      if (Math.abs(window.scrollY - before) < 0.1) {
+        jumpTo(target);
+        frame = 0;
+        return;
+      }
       frame = requestAnimationFrame(step);
     };
 
