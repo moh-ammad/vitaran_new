@@ -85,3 +85,7 @@ export function getAdminBreadcrumbs(pathname: string): AdminBreadcrumb[] {
 
   return crumbs;
 }
+
+export function getAdminParentHref(pathname: string): string | null {
+  return getAdminBreadcrumbs(pathname).at(-2)?.href ?? null;
+}

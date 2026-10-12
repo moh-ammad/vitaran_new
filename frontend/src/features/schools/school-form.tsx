@@ -1,26 +1,23 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AlertCircle, Loader2, Save } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldError,
-  FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -31,29 +28,97 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import {
   PROGRAMS,
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
-  type School,
+  type SchoolDetail,
 } from "@/types/school";
-import { createSchoolAction, updateSchoolAction } from "./actions";
+import { smoothScrollToElement, useSmoothWheelScroll } from "@/hooks/use-smooth-scroll";
+import {
+  createSchoolAction,
+  isEmailTakenAction,
+  updateSchoolAction,
+} from "./actions";
 import {
   BOARD_LABELS,
   INDIAN_STATES,
   PROGRAM_LABELS,
   STATUS_LABELS,
 } from "./constants";
-import type { SchoolFormField, SchoolFormState, SchoolFormValues } from "./schema";
+import {
+  LAST_STEP,
+  SCHOOL_FORM_STEPS,
+  STEP_SEARCH_PARAM,
+  firstStepWithErrors,
+  getReachableStep,
+  pickStepErrors,
+  resolveInitialStep,
+} from "./form-steps";
+import { clearSchoolDraft, saveSchoolDraft, useSchoolDraft } from "./school-draft";
+import { HintedInput } from "./hinted-input";
+import { SchoolFormStepper } from "./school-form-stepper";
+import {
+  capitalizeWords,
+  getEmailHint,
+  getFormErrors,
+  getPhoneHint,
+  toPhoneDigits,
+  readFormValues,
+  sameFormValues,
+  type SchoolFormErrors,
+  type SchoolFormField,
+  type SchoolFormMode,
+  type SchoolFormState,
+  type SchoolFormValues,
+} from "./schema";
 
-type SchoolFormProps = { school?: School };
+type SchoolFormProps = { school?: SchoolDetail };
 
 const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[value] }));
 const statusItems = SCHOOL_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }));
 const stateItems = INDIAN_STATES.map((value) => ({ value, label: value }));
 
-function toFormValues(school?: School): SchoolFormValues {
+const emailInput = { type: "email", getHint: getEmailHint } as const;
+
+const EMAIL_TAKEN = "Email already exists";
+const EMAIL_FIELDS = ["accountEmail", "contactEmail"] as const;
+type EmailField = (typeof EMAIL_FIELDS)[number];
+const EMAIL_CHECK_DELAY_MS = 400;
+const normalizeEmail = (value = "") => value.trim().toLowerCase();
+
+const phoneInput = {
+  type: "tel",
+  inputMode: "numeric",
+  maxLength: 10,
+  placeholder: "9876543210",
+  getHint: getPhoneHint,
+  sanitize: toPhoneDigits,
+} as const;
+
+const capitalized = {
+  autoCapitalize: "words",
+  onInput: (event: FormEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const next = capitalizeWords(input.value);
+    if (next === input.value) return;
+    const { selectionStart, selectionEnd } = input;
+    input.value = next;
+    input.setSelectionRange(selectionStart, selectionEnd);
+  },
+};
+
+// Pages are black and white; blue is reserved for the step connectors.
+const NEUTRAL_THEME =
+  "text-neutral-950 [--primary:var(--color-neutral-950)] [--primary-foreground:var(--color-white)] [--foreground:var(--color-neutral-950)] [--muted:var(--color-neutral-100)] [--muted-foreground:var(--color-neutral-500)] [--border:var(--color-neutral-200)] [--input:var(--color-neutral-300)] [--ring:var(--color-neutral-400)]";
+
+const ROOMY_CONTROLS =
+  "[&_[data-slot=input]]:h-10 [&_[data-slot=input]]:px-3 [&_[data-slot=select-trigger]]:h-10! [&_[data-slot=select-trigger]]:px-3";
+
+function toFormValues(school?: SchoolDetail): SchoolFormValues {
   if (!school) return { status: "ACTIVE", programs: [] };
 
   return {
@@ -71,11 +136,16 @@ function toFormValues(school?: School): SchoolFormValues {
     pincode: school.pincode,
     studentStrength: school.studentStrength?.toString() ?? "",
     notes: school.notes ?? "",
+    accountEmail: school.accountEmail ?? "",
+    accountPhone: school.accountPhone ?? "",
+    password: school.password ?? "",
   };
 }
 
 export function SchoolForm({ school }: SchoolFormProps) {
   const router = useRouter();
+  const keepDraft = !school;
+  const draft = useSchoolDraft(keepDraft);
   const action = school
     ? updateSchoolAction.bind(null, school.id)
     : createSchoolAction;
@@ -86,16 +156,218 @@ export function SchoolForm({ school }: SchoolFormProps) {
 
   useEffect(() => {
     if (state?.status === "success") {
+      if (keepDraft) clearSchoolDraft();
       toast.success(school ? "School updated" : "School registered");
-      router.push(`/admin/schools/${state.schoolId}`);
+      router.replace(`/admin/schools/${state.schoolId}`);
     } else if (state?.status === "error" && state.message && !state.fieldErrors) {
       toast.error(state.message);
     }
-  }, [state, school, router]);
+  }, [state, school, keepDraft, router]);
 
-  const values = state?.status === "error" ? state.values : toFormValues(school);
-  const errors = state?.status === "error" ? state.fieldErrors ?? {} : {};
-  const formKey = state?.status === "error" ? state.submittedAt : (school?.updatedAt ?? "new");
+  if (draft.loading) return <SchoolFormSkeleton />;
+
+  const failed = state?.status === "error" ? state : undefined;
+  const cancelHref = school ? `/admin/schools/${school.id}` : "/admin/schools";
+
+  return (
+    <SchoolFormWizard
+      key={failed?.submittedAt ?? school?.updatedAt ?? "new"}
+      mode={school ? "edit" : "create"}
+      schoolId={school?.id}
+      action={formAction}
+      pending={pending}
+      initialValues={failed?.values ?? draft.values ?? toFormValues(school)}
+      savedValues={school ? toFormValues(school) : undefined}
+      serverErrors={failed?.fieldErrors ?? {}}
+      errorMessage={failed?.fieldErrors ? failed.message : undefined}
+      cancelHref={cancelHref}
+      onCancel={keepDraft ? clearSchoolDraft : undefined}
+      onDraftChange={keepDraft ? saveSchoolDraft : undefined}
+    />
+  );
+}
+
+type SchoolFormWizardProps = {
+  mode: SchoolFormMode;
+  schoolId?: string;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  initialValues: SchoolFormValues;
+  /** The school as stored; edits only offer Save once the form differs from it. */
+  savedValues?: SchoolFormValues;
+  serverErrors: SchoolFormErrors;
+  errorMessage?: string;
+  cancelHref: string;
+  onCancel?: () => void;
+  onDraftChange?: (form: HTMLFormElement) => void;
+};
+
+function SchoolFormWizard({
+  mode,
+  schoolId,
+  action,
+  pending,
+  initialValues,
+  savedValues,
+  serverErrors,
+  errorMessage,
+  cancelHref,
+  onCancel,
+  onDraftChange,
+}: SchoolFormWizardProps) {
+  const isEdit = mode === "edit";
+  useSmoothWheelScroll(isEdit);
+  const searchParams = useSearchParams();
+  const formRef = useRef<HTMLFormElement>(null);
+  // Inputs are uncontrolled, so their defaults must stay fixed after mount;
+  // the parent re-reads the saved draft on every render.
+  const [values] = useState(initialValues);
+  const [step, setStep] = useState(() =>
+    resolveInitialStep(searchParams.get(STEP_SEARCH_PARAM), values, serverErrors, mode),
+  );
+  const [direction, setDirection] = useState<"next" | "prev">("next");
+  const [maxReached, setMaxReached] = useState(() => getReachableStep(values, mode));
+  const [clientErrors, setClientErrors] = useState<SchoolFormErrors>({});
+  const [takenEmails, setTakenEmails] = useState<string[]>([]);
+  const [dirty, setDirty] = useState(
+    () => !!savedValues && !sameFormValues(initialValues, savedValues),
+  );
+  const emailCheckTimers = useRef<Partial<Record<EmailField, ReturnType<typeof setTimeout>>>>({});
+
+  useEffect(() => {
+    const timers = emailCheckTimers.current;
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, []);
+
+  const errors: SchoolFormErrors = { ...serverErrors, ...clientErrors };
+  const isLast = step === LAST_STEP;
+
+  // Replace (not push) so steps never add history entries: the browser and
+  // header Back buttons leave the form, while the URL still restores the step.
+  useEffect(() => {
+    if (isEdit) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set(STEP_SEARCH_PARAM, SCHOOL_FORM_STEPS[step].id);
+    window.history.replaceState(null, "", `?${params}`);
+  }, [step, isEdit]);
+
+  const readValues = () => readFormValues(new FormData(formRef.current!));
+
+  const validate = (formValues: SchoolFormValues) => {
+    const formErrors = getFormErrors(formValues, mode);
+    for (const field of EMAIL_FIELDS) {
+      const email = normalizeEmail(formValues[field]);
+      if (email && takenEmails.includes(email)) formErrors[field] = [EMAIL_TAKEN];
+    }
+    return formErrors;
+  };
+
+  const checkEmailTaken = (field: EmailField, value: string) => {
+    clearTimeout(emailCheckTimers.current[field]);
+    const email = normalizeEmail(value);
+    if (getEmailHint(email)) return;
+    if (takenEmails.includes(email)) {
+      setClientErrors((prev) => ({ ...prev, [field]: [EMAIL_TAKEN] }));
+      return;
+    }
+
+    emailCheckTimers.current[field] = setTimeout(async () => {
+      const taken = await isEmailTakenAction(email, schoolId);
+      if (!taken) return;
+      setTakenEmails((prev) => [...prev, email]);
+      const input = formRef.current?.elements.namedItem(field) as HTMLInputElement | null;
+      if (normalizeEmail(input?.value) === email) {
+        setClientErrors((prev) => ({ ...prev, [field]: [EMAIL_TAKEN] }));
+      }
+    }, EMAIL_CHECK_DELAY_MS);
+  };
+
+  const saveDraft = () => {
+    if (onDraftChange && formRef.current) onDraftChange(formRef.current);
+  };
+
+  const updateDirty = () => {
+    if (savedValues && formRef.current) setDirty(!sameFormValues(readValues(), savedValues));
+  };
+
+  // Base UI updates its hidden inputs after the change callback returns.
+  const saveDraftSoon = () =>
+    setTimeout(() => {
+      saveDraft();
+      updateDirty();
+    });
+
+  const scrollToFirstInvalid = () =>
+    requestAnimationFrame(() => {
+      const invalidField = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
+      if (!invalidField) return;
+      smoothScrollToElement(invalidField);
+      invalidField.focus({ preventScroll: true });
+    });
+
+  const showStep = (index: number) => {
+    setDirection(index >= step ? "next" : "prev");
+    setStep(index);
+    setMaxReached((max) => Math.max(max, index));
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const goToStep = (target: number) => {
+    saveDraft();
+    if (target <= step) return showStep(target);
+
+    const formErrors = validate(readValues());
+    const blocking = firstStepWithErrors(formErrors, step, target - 1);
+    const validatedUpTo = blocking === -1 ? target - 1 : blocking;
+
+    setClientErrors((prev) => ({
+      ...prev,
+      ...pickStepErrors(formErrors, step, validatedUpTo),
+    }));
+    showStep(blocking === -1 ? target : blocking);
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (isEdit) {
+      if (!dirty) {
+        event.preventDefault();
+        return;
+      }
+      const formErrors = validate(readValues());
+      if (Object.keys(formErrors).length > 0) {
+        event.preventDefault();
+        setClientErrors(formErrors);
+        scrollToFirstInvalid();
+      }
+      return;
+    }
+
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const intent = submitter?.dataset.intent ?? (isLast ? "submit" : "next");
+
+    if (intent === "next") {
+      event.preventDefault();
+      goToStep(step + 1);
+      return;
+    }
+
+    const formErrors = validate(readValues());
+    const blocking = firstStepWithErrors(formErrors);
+    if (blocking !== -1) {
+      event.preventDefault();
+      setClientErrors(pickStepErrors(formErrors, 0, blocking));
+      showStep(blocking);
+    }
+  };
+
+  const handleChange = (event: FormEvent<HTMLFormElement>) => {
+    saveDraft();
+    updateDirty();
+    const field = (event.target as HTMLInputElement).name as SchoolFormField;
+    if (!errors[field]) return;
+    const fieldErrors = validate(readValues())[field];
+    setClientErrors((prev) => ({ ...prev, [field]: fieldErrors }));
+  };
 
   const fieldProps = (name: Exclude<SchoolFormField, "programs">) => ({
     id: name,
@@ -109,199 +381,313 @@ export function SchoolForm({ school }: SchoolFormProps) {
 
   const invalid = (name: SchoolFormField) => (errors[name] ? true : undefined);
 
+  // Editing shows every section on one page; registering goes step by step.
+  const panel = (index: number) =>
+    isEdit
+      ? { hidden: false, className: "space-y-6" }
+      : {
+          hidden: step !== index,
+          className: cn(
+            "space-y-6",
+            direction === "next" ? "animate-step-in-next" : "animate-step-in-prev",
+          ),
+        };
+
   return (
-    <form key={formKey} action={formAction} noValidate className="space-y-6">
-      {state?.status === "error" && state.fieldErrors && (
+    <form
+      ref={formRef}
+      action={action}
+      onSubmit={handleSubmit}
+      onChange={handleChange}
+      noValidate
+      className={cn("scroll-mt-20 space-y-4", NEUTRAL_THEME, ROOMY_CONTROLS)}
+    >
+      {errorMessage && (
         <div
           role="alert"
           className="flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
         >
           <AlertCircle className="size-4 shrink-0" />
-          {state.message}
+          {errorMessage}
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>School details</CardTitle>
-          <CardDescription>Basic information about the school.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup className="grid gap-5 md:grid-cols-2">
-            <Field data-invalid={invalid("name")} className="md:col-span-2">
-              <FieldLabel htmlFor="name">School name *</FieldLabel>
-              <Input {...fieldProps("name")} autoComplete="organization" placeholder="e.g. Delhi Public School, Banjara Hills" />
-              {error("name")}
-            </Field>
+      {/* `overflow-clip` (not hidden) keeps the sticky edit footer working. */}
+      <div className="overflow-clip rounded-2xl border border-neutral-200 bg-white shadow-sm">
+        {!isEdit && (
+          <div className="border-b border-neutral-200 px-5 py-5 md:px-8">
+            <SchoolFormStepper
+              steps={SCHOOL_FORM_STEPS}
+              current={step}
+              reachable={Math.max(maxReached, step)}
+              onSelect={goToStep}
+            />
+          </div>
+        )}
 
-            <Field data-invalid={invalid("board")}>
-              <FieldLabel htmlFor="board">Board *</FieldLabel>
-              <Select name="board" items={boardItems} defaultValue={values.board ?? null}>
-                <SelectTrigger id="board" className="w-full" aria-invalid={invalid("board")}>
-                  <SelectValue placeholder="Select a board" />
-                </SelectTrigger>
-                <SelectContent>
-                  {boardItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {error("board")}
-            </Field>
-
-            <Field data-invalid={invalid("status")}>
-              <FieldLabel htmlFor="status">Status *</FieldLabel>
-              <Select name="status" items={statusItems} defaultValue={values.status ?? "ACTIVE"}>
-                <SelectTrigger id="status" className="w-full" aria-invalid={invalid("status")}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {error("status")}
-            </Field>
-
-            <Field data-invalid={invalid("principalName")}>
-              <FieldLabel htmlFor="principalName">Principal name</FieldLabel>
-              <Input {...fieldProps("principalName")} placeholder="Optional" />
-              {error("principalName")}
-            </Field>
-
-            <Field data-invalid={invalid("studentStrength")}>
-              <FieldLabel htmlFor="studentStrength">Student strength</FieldLabel>
-              <Input {...fieldProps("studentStrength")} inputMode="numeric" placeholder="e.g. 1200" />
-              {error("studentStrength")}
-            </Field>
-          </FieldGroup>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Programs</CardTitle>
-          <CardDescription>Programs the school is enrolled in.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {PROGRAMS.map((program) => (
-              <FieldLabel key={program} htmlFor={`program-${program}`}>
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id={`program-${program}`}
-                    name="programs"
-                    value={program}
-                    defaultChecked={values.programs?.includes(program) ?? false}
-                  />
-                  <FieldContent>
-                    <span className="text-sm font-medium">{PROGRAM_LABELS[program]}</span>
-                  </FieldContent>
+        <div className="overflow-clip">
+          <div className={cn("p-5 md:p-8", isEdit && "space-y-8")}>
+            <div {...panel(0)}>
+              {isEdit && <SectionHeading>School details</SectionHeading>}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+                <Field data-invalid={invalid("name")} className="md:col-span-2">
+                  <FieldLabel htmlFor="name" className="capitalize">School name *</FieldLabel>
+                  <Input {...fieldProps("name")} {...capitalized} autoComplete="organization" placeholder="e.g. Delhi Public School, Banjara Hills" />
+                  {error("name")}
                 </Field>
-              </FieldLabel>
-            ))}
-          </FieldGroup>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Contact person</CardTitle>
-          <CardDescription>Who we coordinate with at the school.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup className="grid gap-5 md:grid-cols-3">
-            <Field data-invalid={invalid("contactName")}>
-              <FieldLabel htmlFor="contactName">Full name *</FieldLabel>
-              <Input {...fieldProps("contactName")} autoComplete="name" />
-              {error("contactName")}
-            </Field>
-            <Field data-invalid={invalid("contactEmail")}>
-              <FieldLabel htmlFor="contactEmail">Email *</FieldLabel>
-              <Input {...fieldProps("contactEmail")} type="email" autoComplete="email" />
-              {error("contactEmail")}
-            </Field>
-            <Field data-invalid={invalid("contactPhone")}>
-              <FieldLabel htmlFor="contactPhone">Phone *</FieldLabel>
-              <Input {...fieldProps("contactPhone")} type="tel" autoComplete="tel" placeholder="98765 43210" />
-              {error("contactPhone")}
-            </Field>
-          </FieldGroup>
-        </CardContent>
-      </Card>
+                <Field data-invalid={invalid("board")}>
+                  <FieldLabel htmlFor="board">Board *</FieldLabel>
+                  <Select name="board" items={boardItems} defaultValue={values.board ?? null} onValueChange={saveDraftSoon}>
+                    <SelectTrigger id="board" className="w-full" aria-invalid={invalid("board")}>
+                      <SelectValue placeholder="Select a board" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {boardItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {error("board")}
+                </Field>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Address</CardTitle>
-          <CardDescription>Where the school is located.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup className="grid gap-5 md:grid-cols-3">
-            <Field data-invalid={invalid("addressLine")} className="md:col-span-3">
-              <FieldLabel htmlFor="addressLine">Street address *</FieldLabel>
-              <Input {...fieldProps("addressLine")} autoComplete="street-address" />
-              {error("addressLine")}
-            </Field>
-            <Field data-invalid={invalid("city")}>
-              <FieldLabel htmlFor="city">City *</FieldLabel>
-              <Input {...fieldProps("city")} autoComplete="address-level2" />
-              {error("city")}
-            </Field>
-            <Field data-invalid={invalid("state")}>
-              <FieldLabel htmlFor="state">State *</FieldLabel>
-              <Select name="state" items={stateItems} defaultValue={values.state || null}>
-                <SelectTrigger id="state" className="w-full" aria-invalid={invalid("state")}>
-                  <SelectValue placeholder="Select a state" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stateItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {error("state")}
-            </Field>
-            <Field data-invalid={invalid("pincode")}>
-              <FieldLabel htmlFor="pincode">Pincode *</FieldLabel>
-              <Input {...fieldProps("pincode")} inputMode="numeric" maxLength={6} autoComplete="postal-code" />
-              {error("pincode")}
-            </Field>
-          </FieldGroup>
-        </CardContent>
-      </Card>
+                <Field data-invalid={invalid("status")}>
+                  <FieldLabel htmlFor="status">Status *</FieldLabel>
+                  <Select name="status" items={statusItems} defaultValue={values.status ?? "ACTIVE"} onValueChange={saveDraftSoon}>
+                    <SelectTrigger id="status" className="w-full" aria-invalid={invalid("status")}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {error("status")}
+                </Field>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Notes</CardTitle>
-          <CardDescription>Internal notes. Not visible to the school.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Field data-invalid={invalid("notes")}>
-            <Textarea {...fieldProps("notes")} rows={4} aria-label="Notes" />
-            <FieldDescription>Up to 1000 characters.</FieldDescription>
-            {error("notes")}
-          </Field>
-        </CardContent>
-        <CardFooter className="justify-end gap-2 border-t">
-          <Link
-            href={school ? `/admin/schools/${school.id}` : "/admin/schools"}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Cancel
-          </Link>
-          <Button type="submit" disabled={pending}>
-            {pending ? <Loader2 className="animate-spin" /> : <Save />}
-            {school ? "Save changes" : "Register school"}
-          </Button>
-        </CardFooter>
-      </Card>
+                <Field data-invalid={invalid("principalName")}>
+                  <FieldLabel htmlFor="principalName">Principal name</FieldLabel>
+                  <Input {...fieldProps("principalName")} {...capitalized} placeholder="Optional" />
+                  {error("principalName")}
+                </Field>
+
+                <Field data-invalid={invalid("studentStrength")}>
+                  <FieldLabel htmlFor="studentStrength">Student strength</FieldLabel>
+                  <Input {...fieldProps("studentStrength")} inputMode="numeric" placeholder="e.g. 1200" />
+                  {error("studentStrength")}
+                </Field>
+              </div>
+
+              <FormSection title="Sign-in details">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Field data-invalid={invalid("accountEmail")}>
+                    <FieldLabel htmlFor="accountEmail">School email *</FieldLabel>
+                    <HintedInput
+                      {...fieldProps("accountEmail")}
+                      {...emailInput}
+                      error={error("accountEmail")}
+                      onInput={(event) => checkEmailTaken("accountEmail", event.currentTarget.value)}
+                      autoComplete="off"
+                      placeholder="school@example.com"
+                    />
+                  </Field>
+                  <Field data-invalid={invalid("accountPhone")}>
+                    <FieldLabel htmlFor="accountPhone">School phone number *</FieldLabel>
+                    <HintedInput {...fieldProps("accountPhone")} {...phoneInput} error={error("accountPhone")} autoComplete="off" />
+                  </Field>
+                  <Field data-invalid={invalid("password")}>
+                    <FieldLabel htmlFor="password">
+                      {isEdit ? "Password" : "Password *"}
+                    </FieldLabel>
+                    <Input
+                      {...fieldProps("password")}
+                      type="text"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder={isEdit ? "Set a password" : undefined}
+                    />
+                    {error("password")}
+                  </Field>
+                </div>
+              </FormSection>
+            </div>
+
+            <div {...panel(1)}>
+              {isEdit && <SectionHeading>Programs</SectionHeading>}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {PROGRAMS.map((program) => (
+                  <FieldLabel key={program} htmlFor={`program-${program}`}>
+                    <Field orientation="horizontal" className="py-1">
+                      <Checkbox
+                        id={`program-${program}`}
+                        name="programs"
+                        value={program}
+                        defaultChecked={values.programs?.includes(program) ?? false}
+                        onCheckedChange={saveDraftSoon}
+                      />
+                      <FieldContent>
+                        <span className="text-sm font-medium">{PROGRAM_LABELS[program]}</span>
+                      </FieldContent>
+                    </Field>
+                  </FieldLabel>
+                ))}
+              </div>
+            </div>
+
+            <div {...panel(2)}>
+              <FormSection title="Contact person">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Field data-invalid={invalid("contactName")}>
+                    <FieldLabel htmlFor="contactName">Full name *</FieldLabel>
+                    <Input {...fieldProps("contactName")} {...capitalized} autoComplete="name" />
+                    {error("contactName")}
+                  </Field>
+                  <Field data-invalid={invalid("contactEmail")}>
+                    <FieldLabel htmlFor="contactEmail">Email *</FieldLabel>
+                    <HintedInput
+                      {...fieldProps("contactEmail")}
+                      {...emailInput}
+                      error={error("contactEmail")}
+                      onInput={(event) => checkEmailTaken("contactEmail", event.currentTarget.value)}
+                      autoComplete="email"
+                      placeholder="name@example.com"
+                    />
+                  </Field>
+                  <Field data-invalid={invalid("contactPhone")}>
+                    <FieldLabel htmlFor="contactPhone">Phone *</FieldLabel>
+                    <HintedInput {...fieldProps("contactPhone")} {...phoneInput} error={error("contactPhone")} autoComplete="tel" />
+                  </Field>
+                </div>
+              </FormSection>
+
+              <FormSection title="Address">
+                <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+                  <Field data-invalid={invalid("addressLine")} className="md:col-span-3">
+                    <FieldLabel htmlFor="addressLine">Street address *</FieldLabel>
+                    <Input {...fieldProps("addressLine")} {...capitalized} autoComplete="street-address" />
+                    {error("addressLine")}
+                  </Field>
+                  <Field data-invalid={invalid("city")}>
+                    <FieldLabel htmlFor="city">City *</FieldLabel>
+                    <Input {...fieldProps("city")} {...capitalized} autoComplete="address-level2" />
+                    {error("city")}
+                  </Field>
+                  <Field data-invalid={invalid("state")}>
+                    <FieldLabel htmlFor="state">State *</FieldLabel>
+                    <Select name="state" items={stateItems} defaultValue={values.state || null} onValueChange={saveDraftSoon}>
+                      <SelectTrigger id="state" className="w-full" aria-invalid={invalid("state")}>
+                        <SelectValue placeholder="Select a state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stateItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {error("state")}
+                  </Field>
+                  <Field data-invalid={invalid("pincode")}>
+                    <FieldLabel htmlFor="pincode">Pincode *</FieldLabel>
+                    <Input {...fieldProps("pincode")} inputMode="numeric" maxLength={6} autoComplete="postal-code" />
+                    {error("pincode")}
+                  </Field>
+                </div>
+              </FormSection>
+
+              <FormSection title="Internal notes">
+                <Field data-invalid={invalid("notes")}>
+                  <Textarea {...fieldProps("notes")} rows={3} aria-label="Internal notes" placeholder="Optional. Not visible to the school." />
+                  {error("notes")}
+                </Field>
+              </FormSection>
+            </div>
+          </div>
+
+          {isEdit ? (
+            <footer className="sticky bottom-0 z-10 flex min-h-17 items-center justify-between gap-2 border-t border-neutral-200 bg-white/95 px-5 py-3 backdrop-blur md:px-8">
+              <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>
+                Cancel
+              </Link>
+              {dirty && (
+                <Button
+                  type="submit"
+                  disabled={pending}
+                  className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200"
+                >
+                  {pending ? <Loader2 className="animate-spin" /> : <Save />}
+                  Save changes
+                </Button>
+              )}
+            </footer>
+          ) : (
+          <footer className="flex items-center justify-between gap-2 border-t border-neutral-200 px-5 py-4 md:px-8">
+            <Link href={cancelHref} onClick={onCancel} className={buttonVariants({ variant: "ghost" })}>
+              Cancel
+            </Link>
+            <div className="flex gap-2">
+              {step > 0 && (
+                <Button type="button" variant="outline" onClick={() => goToStep(step - 1)}>
+                  <ArrowLeft />
+                  Back
+                </Button>
+              )}
+              {!isLast && (
+                <Button type="submit" data-intent="next">
+                  Continue
+                  <ArrowRight />
+                </Button>
+              )}
+              {isLast && (
+                <Button type="submit" data-intent="submit" disabled={pending}>
+                  {pending ? <Loader2 className="animate-spin" /> : <Save />}
+                  Register school
+                </Button>
+              )}
+            </div>
+          </footer>
+          )}
+        </div>
+      </div>
     </form>
+  );
+}
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="border-b border-neutral-200 pb-2 text-xs font-semibold tracking-wider text-neutral-500 uppercase">
+      {children}
+    </h3>
+  );
+}
+
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <SectionHeading>{title}</SectionHeading>
+      {children}
+    </section>
+  );
+}
+
+function SchoolFormSkeleton() {
+  return (
+    <div className={cn("overflow-hidden rounded-2xl border border-neutral-200 bg-white", NEUTRAL_THEME)}>
+      <div className="border-b border-neutral-200 px-5 py-5 md:px-8">
+        <Skeleton className="h-9 w-full" />
+      </div>
+      <div className="space-y-4 p-5 md:p-8">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-11 w-full" />
+        <Skeleton className="h-11 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    </div>
   );
 }

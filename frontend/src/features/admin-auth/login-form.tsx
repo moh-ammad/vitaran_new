@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useActionState } from "react";
+import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { login } from "./actions";
 
@@ -10,7 +10,6 @@ const fieldClasses =
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(login, undefined);
-  const [showPassword, setShowPassword] = useState(false);
   const emailError = state?.fieldErrors?.email?.[0];
   const passwordError = state?.fieldErrors?.password?.[0];
 
@@ -55,31 +54,17 @@ export function LoginForm() {
 
         <label className="block">
           <span className="text-sm font-medium">Password</span>
-          <span className="relative mt-2 block">
-            <input
-              name="password"
-              type={showPassword ? "text" : "password"}
-              required
-              autoComplete="current-password"
-              placeholder="••••••••••••"
-              aria-invalid={passwordError ? true : undefined}
-              aria-describedby={passwordError ? "password-error" : undefined}
-              className={cn(fieldClasses, "pr-12")}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              aria-pressed={showPassword}
-              className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full text-brand-500 transition hover:bg-brand-100 hover:text-brand-800"
-            >
-              {showPassword ? (
-                <EyeOff className="size-4" />
-              ) : (
-                <Eye className="size-4" />
-              )}
-            </button>
-          </span>
+          <input
+            name="password"
+            type="text"
+            required
+            autoComplete="current-password"
+            spellCheck={false}
+            placeholder="Enter your password"
+            aria-invalid={passwordError ? true : undefined}
+            aria-describedby={passwordError ? "password-error" : undefined}
+            className={cn(fieldClasses, "mt-2")}
+          />
           {passwordError && (
             <span
               id="password-error"

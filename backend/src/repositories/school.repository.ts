@@ -5,11 +5,7 @@ import {
   SchoolStatus,
   type SchoolBoard,
 } from "../generated/prisma/enums.js";
-import type {
-  CreateSchoolInput,
-  ListSchoolsQuery,
-  UpdateSchoolInput,
-} from "../schemas/school.schema.js";
+import type { ListSchoolsQuery } from "../schemas/school.schema.js";
 
 const SCHOOL_CODE_PATTERN = /^VLS-?(\d{1,9})$/i;
 const RECENT_SCHOOLS_LIMIT = 5;
@@ -57,11 +53,46 @@ export function findSchoolById(id: string) {
   return prisma.school.findUnique({ where: { id } });
 }
 
-export function createSchool(data: CreateSchoolInput) {
+export function findSchoolByAccount(account: { email?: string; phone?: string }) {
+  return prisma.school.findFirst({
+    where: account.email
+      ? { accountEmail: { equals: account.email, mode: "insensitive" } }
+      : { accountPhone: account.phone },
+  });
+}
+
+/** An email belongs to one school, whether as its login or its contact email. */
+export async function isEmailUsedByOtherSchool(email: string, excludeId?: string) {
+  const match = { equals: email, mode: "insensitive" } as const;
+  const count = await prisma.school.count({
+    where: {
+      OR: [{ accountEmail: match }, { contactEmail: match }],
+      ...(excludeId && { NOT: { id: excludeId } }),
+    },
+  });
+  return count > 0;
+}
+
+export function findAccountConflicts(
+  account: { accountEmail?: string; accountPhone?: string },
+  excludeId?: string,
+) {
+  const conditions: Prisma.SchoolWhereInput[] = [];
+  if (account.accountEmail) conditions.push({ accountEmail: account.accountEmail });
+  if (account.accountPhone) conditions.push({ accountPhone: account.accountPhone });
+  if (conditions.length === 0) return Promise.resolve([]);
+
+  return prisma.school.findMany({
+    where: { OR: conditions, ...(excludeId && { NOT: { id: excludeId } }) },
+    select: { accountEmail: true, accountPhone: true },
+  });
+}
+
+export function createSchool(data: Prisma.SchoolCreateInput) {
   return prisma.school.create({ data });
 }
 
-export function updateSchool(id: string, data: UpdateSchoolInput) {
+export function updateSchool(id: string, data: Prisma.SchoolUpdateInput) {
   return prisma.school.update({ where: { id }, data });
 }
 

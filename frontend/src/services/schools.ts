@@ -4,6 +4,7 @@ import { adminApi } from "@/services/admin-api";
 import type {
   School,
   SchoolBoard,
+  SchoolDetail,
   SchoolInput,
   SchoolList,
   SchoolStats,
@@ -33,15 +34,21 @@ export function getSchoolStats() {
   return adminApi<SchoolStats>("/schools/stats");
 }
 
-export async function getSchool(id: string): Promise<School | null> {
+export async function getSchool(id: string): Promise<SchoolDetail | null> {
   try {
-    return await adminApi<School>(`/schools/${encodeURIComponent(id)}`);
+    return await adminApi<SchoolDetail>(`/schools/${encodeURIComponent(id)}`);
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 400)) {
       return null;
     }
     throw error;
   }
+}
+
+export function getAccountAvailability(email: string, excludeId?: string) {
+  const query = new URLSearchParams({ email });
+  if (excludeId) query.set("excludeId", excludeId);
+  return adminApi<{ emailTaken: boolean }>(`/schools/account-availability?${query}`);
 }
 
 export function createSchool(input: SchoolInput) {
