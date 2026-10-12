@@ -118,6 +118,10 @@ const NEUTRAL_THEME =
 const ROOMY_CONTROLS =
   "[&_[data-slot=input]]:h-10 [&_[data-slot=input]]:px-3 [&_[data-slot=select-trigger]]:h-10! [&_[data-slot=select-trigger]]:px-3";
 
+// The edit page lists every section at once, so its headings need more weight.
+const BOLD_SECTION_HEADINGS =
+  "[&_[data-slot=section-heading]]:text-sm [&_[data-slot=section-heading]]:font-bold [&_[data-slot=section-heading]]:text-neutral-950";
+
 function toFormValues(school?: SchoolDetail): SchoolFormValues {
   if (!school) return { status: "ACTIVE", programs: [] };
 
@@ -400,7 +404,12 @@ function SchoolFormWizard({
       onSubmit={handleSubmit}
       onChange={handleChange}
       noValidate
-      className={cn("scroll-mt-20 space-y-4", NEUTRAL_THEME, ROOMY_CONTROLS)}
+      className={cn(
+        "scroll-mt-20 space-y-4",
+        NEUTRAL_THEME,
+        ROOMY_CONTROLS,
+        isEdit && BOLD_SECTION_HEADINGS,
+      )}
     >
       {errorMessage && (
         <div
@@ -661,7 +670,10 @@ function SchoolFormWizard({
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h3 className="border-b border-neutral-200 pb-2 text-xs font-semibold tracking-wider text-neutral-500 uppercase">
+    <h3
+      data-slot="section-heading"
+      className="border-b border-neutral-200 pb-2 text-xs font-semibold tracking-wider text-neutral-500 uppercase"
+    >
       {children}
     </h3>
   );
