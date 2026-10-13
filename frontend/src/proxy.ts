@@ -1,21 +1,39 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_LOGIN_PATH, ADMIN_SESSION_COOKIE } from "@/constants/auth";
+import {
+  ADMIN_BASE_PATH,
+  ADMIN_LOGIN_PATH,
+  ADMIN_SESSION_COOKIE,
+  SCHOOL_LOGIN_PATH,
+  SCHOOL_SESSION_COOKIE,
+} from "@/constants/auth";
 
-// Optimistic cookie check only; pages verify the session with the API.
+// Optimistic cookie checks only; pages verify the session with the API.
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === ADMIN_LOGIN_PATH) {
-    return NextResponse.next();
-  }
-
-  if (!request.cookies.has(ADMIN_SESSION_COOKIE)) {
+  if (pathname.startsWith(ADMIN_BASE_PATH)) {
+    if (pathname === ADMIN_LOGIN_PATH || request.cookies.has(ADMIN_SESSION_COOKIE)) {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl));
   }
 
-  return NextResponse.next();
+  // Teachers resources and answer keys: school sign-in only.
+  if (request.cookies.has(SCHOOL_SESSION_COOKIE)) {
+    return NextResponse.next();
+  }
+
+  return NextResponse.redirect(new URL(SCHOOL_LOGIN_PATH, request.nextUrl));
 }
 
+// Matchers have to be literals.
 export const config = {
-  matcher: ["/admin", "/admin/:path*"],
+  matcher: [
+    "/admin",
+    "/admin/:path*",
+    "/teachers-resources",
+    "/teachers-resources/:path*",
+    "/answer-keys",
+    "/answer-keys/:path*",
+  ],
 };

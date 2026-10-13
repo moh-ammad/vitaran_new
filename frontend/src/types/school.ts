@@ -44,6 +44,9 @@ export type School = {
   updatedAt: string;
 };
 
+/** What a signed-in school sees about itself; admin-only fields are left out. */
+export type SchoolAccount = Omit<School, "notes">;
+
 /** Admin detail view; `password` is null for schools created before it was stored. */
 export type SchoolDetail = School & { password: string | null };
 

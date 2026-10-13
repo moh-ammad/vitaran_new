@@ -34,6 +34,15 @@ export function toSchoolDto(school: School): SchoolDto {
   };
 }
 
+/** What a signed-in school sees about itself; admin-only fields are left out. */
+export type SchoolAccountDto = Omit<SchoolDto, "notes">;
+
+export function toSchoolAccountDto(school: School): SchoolAccountDto {
+  const { notes, ...rest } = toSchoolDto(school);
+  void notes;
+  return rest;
+}
+
 async function sealPassword(password: string) {
   return {
     passwordHash: await hashPassword(password),
