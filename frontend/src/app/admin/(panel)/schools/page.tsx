@@ -26,11 +26,12 @@ export default async function SchoolsPage({ searchParams }: PageProps<"/admin/sc
     search: raw.search,
     status: raw.status,
     board: raw.board,
+    type: raw.type,
     page: raw.page,
     pageSize: raw.pageSize,
   });
   const { items, pagination } = await listSchools(params);
-  const filtered = Boolean(params.search || params.status || params.board);
+  const filtered = Boolean(params.search || params.status || params.board || params.type);
 
   const registerButton = (
     <Link href="/admin/schools/new" className={buttonVariants()}>
@@ -61,6 +62,7 @@ export default async function SchoolsPage({ searchParams }: PageProps<"/admin/sc
                 search: params.search,
                 status: params.status,
                 board: params.board,
+                type: params.type,
               }}
             />
           </>

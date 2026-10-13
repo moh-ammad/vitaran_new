@@ -1,29 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { CalendarClock, Download, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { programs } from "@/features/teachers-resources/content";
-import type { AnswerKey } from "@/types/answer-key";
+import type { PdfDocument } from "@/types/document";
 import type { Program } from "@/types/school";
 import { classLabel, formatDateTime } from "@/utils/format";
 import {
+  documentDownloadHref,
+  documentFileHref,
   formatFileSize,
-  schoolAnswerKeyDownloadHref,
-  schoolAnswerKeyFileHref,
   wasEdited,
 } from "./constants";
 
-type SchoolAnswerKeysProps = {
+type SchoolDocumentsProps = {
   /** Programs assigned to the signed-in school. */
   programIds: Program[];
-  answerKeys: AnswerKey[];
+  documents: PdfDocument[];
+  /** Lowercase, e.g. "answer key". */
+  noun: string;
+  /** Site section that serves the PDFs, e.g. `/results`. */
+  basePath: string;
 };
 
-export function SchoolAnswerKeys({ programIds, answerKeys }: SchoolAnswerKeysProps) {
+/** What a signed-in school sees: program tabs, then each class with its tests. */
+export function SchoolDocuments({ programIds, documents, noun, basePath }: SchoolDocumentsProps) {
   const visiblePrograms = programs.filter((program) => programIds.includes(program.id));
   const [programId, setProgramId] = useState(visiblePrograms[0]?.id);
   const [classLevel, setClassLevel] = useState<number | null>(null);
+  const plural = (count: number) => `${count} ${count === 1 ? noun : `${noun}s`}`;
 
   if (visiblePrograms.length === 0) {
     return (
@@ -32,8 +38,10 @@ export function SchoolAnswerKeys({ programIds, answerKeys }: SchoolAnswerKeysPro
   }
 
   const activeProgram = visiblePrograms.find((program) => program.id === programId);
-  const programKeys = answerKeys.filter((key) => key.program === programId);
-  const classes = [...new Set(programKeys.map((key) => key.classLevel))].sort((a, b) => a - b);
+  const programDocuments = documents.filter((document) => document.program === programId);
+  const classes = [...new Set(programDocuments.map((document) => document.classLevel))].sort(
+    (a, b) => a - b,
+  );
   const shownClasses = classLevel && classes.includes(classLevel) ? [classLevel] : classes;
 
   return (
@@ -46,7 +54,7 @@ export function SchoolAnswerKeys({ programIds, answerKeys }: SchoolAnswerKeysPro
         >
           {visiblePrograms.map((program) => {
             const active = program.id === programId;
-            const count = answerKeys.filter((key) => key.program === program.id).length;
+            const count = documents.filter((document) => document.program === program.id).length;
             return (
               <button
                 key={program.id}
@@ -85,16 +93,15 @@ export function SchoolAnswerKeys({ programIds, answerKeys }: SchoolAnswerKeysPro
             <h2 className="mt-1 text-2xl font-bold text-neutral-950">{activeProgram.title}</h2>
           </div>
           <p className="text-sm text-neutral-500">
-            <span className="font-semibold text-neutral-900">{programKeys.length}</span>{" "}
-            {programKeys.length === 1 ? "answer key" : "answer keys"} across{" "}
-            <span className="font-semibold text-neutral-900">{classes.length}</span>{" "}
+            <span className="font-semibold text-neutral-900">{plural(programDocuments.length)}</span>{" "}
+            across <span className="font-semibold text-neutral-900">{classes.length}</span>{" "}
             {classes.length === 1 ? "class" : "classes"}
           </p>
         </div>
       )}
 
-      {programKeys.length === 0 ? (
-        <Notice>Answer keys for this program will be available here soon.</Notice>
+      {programDocuments.length === 0 ? (
+        <Notice>{`${noun.charAt(0).toUpperCase()}${noun.slice(1)}s for this program will be available here soon.`}</Notice>
       ) : (
         <>
           {classes.length > 1 && (
@@ -112,7 +119,7 @@ export function SchoolAnswerKeys({ programIds, answerKeys }: SchoolAnswerKeysPro
 
           <div className="space-y-5">
             {shownClasses.map((level) => {
-              const keys = programKeys.filter((key) => key.classLevel === level);
+              const classDocuments = programDocuments.filter((document) => document.classLevel === level);
               return (
                 <section
                   key={level}
@@ -121,12 +128,12 @@ export function SchoolAnswerKeys({ programIds, answerKeys }: SchoolAnswerKeysPro
                   <header className="flex items-center justify-between gap-3 border-b border-brand-100 bg-brand-50/60 px-5 py-3.5 sm:px-6">
                     <h3 className="text-lg font-bold text-neutral-950">{classLabel(level)}</h3>
                     <span className="rounded-full border border-brand-100 bg-white px-2.5 py-0.5 text-xs font-semibold text-brand-800">
-                      {keys.length} {keys.length === 1 ? "answer key" : "answer keys"}
+                      {plural(classDocuments.length)}
                     </span>
                   </header>
                   <ul className="divide-y divide-brand-100/70">
-                    {keys.map((key) => (
-                      <AnswerKeyRow key={key.id} answerKey={key} />
+                    {classDocuments.map((document) => (
+                      <DocumentRow key={document.id} document={document} noun={noun} basePath={basePath} />
                     ))}
                   </ul>
                 </section>
@@ -139,23 +146,31 @@ export function SchoolAnswerKeys({ programIds, answerKeys }: SchoolAnswerKeysPro
   );
 }
 
-function AnswerKeyRow({ answerKey: key }: { answerKey: AnswerKey }) {
-  const edited = wasEdited(key);
-
+function DocumentRow({
+  document,
+  noun,
+  basePath,
+}: {
+  document: PdfDocument;
+  noun: string;
+  basePath: string;
+}) {
   return (
     <li className="grid gap-4 px-5 py-4 transition-colors hover:bg-brand-50/40 sm:px-6 md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-center md:gap-6">
       <div className="flex min-w-0 items-center gap-4">
         <span className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
           <span className="text-[9px] font-semibold tracking-wider text-white/70 uppercase">Test</span>
-          <span className="text-lg leading-none font-bold tabular-nums">{key.testNumber}</span>
+          <span className="text-lg leading-none font-bold tabular-nums">{document.testNumber}</span>
         </span>
         <div className="min-w-0">
-          <p className="text-base font-semibold text-neutral-950">Test {key.testNumber} answer key</p>
+          <p className="text-base font-semibold text-neutral-950">
+            Test {document.testNumber} {noun}
+          </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
             <FileText className="size-3.5 shrink-0" />
-            <span className="truncate">{key.fileName}</span>
+            <span className="truncate">{document.fileName}</span>
             <span className="text-neutral-300">·</span>
-            <span className="shrink-0">{formatFileSize(key.fileSize)}</span>
+            <span className="shrink-0">{formatFileSize(document.fileSize)}</span>
           </p>
         </div>
       </div>
@@ -163,16 +178,18 @@ function AnswerKeyRow({ answerKey: key }: { answerKey: AnswerKey }) {
       <div className="flex items-center gap-2.5 md:border-l md:border-brand-100 md:pl-6">
         <CalendarClock className="size-4 shrink-0 text-brand-700" />
         <div>
-          <p className="text-xs font-bold text-neutral-950">{edited ? "Updated on" : "Published on"}</p>
+          <p className="text-xs font-bold text-neutral-950">
+            {wasEdited(document) ? "Updated on" : "Published on"}
+          </p>
           <p className="text-sm whitespace-nowrap text-neutral-600 tabular-nums">
-            {formatDateTime(key.updatedAt)}
+            {formatDateTime(document.updatedAt)}
           </p>
         </div>
       </div>
 
       <div className="flex gap-2">
         <a
-          href={schoolAnswerKeyFileHref(key.id)}
+          href={documentFileHref(basePath, document.id)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-white px-3.5 text-sm font-semibold text-brand-900 transition-colors hover:border-brand-900 hover:bg-brand-50 md:flex-none"
@@ -181,8 +198,8 @@ function AnswerKeyRow({ answerKey: key }: { answerKey: AnswerKey }) {
           View
         </a>
         <a
-          href={schoolAnswerKeyDownloadHref(key.id)}
-          download={key.fileName}
+          href={documentDownloadHref(basePath, document.id)}
+          download={document.fileName}
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-900 px-3.5 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:scale-[0.98] md:flex-none"
         >
           <Download className="size-4" />
@@ -200,7 +217,7 @@ function FilterChip({
 }: {
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -219,7 +236,7 @@ function FilterChip({
   );
 }
 
-function Notice({ children }: { children: React.ReactNode }) {
+function Notice({ children }: { children: ReactNode }) {
   return (
     <p className="rounded-2xl border border-brand-200 bg-brand-50 p-6 text-center text-sm font-medium text-brand-700">
       {children}

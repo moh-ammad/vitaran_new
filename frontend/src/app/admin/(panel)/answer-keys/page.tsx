@@ -3,8 +3,13 @@ import Link from "next/link";
 import { Upload } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
-import { ANSWER_KEY_UPLOAD_PATH } from "@/features/answer-keys/constants";
-import { RecentUploads } from "@/features/answer-keys/recent-uploads";
+import { deleteAnswerKeyAction } from "@/features/answer-keys/actions";
+import {
+  ANSWER_KEY_NOUN,
+  ANSWER_KEY_UPLOAD_PATH,
+  ANSWER_KEYS_PATH,
+} from "@/features/answer-keys/constants";
+import { DocumentTable } from "@/features/documents/document-table";
 import { listRecentAnswerKeys } from "@/services/answer-keys";
 
 export const metadata: Metadata = { title: "Answer Keys" };
@@ -27,7 +32,14 @@ export default async function AdminAnswerKeysPage() {
           </Link>
         }
       />
-      <RecentUploads answerKeys={answerKeys} />
+      <DocumentTable
+        items={answerKeys}
+        noun={ANSWER_KEY_NOUN}
+        basePath={ANSWER_KEYS_PATH}
+        uploadHref={ANSWER_KEY_UPLOAD_PATH}
+        showType
+        deleteAction={deleteAnswerKeyAction}
+      />
     </>
   );
 }

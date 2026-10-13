@@ -1,17 +1,10 @@
+import type { PdfDocument, SchoolRef } from "@/types/document";
 import type { Program, SchoolType } from "@/types/school";
 
-export type AnswerKey = {
-  id: string;
-  program: Program;
+export type AnswerKey = PdfDocument & {
   type: SchoolType;
   /** Set only for customized answer keys. */
-  school: { id: string; name: string; code: string } | null;
-  testNumber: number;
-  classLevel: number;
-  fileName: string;
-  fileSize: number;
-  createdAt: string;
-  updatedAt: string;
+  school: SchoolRef | null;
 };
 
 export type AnswerKeyInput = {

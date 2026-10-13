@@ -6,6 +6,7 @@ import {
   KeyRound,
   Plus,
   School,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ import { PageHeader } from "@/features/admin/page-header";
 import { BOARD_LABELS, PROGRAM_LABELS } from "@/features/schools/constants";
 import { SchoolStatusBadge } from "@/features/schools/school-status-badge";
 import { getAnswerKeyStats } from "@/services/answer-keys";
+import { getResultStats } from "@/services/results";
 import { getSchoolStats } from "@/services/schools";
 import { formatDate, formatNumber } from "@/utils/format";
 
@@ -78,9 +80,10 @@ function StatCard({ label, value, hint, icon: Icon, href }: StatCardProps) {
 }
 
 export default async function AdminDashboardPage() {
-  const [stats, { total: answerKeyCount }] = await Promise.all([
+  const [stats, { total: answerKeyCount }, { total: resultCount }] = await Promise.all([
     getSchoolStats(),
     getAnswerKeyStats(),
+    getResultStats(),
   ]);
   const percent = (count: number) => (stats.total === 0 ? 0 : Math.round((count / stats.total) * 100));
 
@@ -97,10 +100,11 @@ export default async function AdminDashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total schools" value={stats.total} hint={`${stats.inactive} inactive`} icon={School} href="/admin/schools" />
         <StatCard label="Active schools" value={stats.active} hint={`${percent(stats.active)}% of all schools`} icon={CheckCircle2} href="/admin/schools?status=ACTIVE" />
         <StatCard label="Answer keys" value={answerKeyCount} hint="Published files" icon={KeyRound} href="/admin/answer-keys" />
+        <StatCard label="Results" value={resultCount} hint="Shared with schools" icon={Trophy} href="/admin/results" />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">

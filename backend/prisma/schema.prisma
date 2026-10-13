@@ -62,6 +62,7 @@ model School {
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
   answerKeys      AnswerKey[]
+  resultSets      ResultSet[]
 
   @@index([status])
   @@index([board])
@@ -88,4 +89,60 @@ model AnswerKey {
   @@index([createdAt])
   @@index([schoolId])
   @@map("answer_keys")
+}
+
+/// One test's results for one school and program; each class is uploaded as its own sheet.
+model ResultSet {
+  id          String        @id @default(uuid()) @db.Uuid
+  schoolId    String        @map("school_id") @db.Uuid
+  school      School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  /// Regular schools pick one of their programs.
+  program     Program?
+  /// Customized schools type their own program name.
+  programName String?       @map("program_name") @db.VarChar(120)
+  /// `program`, or the lowercased custom name; keeps one set per school, program and test.
+  programKey  String        @map("program_key") @db.VarChar(130)
+  testNumber  Int           @map("test_number") @db.SmallInt
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sheets      ResultSheet[]
+
+  @@unique([schoolId, programKey, testNumber])
+  @@index([updatedAt])
+  @@map("result_sets")
+}
+
+/// One class's uploaded spreadsheet: its header row, the original file, and one row per student.
+model ResultSheet {
+  id          String      @id @default(uuid()) @db.Uuid
+  resultSetId String      @map("result_set_id") @db.Uuid
+  resultSet   ResultSet   @relation(fields: [resultSetId], references: [id], onDelete: Cascade)
+  classLevel  Int         @map("class_level") @db.SmallInt
+  /// Title lines above the header row, e.g. "TEST-3 9-SEP-2026 (Max. Marks: 300)".
+  caption     String[]    @default([])
+  /// Header labels, in column order.
+  columns     Json
+  rowCount    Int         @map("row_count")
+  fileName    String      @map("file_name") @db.VarChar(255)
+  fileSize    Int         @map("file_size")
+  /// Original .xlsx bytes for download; never selected in list queries.
+  data        Bytes
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  rows        ResultRow[]
+
+  @@unique([resultSetId, classLevel])
+  @@map("result_sheets")
+}
+
+model ResultRow {
+  sheetId  String      @map("sheet_id") @db.Uuid
+  sheet    ResultSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  /// 1-based order within the sheet.
+  position Int
+  /// Cell values aligned with the sheet's `columns`: string, number, boolean or null.
+  values   Json
+
+  @@id([sheetId, position])
+  @@map("result_rows")
 }

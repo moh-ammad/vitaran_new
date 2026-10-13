@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, Contact, MapPin, School, StickyNote } from "lucide-react";
+import { Clock, Contact, MapPin, School, StickyNote, Upload } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { resultUploadHrefFor } from "@/features/results/constants";
+import { ResultsTable } from "@/features/results/results-table";
 import {
   BOARD_LABELS,
   PROGRAM_LABELS,
@@ -12,6 +15,7 @@ import {
 } from "@/features/schools/constants";
 import { CopyButton } from "@/features/schools/copy-button";
 import { SchoolDetailActions } from "@/features/schools/school-detail-actions";
+import { listResultSets } from "@/services/results";
 import { getSchool } from "@/services/schools";
 import { formatDateTime, formatNumber } from "@/utils/format";
 
@@ -55,6 +59,8 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
   const { id } = await params;
   const school = await getSchool(id);
   if (!school) notFound();
+  const resultSets = await listResultSets({ schoolId: school.id });
+  const uploadHref = resultUploadHrefFor(school.id);
 
   return (
     <div className="space-y-3">
@@ -72,6 +78,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
 
         <div className="flex flex-wrap items-center gap-2">
           <Chip label="Code" value={school.code} />
+          <Chip label="Type" value={TYPE_LABELS[school.type]} />
           <Chip
             label="Status"
             value={
@@ -145,6 +152,24 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
           </Panel>
         </div>
       </div>
+
+      <ResultsTable
+        resultSets={resultSets}
+        uploadHref={uploadHref}
+        title="Results"
+        showSchool={false}
+        headerAction={
+          resultSets.length > 0 && (
+            <Link
+              href={uploadHref}
+              className={buttonVariants({ size: "sm", className: "bg-brand-900 text-white hover:bg-brand-800" })}
+            >
+              <Upload />
+              Upload results
+            </Link>
+          )
+        }
+      />
 
       <footer className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm text-neutral-500 shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]">
         <span>

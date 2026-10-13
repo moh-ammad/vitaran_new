@@ -23,6 +23,13 @@ export type SchoolDetailDto = SchoolDto & { password: string | null };
 
 export const formatSchoolCode = (serial: number) => `VLS-${String(serial).padStart(4, "0")}`;
 
+/** The short school reference embedded in answer keys and results. */
+export const toSchoolRef = ({ id, name, serial }: { id: string; name: string; serial: number }) => ({
+  id,
+  name,
+  code: formatSchoolCode(serial),
+});
+
 export function toSchoolDto(school: School): SchoolDto {
   const { serial, passwordHash, passwordEncrypted, ...rest } = school;
   void passwordHash;

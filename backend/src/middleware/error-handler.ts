@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
+import multer from "multer";
 import { ZodError } from "zod";
 import { env } from "../config/env.js";
 import { Prisma } from "../generated/prisma/client.js";
@@ -38,6 +39,13 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
 
   if (error?.type === "entity.too.large") {
     sendError(res, 413, "The upload is too large");
+    return;
+  }
+
+  if (error instanceof multer.MulterError) {
+    const message =
+      error.code === "LIMIT_FILE_SIZE" ? "Keep each file under 2 MB" : "This upload couldn't be read";
+    sendError(res, 400, message, error.field ? [{ path: [error.field], message }] : undefined);
     return;
   }
 

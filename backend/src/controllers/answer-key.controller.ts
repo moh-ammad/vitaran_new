@@ -1,4 +1,4 @@
-import type { RequestHandler, Response } from "express";
+import type { RequestHandler } from "express";
 import type {
   ListAnswerKeysQuery,
   UpdateAnswerKeyQuery,
@@ -7,6 +7,7 @@ import type {
 import * as answerKeyService from "../services/answer-key.service.js";
 import type { SchoolAccountDto } from "../services/school.service.js";
 import { sendSuccess } from "../utils/api-response.js";
+import { sendPdf } from "../utils/pdf.js";
 
 type IdParams = { id: string };
 
@@ -56,13 +57,6 @@ export const getSchoolAnswerKeyFile: RequestHandler<IdParams> = async (req, res)
     await answerKeyService.getAnswerKeyFile(req.params.id, res.locals.school as SchoolAccountDto),
   );
 };
-
-function sendPdf(res: Response, { fileName, data }: { fileName: string; data: Uint8Array }) {
-  res
-    .type("application/pdf")
-    .set("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`)
-    .send(Buffer.from(data));
-}
 
 export const deleteAnswerKey: RequestHandler<IdParams> = async (req, res) => {
   await answerKeyService.deleteAnswerKey(req.params.id);

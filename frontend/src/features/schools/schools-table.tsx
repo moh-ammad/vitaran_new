@@ -13,6 +13,7 @@ import { formatDate } from "@/utils/format";
 import { BOARD_LABELS } from "./constants";
 import { SchoolRowActions } from "./school-row-actions";
 import { SchoolStatusBadge } from "./school-status-badge";
+import { SchoolTypeBadge } from "./school-type-badge";
 
 export function SchoolsTable({ schools }: { schools: School[] }) {
   return (
@@ -20,6 +21,7 @@ export function SchoolsTable({ schools }: { schools: School[] }) {
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead className="pl-4">School</TableHead>
+          <TableHead>Type</TableHead>
           <TableHead>Board</TableHead>
           <TableHead className="hidden lg:table-cell">Location</TableHead>
           <TableHead className="hidden md:table-cell">Contact</TableHead>
@@ -41,6 +43,9 @@ export function SchoolsTable({ schools }: { schools: School[] }) {
                 {school.name}
               </Link>
               <span className="font-mono text-xs text-muted-foreground">{school.code}</span>
+            </TableCell>
+            <TableCell>
+              <SchoolTypeBadge type={school.type} />
             </TableCell>
             <TableCell>
               <Badge variant="secondary">{BOARD_LABELS[school.board]}</Badge>

@@ -9,9 +9,9 @@ const nextConfig: NextConfig = {
     root: path.dirname(fileURLToPath(import.meta.url)),
   },
   experimental: {
-    // Answer key PDFs (up to 10 MB) are uploaded through a server action.
-    serverActions: { bodySizeLimit: "11mb" },
-    proxyClientMaxBodySize: "11mb",
+    // Uploads go through server actions: answer key PDFs (10 MB) and up to 12 result sheets (2 MB each).
+    serverActions: { bodySizeLimit: "25mb" },
+    proxyClientMaxBodySize: "25mb",
   },
 };
 

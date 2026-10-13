@@ -1,34 +1,33 @@
 import type { Metadata } from "next";
-import { Trophy } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import Link from "next/link";
+import { Upload } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
+import { RESULT_UPLOAD_PATH } from "@/features/results/constants";
+import { ResultsTable } from "@/features/results/results-table";
+import { listResultSets } from "@/services/results";
 
 export const metadata: Metadata = { title: "Results" };
 
-export default function AdminResultsPage() {
+export default async function AdminResultsPage() {
+  const resultSets = await listResultSets();
+
   return (
     <>
-      <PageHeader title="Results" description="Publish and manage exam results." />
-      <Card>
-        <Empty className="py-20">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Trophy />
-            </EmptyMedia>
-            <EmptyTitle>Coming soon</EmptyTitle>
-            <EmptyDescription>
-              Results management will be available here shortly.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </Card>
+      <PageHeader
+        title="Results"
+        description="Upload each test's results class by class. Only that school can see them."
+        actions={
+          <Link
+            href={RESULT_UPLOAD_PATH}
+            className={buttonVariants({ className: "h-10 rounded-lg bg-brand-900 px-4 text-white hover:bg-brand-800" })}
+          >
+            <Upload />
+            Upload results
+          </Link>
+        }
+      />
+      <ResultsTable resultSets={resultSets} uploadHref={RESULT_UPLOAD_PATH} />
     </>
   );
 }

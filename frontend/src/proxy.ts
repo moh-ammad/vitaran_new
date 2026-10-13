@@ -19,7 +19,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl));
   }
 
-  // Teachers resources and answer keys: school sign-in only.
+  // Teachers resources, answer keys and results: school sign-in only.
   if (request.cookies.has(SCHOOL_SESSION_COOKIE)) {
     return NextResponse.next();
   }
@@ -44,5 +44,7 @@ export const config = {
     "/teachers-resources/:path*",
     "/answer-keys",
     "/answer-keys/:path*",
+    "/results",
+    "/results/:path*",
   ],
 };
