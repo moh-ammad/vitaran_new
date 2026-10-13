@@ -35,6 +35,7 @@ import {
   PROGRAMS,
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
+  SCHOOL_TYPES,
   type SchoolDetail,
 } from "@/types/school";
 import { smoothScrollToElement, useSmoothWheelScroll } from "@/hooks/use-smooth-scroll";
@@ -48,6 +49,7 @@ import {
   INDIAN_STATES,
   PROGRAM_LABELS,
   STATUS_LABELS,
+  TYPE_LABELS,
 } from "./constants";
 import {
   LAST_STEP,
@@ -79,6 +81,7 @@ import {
 type SchoolFormProps = { school?: SchoolDetail };
 
 const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[value] }));
+const typeItems = SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] }));
 const statusItems = SCHOOL_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }));
 const stateItems = INDIAN_STATES.map((value) => ({ value, label: value }));
 
@@ -123,11 +126,12 @@ const BOLD_SECTION_HEADINGS =
   "[&_[data-slot=section-heading]]:text-sm [&_[data-slot=section-heading]]:font-bold [&_[data-slot=section-heading]]:text-neutral-950";
 
 function toFormValues(school?: SchoolDetail): SchoolFormValues {
-  if (!school) return { status: "ACTIVE", programs: [] };
+  if (!school) return { type: "REGULAR", status: "ACTIVE", programs: [] };
 
   return {
     name: school.name,
     board: school.board,
+    type: school.type,
     status: school.status,
     programs: school.programs,
     principalName: school.principalName ?? "",
@@ -439,7 +443,7 @@ function SchoolFormWizard({
             <div {...panel(0)}>
               {isEdit && <SectionHeading>School details</SectionHeading>}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-                <Field data-invalid={invalid("name")} className="md:col-span-2">
+                <Field data-invalid={invalid("name")} className="md:col-span-2 lg:col-span-3">
                   <FieldLabel htmlFor="name" className="capitalize">School name *</FieldLabel>
                   <Input {...fieldProps("name")} {...capitalized} autoComplete="organization" placeholder="e.g. Delhi Public School, Banjara Hills" />
                   {error("name")}
@@ -462,6 +466,23 @@ function SchoolFormWizard({
                   {error("board")}
                 </Field>
 
+                <Field data-invalid={invalid("type")}>
+                  <FieldLabel htmlFor="type">Type *</FieldLabel>
+                  <Select name="type" items={typeItems} defaultValue={values.type ?? "REGULAR"} onValueChange={saveDraftSoon}>
+                    <SelectTrigger id="type" className="w-full" aria-invalid={invalid("type")}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {typeItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {error("type")}
+                </Field>
+
                 <Field data-invalid={invalid("status")}>
                   <FieldLabel htmlFor="status">Status *</FieldLabel>
                   <Select name="status" items={statusItems} defaultValue={values.status ?? "ACTIVE"} onValueChange={saveDraftSoon}>
@@ -479,13 +500,13 @@ function SchoolFormWizard({
                   {error("status")}
                 </Field>
 
-                <Field data-invalid={invalid("principalName")}>
+                <Field data-invalid={invalid("principalName")} className="lg:col-span-3">
                   <FieldLabel htmlFor="principalName">Principal name</FieldLabel>
                   <Input {...fieldProps("principalName")} {...capitalized} placeholder="Optional" />
                   {error("principalName")}
                 </Field>
 
-                <Field data-invalid={invalid("studentStrength")}>
+                <Field data-invalid={invalid("studentStrength")} className="lg:col-span-3">
                   <FieldLabel htmlFor="studentStrength">Student strength</FieldLabel>
                   <Input {...fieldProps("studentStrength")} inputMode="numeric" placeholder="e.g. 1200" />
                   {error("studentStrength")}

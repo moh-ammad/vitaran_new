@@ -1,4 +1,4 @@
-import type { Program, SchoolBoard, SchoolStatus } from "@/types/school";
+import type { Program, SchoolBoard, SchoolStatus, SchoolType } from "@/types/school";
 
 export const BOARD_LABELS: Record<SchoolBoard, string> = {
   CBSE: "CBSE",
@@ -7,6 +7,11 @@ export const BOARD_LABELS: Record<SchoolBoard, string> = {
   IB: "IB",
   IGCSE: "IGCSE",
   OTHER: "Other",
+};
+
+export const TYPE_LABELS: Record<SchoolType, string> = {
+  REGULAR: "Regular",
+  CUSTOMIZED: "Customized",
 };
 
 export const STATUS_LABELS: Record<SchoolStatus, string> = {

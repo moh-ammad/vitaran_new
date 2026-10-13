@@ -18,6 +18,11 @@ enum SchoolBoard {
   OTHER
 }
 
+enum SchoolType {
+  REGULAR
+  CUSTOMIZED
+}
+
 enum SchoolStatus {
   ACTIVE
   INACTIVE
@@ -36,6 +41,7 @@ model School {
   serial          Int          @unique @default(autoincrement())
   name            String       @db.VarChar(200)
   board           SchoolBoard
+  type            SchoolType   @default(REGULAR)
   status          SchoolStatus @default(ACTIVE)
   programs        Program[]
   principalName   String?      @map("principal_name") @db.VarChar(120)
@@ -55,9 +61,31 @@ model School {
   passwordEncrypted String?    @map("password_encrypted") @db.VarChar(512)
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  answerKeys      AnswerKey[]
 
   @@index([status])
   @@index([board])
   @@index([createdAt])
   @@map("schools")
+}
+
+/// Regular keys are shared by every school on the program; customized keys belong to one school.
+model AnswerKey {
+  id         String     @id @default(uuid()) @db.Uuid
+  program    Program
+  type       SchoolType
+  schoolId   String?    @map("school_id") @db.Uuid
+  school     School?    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  testNumber Int        @map("test_number") @db.SmallInt
+  classLevel Int        @map("class_level") @db.SmallInt
+  fileName   String     @map("file_name") @db.VarChar(255)
+  fileSize   Int        @map("file_size")
+  /// PDF bytes; never selected in list queries.
+  data       Bytes
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@index([schoolId])
+  @@map("answer_keys")
 }

@@ -3,6 +3,7 @@ import {
   PROGRAMS,
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
+  SCHOOL_TYPES,
   type SchoolInput,
 } from "@/types/school";
 import { SCHOOLS_PAGE_SIZE } from "./constants";
@@ -39,6 +40,7 @@ const schoolFields = z.object({
     .max(200, "Keep the name under 200 characters.")
     .transform(capitalizeWords),
   board: z.enum(SCHOOL_BOARDS, { error: "Select a board." }),
+  type: z.enum(SCHOOL_TYPES, { error: "Select a type." }),
   status: z.enum(SCHOOL_STATUSES, { error: "Select a status." }),
   programs: z.array(z.enum(PROGRAMS)),
   principalName: z

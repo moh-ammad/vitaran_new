@@ -21,6 +21,8 @@ export type SchoolDto = Omit<
 
 export type SchoolDetailDto = SchoolDto & { password: string | null };
 
+export const formatSchoolCode = (serial: number) => `VLS-${String(serial).padStart(4, "0")}`;
+
 export function toSchoolDto(school: School): SchoolDto {
   const { serial, passwordHash, passwordEncrypted, ...rest } = school;
   void passwordHash;
@@ -28,7 +30,7 @@ export function toSchoolDto(school: School): SchoolDto {
 
   return {
     ...rest,
-    code: `VLS-${String(serial).padStart(4, "0")}`,
+    code: formatSchoolCode(serial),
     createdAt: school.createdAt.toISOString(),
     updatedAt: school.updatedAt.toISOString(),
   };

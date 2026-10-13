@@ -60,6 +60,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   new: "Register",
   edit: "Edit",
   "answer-keys": "Answer Keys",
+  upload: "Upload",
   results: "Results",
 };
 

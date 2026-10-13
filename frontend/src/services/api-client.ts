@@ -18,7 +18,7 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
 };
 
-function buildApiUrl(path: string): string {
+export function buildApiUrl(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${getApiUrl()}${API_V1_PREFIX}${normalizedPath}`;
 }
@@ -34,14 +34,17 @@ export async function apiClient<T>(
     requestHeaders.set("Accept", "application/json");
   }
 
-  if (body !== undefined && !requestHeaders.has("Content-Type")) {
+  // Files are sent as-is; everything else is JSON.
+  const isBinary = body instanceof Blob;
+
+  if (body !== undefined && !isBinary && !requestHeaders.has("Content-Type")) {
     requestHeaders.set("Content-Type", "application/json");
   }
 
   const response = await fetch(buildApiUrl(path), {
     ...init,
     headers: requestHeaders,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isBinary ? body : JSON.stringify(body),
   });
 
   if (response.status === 204) {

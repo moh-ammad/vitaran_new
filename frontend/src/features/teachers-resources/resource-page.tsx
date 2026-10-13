@@ -55,20 +55,26 @@ export function ResourcePage({
             />
           </Reveal>
 
-          <Reveal className="mt-12">
-            <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl bg-linear-to-r from-brand-800 to-brand-950 px-8 py-6 text-white sm:px-10">
-              <h2 className="text-lg font-semibold sm:text-xl">Need something specific?</h2>
-              <Link
-                href="/contact"
-                className="group inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 transition-all hover:bg-brand-100 active:scale-95"
-              >
-                Contact us
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-          </Reveal>
+          <ContactCta />
         </div>
       </section>
     </>
+  );
+}
+
+export function ContactCta() {
+  return (
+    <Reveal className="mt-12">
+      <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl bg-linear-to-r from-brand-800 to-brand-950 px-8 py-6 text-white sm:px-10">
+        <h2 className="text-lg font-semibold sm:text-xl">Need something specific?</h2>
+        <Link
+          href="/contact"
+          className="group inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 transition-all hover:bg-brand-100 active:scale-95"
+        >
+          Contact us
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+    </Reveal>
   );
 }

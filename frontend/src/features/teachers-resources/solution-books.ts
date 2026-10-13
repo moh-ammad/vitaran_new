@@ -13,8 +13,6 @@ export type SolutionBook = {
   external?: boolean;
 };
 
-export const answerKeys: Record<string, SolutionBook[]> = {};
-
 export const solutionBooks: Record<string, SolutionBook[]> = {
   "Integrated Program": [
       { subject: "Mathematics", grade: 6, href: "/solution-books/integrated/mathematics/class-6.pdf" },

@@ -9,12 +9,14 @@ import type {
   SchoolList,
   SchoolStats,
   SchoolStatus,
+  SchoolType,
 } from "@/types/school";
 
 export type SchoolListParams = {
   search?: string;
   status?: SchoolStatus;
   board?: SchoolBoard;
+  type?: SchoolType;
   page?: number;
   pageSize?: number;
 };
@@ -28,6 +30,12 @@ export function listSchools(params: SchoolListParams = {}) {
 
   const suffix = query.size > 0 ? `?${query}` : "";
   return adminApi<SchoolList>(`/schools${suffix}`);
+}
+
+/** Options for pickers that target a single customized school. */
+export async function listCustomizedSchoolOptions() {
+  const { items } = await listSchools({ type: "CUSTOMIZED", pageSize: 100 });
+  return items.map(({ id, name, code }) => ({ id, name, code }));
 }
 
 export function getSchoolStats() {

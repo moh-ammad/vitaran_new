@@ -38,14 +38,11 @@ import {
 import { PageHeader } from "@/features/admin/page-header";
 import { BOARD_LABELS, PROGRAM_LABELS } from "@/features/schools/constants";
 import { SchoolStatusBadge } from "@/features/schools/school-status-badge";
-import { answerKeys } from "@/features/teachers-resources/solution-books";
+import { getAnswerKeyStats } from "@/services/answer-keys";
 import { getSchoolStats } from "@/services/schools";
 import { formatDate, formatNumber } from "@/utils/format";
 
 export const metadata: Metadata = { title: "Dashboard" };
-
-const countFiles = (books: Record<string, unknown[]>) =>
-  Object.values(books).reduce((sum, list) => sum + list.length, 0);
 
 type StatCardProps = {
   label: string;
@@ -81,8 +78,10 @@ function StatCard({ label, value, hint, icon: Icon, href }: StatCardProps) {
 }
 
 export default async function AdminDashboardPage() {
-  const stats = await getSchoolStats();
-  const answerKeyCount = countFiles(answerKeys);
+  const [stats, { total: answerKeyCount }] = await Promise.all([
+    getSchoolStats(),
+    getAnswerKeyStats(),
+  ]);
   const percent = (count: number) => (stats.total === 0 ? 0 : Math.round((count / stats.total) * 100));
 
   return (
