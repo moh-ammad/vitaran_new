@@ -1,5 +1,4 @@
 import {
-  BookOpenCheck,
   CirclePlus,
   KeyRound,
   LayoutDashboard,
@@ -34,11 +33,6 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     label: "Content",
     items: [
-      {
-        title: "Teacher Resources",
-        href: "/admin/teacher-resources",
-        icon: BookOpenCheck,
-      },
       { title: "Answer Keys", href: "/admin/answer-keys", icon: KeyRound },
       { title: "Results", href: "/admin/results", icon: Trophy },
     ],
@@ -65,7 +59,6 @@ const SEGMENT_LABELS: Record<string, string> = {
   schools: "Schools",
   new: "Register",
   edit: "Edit",
-  "teacher-resources": "Teacher Resources",
   "answer-keys": "Answer Keys",
   results: "Results",
 };
