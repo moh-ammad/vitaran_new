@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { PageHero } from "@/components/shared/page-hero";
 import { Reveal } from "@/components/shared/reveal";
+import type { Program } from "@/types/school";
+import { programs } from "./content";
 import { ProgramTabs } from "./program-tabs";
 import type { SolutionBook } from "./solution-books";
 
@@ -9,6 +12,8 @@ type ResourcePageProps = {
   highlight: string;
   subtitle: string;
   books: Record<string, SolutionBook[]>;
+  /** Programs the signed-in school has been given; others are never sent to the browser. */
+  programIds: Program[];
   label: string;
   emptyMessage: string;
 };
@@ -18,30 +23,33 @@ export function ResourcePage({
   highlight,
   subtitle,
   books,
+  programIds,
   label,
   emptyMessage,
 }: ResourcePageProps) {
+  const allowedBooks = Object.fromEntries(
+    programs
+      .filter((program) => programIds.includes(program.id))
+      .map((program) => [program.title, books[program.title] ?? []]),
+  );
+
   return (
     <>
-      <section className="relative isolate overflow-hidden bg-brand-950 pt-28 pb-12 text-white sm:pt-32 sm:pb-14">
-        <div className="bg-grid absolute inset-0 -z-10 mask-[radial-gradient(ellipse_at_top,black_30%,transparent_75%)]" />
-        <div className="absolute -top-40 left-1/2 -z-10 size-160 -translate-x-1/2 rounded-full bg-brand-700/40 blur-[140px]" />
-
-        <div className="mx-auto max-w-3xl px-5 text-center sm:px-8">
-          <h1 className="text-3xl leading-tight font-extrabold text-balance sm:text-5xl">
+      <PageHero
+        title={
+          <>
             {title} <span className="text-gradient">{highlight}</span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-brand-200/85 sm:text-lg">
-            {subtitle}
-          </p>
-        </div>
-      </section>
+          </>
+        }
+        subtitle={subtitle}
+      />
 
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-5xl px-5 sm:px-8">
           <Reveal>
             <ProgramTabs
-              books={books}
+              programIds={programIds}
+              books={allowedBooks}
               label={label}
               emptyMessage={emptyMessage}
             />

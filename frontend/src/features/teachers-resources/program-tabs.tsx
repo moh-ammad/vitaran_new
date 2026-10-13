@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Program } from "@/types/school";
 import { programs } from "./content";
 import type { SolutionBook, Subject } from "./solution-books";
 
@@ -25,17 +26,28 @@ const subjectIcons: Record<Subject, LucideIcon> = {
 };
 
 type ProgramTabsProps = {
+  /** Programs to show, in the standard program order. */
+  programIds: Program[];
   books: Record<string, SolutionBook[]>;
   label: string;
   emptyMessage: string;
 };
 
-export function ProgramTabs({ books: booksByProgram, label, emptyMessage }: ProgramTabsProps) {
+export function ProgramTabs({ programIds, books: booksByProgram, label, emptyMessage }: ProgramTabsProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const visiblePrograms = programs.filter((program) => programIds.includes(program.id));
+
+  if (visiblePrograms.length === 0) {
+    return (
+      <p className="rounded-[2rem] border border-brand-200 bg-brand-50 p-6 text-center text-sm font-medium text-brand-700">
+        No programs have been assigned to your school yet. Please contact Vitaran.
+      </p>
+    );
+  }
 
   return (
     <ul className="space-y-4">
-      {programs.map((program, i) => {
+      {visiblePrograms.map((program, i) => {
         const open = openIndex === i;
         const panelId = `program-panel-${i}`;
         const books = booksByProgram[program.title] ?? [];

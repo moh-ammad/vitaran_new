@@ -6,7 +6,7 @@ import * as schoolRepository from "../repositories/school.repository.js";
 import type { SchoolLoginInput } from "../schemas/auth.schema.js";
 import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
-import { toSchoolDto, type SchoolDto } from "./school.service.js";
+import { toSchoolAccountDto, type SchoolAccountDto } from "./school.service.js";
 
 const JWT_ALGORITHM = "HS256";
 const JWT_ISSUER = "vitaran-api";
@@ -17,7 +17,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export type SchoolLoginResult = {
   token: string;
   expiresAt: string;
-  school: SchoolDto;
+  school: SchoolAccountDto;
 };
 
 // Compared against when no school matches, so unknown accounts take as long as wrong passwords.
@@ -71,10 +71,10 @@ export async function loginSchool(input: SchoolLoginInput): Promise<SchoolLoginR
     .setExpirationTime(expiresAt)
     .sign(secret);
 
-  return { token, expiresAt: expiresAt.toISOString(), school: toSchoolDto(school) };
+  return { token, expiresAt: expiresAt.toISOString(), school: toSchoolAccountDto(school) };
 }
 
-export async function verifySchoolToken(token: string): Promise<SchoolDto> {
+export async function verifySchoolToken(token: string): Promise<SchoolAccountDto> {
   const secret = getSecret();
 
   try {
@@ -98,7 +98,7 @@ export async function verifySchoolToken(token: string): Promise<SchoolDto> {
       throw new Error("School session revoked");
     }
 
-    return toSchoolDto(school);
+    return toSchoolAccountDto(school);
   } catch (_error) {
     throw new AppError(401, "Invalid or expired session");
   }
