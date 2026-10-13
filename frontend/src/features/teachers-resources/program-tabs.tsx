@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { classLabel } from "@/utils/format";
 import type { Program } from "@/types/school";
 import { programs } from "./content";
 import type { SolutionBook, Subject } from "./solution-books";
@@ -188,9 +189,7 @@ function BookBrowser({ books }: { books: SolutionBook[] }) {
                         rel="noopener noreferrer"
                         className="group flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm font-medium text-brand-800 ring-1 ring-brand-100 transition-all hover:bg-brand-800 hover:text-white hover:ring-brand-800 active:scale-[0.98]"
                       >
-                        <span>
-                          Class {book.grade}
-                        </span>
+                        <span>{classLabel(book.grade)}</span>
                         {book.external ? (
                           <ExternalLink className="size-3.5 opacity-60 group-hover:opacity-100" />
                         ) : (

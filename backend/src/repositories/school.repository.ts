@@ -15,6 +15,7 @@ function buildWhere(query: ListSchoolsQuery): Prisma.SchoolWhereInput {
 
   if (query.status) where.status = query.status;
   if (query.board) where.board = query.board;
+  if (query.type) where.type = query.type;
 
   if (query.search) {
     const codeMatch = SCHOOL_CODE_PATTERN.exec(query.search);

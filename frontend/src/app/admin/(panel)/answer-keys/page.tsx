@@ -1,33 +1,33 @@
 import type { Metadata } from "next";
-import { ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Upload } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
-import { ResourceLibrary } from "@/features/admin-resources/resource-library";
-import { ResourceSummary } from "@/features/admin-resources/resource-summary";
-import { answerKeys } from "@/features/teachers-resources/solution-books";
+import { ANSWER_KEY_UPLOAD_PATH } from "@/features/answer-keys/constants";
+import { RecentUploads } from "@/features/answer-keys/recent-uploads";
+import { listRecentAnswerKeys } from "@/services/answer-keys";
 
 export const metadata: Metadata = { title: "Answer Keys" };
 
-export default function AdminAnswerKeysPage() {
+export default async function AdminAnswerKeysPage() {
+  const answerKeys = await listRecentAnswerKeys();
+
   return (
     <>
       <PageHeader
         title="Answer Keys"
-        description="Answer keys published on the public Answer Keys page."
+        description="Upload answer keys for regular programs or for a customized school."
         actions={
-          <a
-            href="/answer-keys"
-            target="_blank"
-            rel="noreferrer"
-            className={buttonVariants({ variant: "outline" })}
+          <Link
+            href={ANSWER_KEY_UPLOAD_PATH}
+            className={buttonVariants({ className: "h-10 rounded-lg bg-brand-900 px-4 text-white hover:bg-brand-800" })}
           >
-            <ExternalLink />
-            View public page
-          </a>
+            <Upload />
+            Upload answer key
+          </Link>
         }
       />
-      <ResourceSummary books={answerKeys} />
-      <ResourceLibrary books={answerKeys} label="Answer keys" />
+      <RecentUploads answerKeys={answerKeys} />
     </>
   );
 }

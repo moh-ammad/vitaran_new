@@ -4,7 +4,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Clock, Contact, MapPin, School, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BOARD_LABELS, PROGRAM_LABELS, STATUS_LABELS } from "@/features/schools/constants";
+import {
+  BOARD_LABELS,
+  PROGRAM_LABELS,
+  STATUS_LABELS,
+  TYPE_LABELS,
+} from "@/features/schools/constants";
 import { CopyButton } from "@/features/schools/copy-button";
 import { SchoolDetailActions } from "@/features/schools/school-detail-actions";
 import { getSchool } from "@/services/schools";
@@ -96,6 +101,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
             <Field label="School name">{school.name}</Field>
             <Field label="School code">{school.code}</Field>
             <Field label="Board">{BOARD_LABELS[school.board]}</Field>
+            <Field label="Type">{TYPE_LABELS[school.type]}</Field>
             <Field label="School email">{school.accountEmail}</Field>
             <Field label="School mobile">{school.accountPhone}</Field>
             <Field label="Student strength">

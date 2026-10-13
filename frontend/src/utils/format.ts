@@ -17,3 +17,5 @@ export const formatDateTime = (iso: string) =>
   dateTimeFormatter.format(new Date(iso));
 
 export const formatNumber = (value: number) => numberFormatter.format(value);
+
+export const classLabel = (level: number) => `Class ${level}`;

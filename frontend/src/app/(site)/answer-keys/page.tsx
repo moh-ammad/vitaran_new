@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { PageHero } from "@/components/shared/page-hero";
+import { Reveal } from "@/components/shared/reveal";
+import { SchoolAnswerKeys } from "@/features/answer-keys/school-answer-keys";
 import { verifySchoolSession } from "@/features/school-auth/session";
-import { ResourcePage } from "@/features/teachers-resources/resource-page";
-import { answerKeys } from "@/features/teachers-resources/solution-books";
+import { ContactCta } from "@/features/teachers-resources/resource-page";
+import { listSchoolAnswerKeys } from "@/services/school-answer-keys";
 
 export const metadata: Metadata = {
   title: "Answer Keys",
@@ -10,17 +13,27 @@ export const metadata: Metadata = {
 };
 
 export default async function AnswerKeysPage() {
-  const school = await verifySchoolSession();
+  const [school, answerKeys] = await Promise.all([verifySchoolSession(), listSchoolAnswerKeys()]);
 
   return (
-    <ResourcePage
-      title="Answer"
-      highlight="Keys"
-      subtitle="Please navigate through the below tabs for Answer Keys"
-      books={answerKeys}
-      programIds={school.programs}
-      label="Answer Keys"
-      emptyMessage="Answer keys for this program will be available here soon."
-    />
+    <>
+      <PageHero
+        title={
+          <>
+            Answer <span className="text-gradient">Keys</span>
+          </>
+        }
+        subtitle="Choose a program and class to open its answer keys."
+      />
+
+      <section className="py-16 sm:py-20">
+        <div className="mx-auto max-w-5xl px-5 sm:px-8">
+          <Reveal>
+            <SchoolAnswerKeys programIds={school.programs} answerKeys={answerKeys} />
+          </Reveal>
+          <ContactCta />
+        </div>
+      </section>
+    </>
   );
 }

@@ -36,6 +36,11 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return;
   }
 
+  if (error?.type === "entity.too.large") {
+    sendError(res, 413, "The upload is too large");
+    return;
+  }
+
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2025") {
       sendError(res, 404, "Resource not found");

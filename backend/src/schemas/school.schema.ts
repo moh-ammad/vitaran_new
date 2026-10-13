@@ -3,6 +3,7 @@ import {
   Program,
   SchoolBoard,
   SchoolStatus,
+  SchoolType,
 } from "../generated/prisma/enums.js";
 
 const requiredText = (min: number, max: number) =>
@@ -29,6 +30,7 @@ const password = z.string().min(1, "Password is required").max(128);
 const schoolFields = {
   name: requiredText(2, 200),
   board: z.enum(SchoolBoard),
+  type: z.enum(SchoolType),
   status: z.enum(SchoolStatus),
   programs: z
     .array(z.enum(Program))
@@ -52,6 +54,7 @@ const schoolFields = {
 
 export const createSchoolSchema = z.object({
   ...schoolFields,
+  type: schoolFields.type.default(SchoolType.REGULAR),
   status: schoolFields.status.default(SchoolStatus.ACTIVE),
   programs: schoolFields.programs.default([]),
   password,
@@ -77,6 +80,7 @@ export const listSchoolsQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   status: z.enum(SchoolStatus).optional(),
   board: z.enum(SchoolBoard).optional(),
+  type: z.enum(SchoolType).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
   sortBy: z.enum(["createdAt", "name", "city"]).default("createdAt"),

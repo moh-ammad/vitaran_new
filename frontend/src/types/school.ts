@@ -7,6 +7,8 @@ export const SCHOOL_BOARDS = [
   "OTHER",
 ] as const;
 
+export const SCHOOL_TYPES = ["REGULAR", "CUSTOMIZED"] as const;
+
 export const SCHOOL_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 
 export const PROGRAMS = [
@@ -18,6 +20,7 @@ export const PROGRAMS = [
 ] as const;
 
 export type SchoolBoard = (typeof SCHOOL_BOARDS)[number];
+export type SchoolType = (typeof SCHOOL_TYPES)[number];
 export type SchoolStatus = (typeof SCHOOL_STATUSES)[number];
 export type Program = (typeof PROGRAMS)[number];
 
@@ -26,6 +29,7 @@ export type School = {
   code: string;
   name: string;
   board: SchoolBoard;
+  type: SchoolType;
   status: SchoolStatus;
   programs: Program[];
   principalName: string | null;

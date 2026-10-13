@@ -11,7 +11,7 @@ import type { Program } from "@/types/school";
 type ProgramContent = {
   id: Program;
   icon: LucideIcon;
-  /** Also the key used in `solutionBooks` and `answerKeys`. */
+  /** Also the key used in `solutionBooks`. */
   title: string;
 };
 
