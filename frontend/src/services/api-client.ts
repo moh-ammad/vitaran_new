@@ -34,8 +34,8 @@ export async function apiClient<T>(
     requestHeaders.set("Accept", "application/json");
   }
 
-  // Files are sent as-is; everything else is JSON.
-  const isBinary = body instanceof Blob;
+  // Files and multipart forms are sent as-is; everything else is JSON.
+  const isBinary = body instanceof Blob || body instanceof FormData;
 
   if (body !== undefined && !isBinary && !requestHeaders.has("Content-Type")) {
     requestHeaders.set("Content-Type", "application/json");

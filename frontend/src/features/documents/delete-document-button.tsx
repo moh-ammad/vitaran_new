@@ -15,17 +15,26 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { deleteAnswerKeyAction } from "./actions";
+import type { DeleteResult } from "@/types/document";
+import { capitalize } from "./constants";
 
-export function DeleteAnswerKeyButton({ id, fileName }: { id: string; fileName: string }) {
+type DeleteDocumentButtonProps = {
+  fileName: string;
+  /** Lowercase, e.g. "answer key". */
+  noun: string;
+  /** Server action already bound to the document id. */
+  onDelete: () => Promise<DeleteResult>;
+};
+
+export function DeleteDocumentButton({ fileName, noun, onDelete }: DeleteDocumentButtonProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const onConfirm = () =>
     startTransition(async () => {
-      const result = await deleteAnswerKeyAction(id);
-      if (result.ok) toast.success("Answer key deleted");
+      const result = await onDelete();
+      if (result.ok) toast.success(`${capitalize(noun)} deleted`);
       else toast.error(result.message);
       setOpen(false);
       router.refresh();
@@ -48,7 +57,7 @@ export function DeleteAnswerKeyButton({ id, fileName }: { id: string; fileName: 
             <AlertDialogMedia className="bg-destructive/10 text-destructive">
               <Trash2 />
             </AlertDialogMedia>
-            <AlertDialogTitle>Delete this answer key?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this {noun}?</AlertDialogTitle>
             <AlertDialogDescription>
               <span className="font-medium text-foreground">{fileName}</span> will be
               permanently removed. This can&apos;t be undone.

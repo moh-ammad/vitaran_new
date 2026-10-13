@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { Program, SchoolType } from "../generated/prisma/enums.js";
-
-export const ANSWER_KEY_MAX_BYTES = 10 * 1024 * 1024;
-
-const fileName = z.string().trim().min(1).max(255);
+import { pdfFileNameSchema } from "../utils/pdf.js";
 
 /** Metadata travels in the query string; the request body is the raw PDF. */
 const answerKeyMetaSchema = z.object({
@@ -20,12 +17,12 @@ const requireSchoolWhenCustomized = <T extends { type: SchoolType; schoolId?: st
 const schoolIssue = { path: ["schoolId"], message: "Select a school" };
 
 export const uploadAnswerKeyQuerySchema = answerKeyMetaSchema
-  .extend({ fileName })
+  .extend({ fileName: pdfFileNameSchema })
   .refine(requireSchoolWhenCustomized, schoolIssue);
 
 /** The PDF is optional on update; `fileName` comes with it. */
 export const updateAnswerKeyQuerySchema = answerKeyMetaSchema
-  .extend({ fileName: fileName.optional() })
+  .extend({ fileName: pdfFileNameSchema.optional() })
   .refine(requireSchoolWhenCustomized, schoolIssue);
 
 export const listAnswerKeysQuerySchema = z.object({

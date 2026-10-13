@@ -1,24 +1,25 @@
-import express, { Router } from "express";
+import { Router } from "express";
 import {
   deleteAnswerKey,
   getAnswerKey,
   getAnswerKeyFile,
   getAnswerKeyStats,
+  getSchoolAnswerKeyFile,
   listAnswerKeys,
+  listSchoolAnswerKeys,
   updateAnswerKey,
   uploadAnswerKey,
 } from "../controllers/answer-key.controller.js";
-import { requireAdmin } from "../middleware/authenticate.js";
+import { requireAdmin, requireSchool } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import {
-  ANSWER_KEY_MAX_BYTES,
   answerKeyIdParamsSchema,
   listAnswerKeysQuerySchema,
   updateAnswerKeyQuerySchema,
   uploadAnswerKeyQuerySchema,
 } from "../schemas/answer-key.schema.js";
+import { readPdfBody } from "../utils/pdf.js";
 
-const readPdfBody = express.raw({ type: "application/pdf", limit: ANSWER_KEY_MAX_BYTES });
 const validateId = validate(answerKeyIdParamsSchema, "params");
 
 export const answerKeyRouter = Router();
@@ -38,3 +39,11 @@ answerKeyRouter.patch(
 );
 answerKeyRouter.get("/:id/file", validateId, getAnswerKeyFile);
 answerKeyRouter.delete("/:id", validateId, deleteAnswerKey);
+
+/** Answer keys as seen by a signed-in school. */
+export const schoolAnswerKeyRouter = Router();
+
+schoolAnswerKeyRouter.use(requireSchool);
+
+schoolAnswerKeyRouter.get("/", listSchoolAnswerKeys);
+schoolAnswerKeyRouter.get("/:id/file", validateId, getSchoolAnswerKeyFile);

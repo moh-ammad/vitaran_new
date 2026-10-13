@@ -16,7 +16,6 @@ export default async function TeachersResourcesPage() {
     <ResourcePage
       title="Teachers"
       highlight="Resources"
-      subtitle="Please navigate through the below tabs for Solution Books"
       books={solutionBooks}
       programIds={school.programs}
       label="Solution Books"

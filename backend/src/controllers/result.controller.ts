@@ -1,0 +1,79 @@
+import type { RequestHandler, Response } from "express";
+import type {
+  ListResultSetsQuery,
+  ResultSetFields,
+  ResultSheetParams,
+} from "../schemas/result.schema.js";
+import * as resultService from "../services/result.service.js";
+import type { UploadedFiles } from "../services/result.service.js";
+import type { SchoolAccountDto } from "../services/school.service.js";
+import { sendSuccess } from "../utils/api-response.js";
+import { EXCEL_MIME_TYPE } from "../utils/excel.js";
+
+type IdParams = { id: string };
+
+const signedInSchool = (res: Response) => res.locals.school as SchoolAccountDto;
+const sheetParams = (params: unknown) => params as ResultSheetParams;
+
+function sendExcel(res: Response, { fileName, data }: { fileName: string; data: Uint8Array }) {
+  res
+    .type(EXCEL_MIME_TYPE)
+    .set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+    .send(Buffer.from(data));
+}
+
+export const listResultSets: RequestHandler = async (req, res) => {
+  sendSuccess(res, await resultService.listResultSets(req.query as unknown as ListResultSetsQuery));
+};
+
+export const getResultStats: RequestHandler = async (_req, res) => {
+  sendSuccess(res, await resultService.getResultStats());
+};
+
+export const getResultSet: RequestHandler<IdParams> = async (req, res) => {
+  sendSuccess(res, await resultService.getResultSet(req.params.id));
+};
+
+export const uploadResultSet: RequestHandler = async (req, res) => {
+  sendSuccess(
+    res,
+    await resultService.uploadResultSet(req.body as ResultSetFields, req.files as UploadedFiles),
+    201,
+  );
+};
+
+export const updateResultSet: RequestHandler<IdParams> = async (req, res) => {
+  sendSuccess(
+    res,
+    await resultService.updateResultSet(req.params.id, req.body as ResultSetFields, req.files as UploadedFiles),
+  );
+};
+
+export const deleteResultSet: RequestHandler<IdParams> = async (req, res) => {
+  await resultService.deleteResultSet(req.params.id);
+  res.status(204).end();
+};
+
+export const getResultSheet: RequestHandler = async (req, res) => {
+  sendSuccess(res, await resultService.getResultSheet(sheetParams(req.params)));
+};
+
+export const getResultSheetFile: RequestHandler = async (req, res) => {
+  sendExcel(res, await resultService.getResultSheetFile(sheetParams(req.params)));
+};
+
+export const listSchoolResultSets: RequestHandler = async (_req, res) => {
+  sendSuccess(res, await resultService.listSchoolResultSets(signedInSchool(res)));
+};
+
+export const getSchoolResultSet: RequestHandler<IdParams> = async (req, res) => {
+  sendSuccess(res, await resultService.getResultSet(req.params.id, signedInSchool(res)));
+};
+
+export const getSchoolResultSheet: RequestHandler = async (req, res) => {
+  sendSuccess(res, await resultService.getResultSheet(sheetParams(req.params), signedInSchool(res)));
+};
+
+export const getSchoolResultSheetFile: RequestHandler = async (req, res) => {
+  sendExcel(res, await resultService.getResultSheetFile(sheetParams(req.params), signedInSchool(res)));
+};

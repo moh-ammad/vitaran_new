@@ -8,28 +8,16 @@ import type {
   UploadAnswerKeyQuery,
 } from "../schemas/answer-key.schema.js";
 import { AppError } from "../utils/app-error.js";
-import { formatSchoolCode, type SchoolAccountDto } from "./school.service.js";
-
-const PDF_SIGNATURE = Buffer.from("%PDF-");
+import { readPdf, requirePdf, toPdfData } from "../utils/pdf.js";
+import { toSchoolRef, type SchoolAccountDto } from "./school.service.js";
 
 function toAnswerKeyDto({ school, createdAt, updatedAt, ...rest }: AnswerKeySummary) {
   return {
     ...rest,
-    school: school && { id: school.id, name: school.name, code: formatSchoolCode(school.serial) },
+    school: school && toSchoolRef(school),
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
   };
-}
-
-/** Express leaves the body empty when no PDF was sent. */
-function readPdf(body: unknown): Buffer | null {
-  if (!Buffer.isBuffer(body) || body.length === 0) return null;
-  if (!body.subarray(0, PDF_SIGNATURE.length).equals(PDF_SIGNATURE)) {
-    throw new AppError(400, "Only PDF files can be uploaded", [
-      { path: ["file"], message: "Only PDF files can be uploaded" },
-    ]);
-  }
-  return body;
 }
 
 /** Customized keys must point at a customized school; regular keys never have one. */
@@ -43,6 +31,19 @@ async function resolveSchoolId(type: SchoolType, schoolId?: string) {
     ]);
   }
   return school.id;
+}
+
+/**
+ * Regular schools get the regular keys for their programs; customized schools get only
+ * the keys uploaded for them.
+ */
+function schoolAccessFilter(school: SchoolAccountDto): Prisma.AnswerKeyWhereInput {
+  return {
+    program: { in: school.programs },
+    ...(school.type === SchoolType.CUSTOMIZED
+      ? { schoolId: school.id }
+      : { type: SchoolType.REGULAR }),
+  };
 }
 
 export async function listRecentAnswerKeys(limit: number) {
@@ -60,20 +61,16 @@ export async function getAnswerKey(id: string) {
 }
 
 export async function uploadAnswerKey(
-  { schoolId, ...meta }: UploadAnswerKeyQuery,
+  { schoolId, fileName, ...meta }: UploadAnswerKeyQuery,
   body: unknown,
 ) {
-  const pdf = readPdf(body);
-  if (!pdf) {
-    throw new AppError(400, "Attach a PDF file", [{ path: ["file"], message: "Attach a PDF file" }]);
-  }
+  const pdf = requirePdf(body);
 
   return toAnswerKeyDto(
     await answerKeyRepository.createAnswerKey({
       ...meta,
       schoolId: await resolveSchoolId(meta.type, schoolId),
-      fileSize: pdf.length,
-      data: new Uint8Array(pdf),
+      ...toPdfData(pdf, fileName),
     }),
   );
 }
@@ -89,11 +86,7 @@ export async function updateAnswerKey(
     await answerKeyRepository.updateAnswerKey(id, {
       ...meta,
       schoolId: await resolveSchoolId(meta.type, schoolId),
-      ...(pdf && {
-        fileName: fileName ?? "answer-key.pdf",
-        fileSize: pdf.length,
-        data: new Uint8Array(pdf),
-      }),
+      ...(pdf && toPdfData(pdf, fileName ?? "answer-key.pdf")),
     }),
   );
 }
@@ -105,19 +98,6 @@ export async function getAnswerKeyFile(id: string, school?: SchoolAccountDto) {
   });
   if (!file) throw new AppError(404, "Answer key not found");
   return file;
-}
-
-/**
- * Regular schools get the regular keys for their programs; customized schools get only
- * the keys uploaded for them.
- */
-function schoolAccessFilter(school: SchoolAccountDto): Prisma.AnswerKeyWhereInput {
-  return {
-    program: { in: school.programs },
-    ...(school.type === SchoolType.CUSTOMIZED
-      ? { schoolId: school.id }
-      : { type: SchoolType.REGULAR }),
-  };
 }
 
 export async function listSchoolAnswerKeys(school: SchoolAccountDto) {

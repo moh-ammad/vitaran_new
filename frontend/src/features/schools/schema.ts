@@ -173,6 +173,7 @@ export const schoolListParamsSchema = z.object({
   search: z.string().trim().max(100).optional().catch(undefined),
   status: optionalEnum(SCHOOL_STATUSES),
   board: optionalEnum(SCHOOL_BOARDS),
+  type: optionalEnum(SCHOOL_TYPES),
   page: z.coerce.number().int().min(1).catch(1),
   pageSize: z.coerce.number().int().min(1).max(100).catch(SCHOOLS_PAGE_SIZE),
 });
