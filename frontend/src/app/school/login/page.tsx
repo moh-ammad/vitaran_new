@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BookOpenCheck, ClipboardCheck } from "lucide-react";
+import { SCHOOL_HOME_PATH } from "@/constants/auth";
 import { AuthShell } from "@/features/auth/auth-shell";
 import { LoginForm } from "@/features/auth/login-form";
 import { schoolLogin } from "@/features/school-auth/actions";
@@ -24,7 +25,7 @@ const highlights = [
 ];
 
 export default async function SchoolLoginPage() {
-  if (await getSchoolSession()) redirect("/");
+  if (await getSchoolSession()) redirect(SCHOOL_HOME_PATH);
 
   return (
     <AuthShell

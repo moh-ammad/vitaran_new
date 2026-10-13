@@ -3,13 +3,14 @@ import {
   ADMIN_BASE_PATH,
   ADMIN_LOGIN_PATH,
   ADMIN_SESSION_COOKIE,
+  RETURN_TO_COOKIE,
   SCHOOL_LOGIN_PATH,
   SCHOOL_SESSION_COOKIE,
 } from "@/constants/auth";
 
 // Optimistic cookie checks only; pages verify the session with the API.
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   if (pathname.startsWith(ADMIN_BASE_PATH)) {
     if (pathname === ADMIN_LOGIN_PATH || request.cookies.has(ADMIN_SESSION_COOKIE)) {
@@ -23,7 +24,15 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return NextResponse.redirect(new URL(SCHOOL_LOGIN_PATH, request.nextUrl));
+  const response = NextResponse.redirect(new URL(SCHOOL_LOGIN_PATH, request.nextUrl));
+  response.cookies.set(RETURN_TO_COOKIE, pathname + search, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 10,
+  });
+  return response;
 }
 
 // Matchers have to be literals.
