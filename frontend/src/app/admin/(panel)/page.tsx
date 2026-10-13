@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
-  BookOpenCheck,
   CheckCircle2,
   KeyRound,
   Plus,
@@ -39,7 +38,7 @@ import {
 import { PageHeader } from "@/features/admin/page-header";
 import { BOARD_LABELS, PROGRAM_LABELS } from "@/features/schools/constants";
 import { SchoolStatusBadge } from "@/features/schools/school-status-badge";
-import { answerKeys, solutionBooks } from "@/features/teachers-resources/solution-books";
+import { answerKeys } from "@/features/teachers-resources/solution-books";
 import { getSchoolStats } from "@/services/schools";
 import { formatDate, formatNumber } from "@/utils/format";
 
@@ -83,7 +82,6 @@ function StatCard({ label, value, hint, icon: Icon, href }: StatCardProps) {
 
 export default async function AdminDashboardPage() {
   const stats = await getSchoolStats();
-  const resourceCount = countFiles(solutionBooks);
   const answerKeyCount = countFiles(answerKeys);
   const percent = (count: number) => (stats.total === 0 ? 0 : Math.round((count / stats.total) * 100));
 
@@ -100,10 +98,9 @@ export default async function AdminDashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Total schools" value={stats.total} hint={`${stats.inactive} inactive`} icon={School} href="/admin/schools" />
         <StatCard label="Active schools" value={stats.active} hint={`${percent(stats.active)}% of all schools`} icon={CheckCircle2} href="/admin/schools?status=ACTIVE" />
-        <StatCard label="Teacher resources" value={resourceCount} hint="Solution books" icon={BookOpenCheck} href="/admin/teacher-resources" />
         <StatCard label="Answer keys" value={answerKeyCount} hint="Published files" icon={KeyRound} href="/admin/answer-keys" />
       </div>
 

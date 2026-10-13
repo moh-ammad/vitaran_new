@@ -16,9 +16,9 @@ const EMPTY = "—";
 
 function Panel({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-      <h2 className="flex items-center gap-2.5 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-sm font-semibold text-neutral-950">
-        <span className="flex size-6 items-center justify-center rounded-md border border-amber-200 bg-amber-50 text-amber-600 [&_svg]:size-3.5">
+    <section className="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]">
+      <h2 className="flex items-center gap-2.5 border-b border-brand-100 bg-brand-50/60 px-4 py-2 text-sm font-semibold text-brand-950">
+        <span className="flex size-6 items-center justify-center rounded-md border border-brand-200 bg-white text-brand-700 [&_svg]:size-3.5">
           {icon}
         </span>
         {title}
@@ -39,7 +39,7 @@ function Field({ label, span, children }: { label: string; span?: 2 | 3; childre
 
 function Chip({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="min-w-18 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-center">
+    <div className="min-w-18 rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-center">
       <p className="text-[9px] font-semibold tracking-wider text-white/50 uppercase">{label}</p>
       <p className="flex items-center justify-center gap-1.5 text-sm font-bold text-white">{value}</p>
     </div>
@@ -53,7 +53,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
 
   return (
     <div className="space-y-3">
-      <header className="flex flex-col gap-4 rounded-xl bg-neutral-950 px-5 py-4 text-white xl:flex-row xl:items-center xl:justify-between">
+      <header className="flex flex-col gap-4 rounded-xl border border-brand-700 bg-linear-to-r from-brand-800 to-brand-950 px-5 py-4 text-white shadow-[0_10px_30px_-12px_rgb(25_28_95/0.55)] xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold tracking-[0.2em] text-white/50 uppercase">School profile</p>
           <h1 className="mt-0.5 truncate text-xl font-bold sm:text-2xl">{school.name}</h1>
@@ -84,7 +84,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
           />
           <Chip label="Students" value={school.studentStrength ? formatNumber(school.studentStrength) : EMPTY} />
           <Chip label="Programs" value={school.programs.length} />
-          <div className="flex gap-2 xl:ml-2 xl:border-l xl:border-white/10 xl:pl-4">
+          <div className="flex gap-2 xl:ml-2 xl:border-l xl:border-white/15 xl:pl-4">
             <SchoolDetailActions school={school} inverted />
           </div>
         </div>
@@ -140,7 +140,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
         </div>
       </div>
 
-      <footer className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-500">
+      <footer className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm text-neutral-500 shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]">
         <span>
           Login email: <span className="font-semibold text-neutral-950">{school.accountEmail ?? EMPTY}</span>
         </span>
