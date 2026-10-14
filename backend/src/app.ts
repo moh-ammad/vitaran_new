@@ -25,7 +25,27 @@ export function createApp() {
   );
   app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: REQUEST_BODY_LIMIT }));
-  app.use(pinoHttp({ logger }));
+  app.use(
+    pinoHttp({
+      logger,
+      quietReqLogger: true,
+      quietResLogger: true,
+      autoLogging: {
+        ignore: (req) => req.url === `${API_PREFIX}/health`,
+      },
+      serializers: {
+        req: (req) => ({
+          method: req.method,
+          url: req.originalUrl ?? req.url,
+        }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+      customSuccessMessage: (req, res) =>
+        `${req.method} ${req.originalUrl ?? req.url} ${res.statusCode}`,
+      customErrorMessage: (req, res, error) =>
+        `${req.method} ${req.originalUrl ?? req.url} ${res.statusCode} ${error.message}`,
+    }),
+  );
   app.use(API_PREFIX, apiRouter);
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -38,7 +38,7 @@ export function LoginForm({ action, title, description, identifier }: LoginFormP
       </CardHeader>
 
       <CardContent>
-        <form action={formAction} noValidate>
+        <form key={state?.submittedAt ?? "login"} action={formAction} noValidate>
 
           <FieldGroup>
             {state?.message && (
@@ -58,7 +58,7 @@ export function LoginForm({ action, title, description, identifier }: LoginFormP
                 autoComplete="username"
                 autoFocus
                 placeholder={identifier.placeholder}
-                defaultValue={state?.identifier}
+                defaultValue={state?.identifier ?? ""}
                 aria-invalid={identifierError ? true : undefined}
                 className={INPUT_CLASSES}
               />

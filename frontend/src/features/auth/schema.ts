@@ -9,5 +9,6 @@ export type LoginFormState =
       identifier?: string;
       fieldErrors?: Partial<Record<keyof LoginCredentials, string[]>>;
       message?: string;
+      submittedAt: number;
     }
   | undefined;

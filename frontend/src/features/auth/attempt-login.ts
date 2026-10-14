@@ -24,13 +24,17 @@ export async function attemptLogin(
   const parsed = schema.safeParse({ identifier, password: formData.get("password") });
 
   if (!parsed.success) {
-    return { identifier, fieldErrors: z.flattenError(parsed.error).fieldErrors };
+    return {
+      identifier,
+      fieldErrors: z.flattenError(parsed.error).fieldErrors,
+      submittedAt: Date.now(),
+    };
   }
 
   try {
     await signIn(parsed.data);
     return null;
   } catch (error) {
-    return { identifier, message: loginErrorMessage(error) };
+    return { identifier, message: loginErrorMessage(error), submittedAt: Date.now() };
   }
 }
