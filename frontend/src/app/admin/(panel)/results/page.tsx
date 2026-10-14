@@ -20,7 +20,8 @@ export default async function AdminResultsPage({ searchParams }: PageProps<"/adm
     <>
       <PageHeader
         title="Results"
-        description="Upload each test's results class by class. Only that school can see them."
+        count={resultSets.length}
+        toolbar={<ListFiltersBar filters={filters} schools={schools} />}
         actions={
           <Link
             href={RESULT_UPLOAD_PATH}
@@ -35,7 +36,6 @@ export default async function AdminResultsPage({ searchParams }: PageProps<"/adm
         resultSets={resultSets}
         uploadHref={RESULT_UPLOAD_PATH}
         filtered={hasListFilters(filters)}
-        headerAction={<ListFiltersBar filters={filters} schools={schools} />}
       />
     </>
   );

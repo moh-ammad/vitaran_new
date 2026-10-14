@@ -39,7 +39,7 @@ type ResultsTableProps = {
   title?: string;
   /** Hidden on a school's own page, where every row is that school. */
   showSchool?: boolean;
-  /** Filter controls or a button, shown beside the title. */
+  /** Shown beside the title; the header only renders when `title` is set. */
   headerAction?: ReactNode;
   /** The list is narrowed by filters, so an empty list means "no matches". */
   filtered?: boolean;
@@ -48,22 +48,24 @@ type ResultsTableProps = {
 export function ResultsTable({
   resultSets,
   uploadHref,
-  title = "Results",
+  title,
   showSchool = true,
   headerAction,
   filtered = false,
 }: ResultsTableProps) {
   return (
     <section className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-[0_1px_2px_rgb(25_28_95/0.04),0_12px_32px_-16px_rgb(25_28_95/0.18)]">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-100 px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <h2 className="text-base font-bold text-neutral-950">{title}</h2>
-          <span className="rounded-full border border-brand-100 bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-800 tabular-nums">
-            {resultSets.length}
-          </span>
-        </div>
-        {headerAction}
-      </header>
+      {title && (
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-100 px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-bold text-neutral-950">{title}</h2>
+            <span className="rounded-full border border-brand-100 bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-800 tabular-nums">
+              {resultSets.length}
+            </span>
+          </div>
+          {headerAction}
+        </header>
+      )}
 
       {resultSets.length > 0 ? (
         <Table>

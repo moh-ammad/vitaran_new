@@ -25,7 +25,8 @@ export default async function AdminAnswerKeysPage({ searchParams }: PageProps<"/
     <>
       <PageHeader
         title="Answer Keys"
-        description="Upload answer keys for regular programs or for a customized school."
+        count={answerKeys.length}
+        toolbar={<ListFiltersBar filters={filters} schools={schools} />}
         actions={
           <Link
             href={ANSWER_KEY_UPLOAD_PATH}
@@ -42,7 +43,6 @@ export default async function AdminAnswerKeysPage({ searchParams }: PageProps<"/
         basePath={ANSWER_KEYS_PATH}
         uploadHref={ANSWER_KEY_UPLOAD_PATH}
         showType
-        filters={<ListFiltersBar filters={filters} schools={schools} />}
         filtered={hasListFilters(filters)}
         deleteAction={deleteAnswerKeyAction}
       />
