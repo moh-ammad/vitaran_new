@@ -91,8 +91,11 @@ export function DocumentTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.id} className="border-brand-100/70 hover:bg-brand-50/30">
-                <TableCell className="py-3.5 pl-6 text-center">
-                  <span className={NUMBER_PILL}>{item.testNumber}</span>
+                <TableCell className="py-3.5 pl-6">
+                  <span className="mx-auto flex size-11 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
+                    <span className="text-[9px] font-semibold tracking-wider text-white/70 uppercase">Test</span>
+                    <span className="text-base leading-none font-bold tabular-nums">{item.testNumber}</span>
+                  </span>
                 </TableCell>
                 <TableCell className="text-center">
                   <span className={NUMBER_PILL}>{item.classLevel}</span>
