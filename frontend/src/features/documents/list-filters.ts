@@ -12,12 +12,14 @@ const first = (value: string | string[] | undefined) => (Array.isArray(value) ? 
 /** Reads the filters from the page's search params, ignoring anything invalid. */
 export function parseListFilters(params: Record<string, string | string[] | undefined>): ListFilters {
   const test = Number(first(params[FILTER_PARAMS.test]));
-  const type = first(params[FILTER_PARAMS.type]);
+  const rawType = first(params[FILTER_PARAMS.type]);
+  const type = SCHOOL_TYPES.includes(rawType as SchoolType) ? (rawType as SchoolType) : undefined;
   const school = first(params[FILTER_PARAMS.school]);
   return {
     testNumber: TEST_NUMBERS.includes(test) ? test : undefined,
-    type: SCHOOL_TYPES.includes(type as SchoolType) ? (type as SchoolType) : undefined,
-    schoolId: school && UUID.test(school) ? school : undefined,
+    type,
+    // Only customized content belongs to a single school.
+    schoolId: type === "CUSTOMIZED" && school && UUID.test(school) ? school : undefined,
   };
 }
 

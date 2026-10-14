@@ -68,17 +68,18 @@ type ListFiltersBarProps = {
   schools: FilterSchool[];
 };
 
-/** Test → type → school dropdowns; the school list narrows to the chosen type. */
+/** Test and type dropdowns; picking "Customized" adds a dropdown of customized schools. */
 export function ListFiltersBar({ filters, schools }: ListFiltersBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
+  const showSchools = filters.type === "CUSTOMIZED";
   const schoolOptions = [
-    { value: ALL, label: "All schools" },
+    { value: ALL, label: "All customized schools" },
     ...schools
-      .filter((school) => !filters.type || school.type === filters.type)
+      .filter((school) => school.type === "CUSTOMIZED")
       .map((school) => ({ value: school.id, label: school.name })),
   ];
 
@@ -100,9 +101,7 @@ export function ListFiltersBar({ filters, schools }: ListFiltersBarProps) {
   };
 
   const changeType = (type: string) => {
-    const school = schools.find((item) => item.id === filters.schoolId);
-    const keepSchool = type === ALL || school?.type === type;
-    update({ type, ...(!keepSchool && { school: null }) });
+    update({ type, ...(type !== "CUSTOMIZED" && { school: null }) });
   };
 
   return (
@@ -121,13 +120,15 @@ export function ListFiltersBar({ filters, schools }: ListFiltersBarProps) {
         onChange={changeType}
         className="w-36"
       />
-      <FilterSelect
-        label="Filter by school"
-        value={filters.schoolId ?? ALL}
-        items={schoolOptions}
-        onChange={(school) => update({ school })}
-        className="w-56"
-      />
+      {showSchools && (
+        <FilterSelect
+          label="Filter by customized school"
+          value={filters.schoolId ?? ALL}
+          items={schoolOptions}
+          onChange={(school) => update({ school })}
+          className="w-56"
+        />
+      )}
       {hasListFilters(filters) && (
         <button
           type="button"
