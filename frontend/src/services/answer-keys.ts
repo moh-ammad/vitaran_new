@@ -1,6 +1,7 @@
 import "server-only";
 import { ApiError } from "@/services/api-client";
 import { adminApi, adminFetch } from "@/services/admin-api";
+import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { pdfUploadRequest } from "@/services/pdf-upload";
 import { schoolApi, schoolFetch } from "@/services/school-api";
 import type { AnswerKey, AnswerKeyInput } from "@/types/answer-key";
@@ -11,8 +12,8 @@ const itemPath = (base: string, id: string) => `${base}/${encodeURIComponent(id)
 
 const toRequest = ({ file, ...meta }: AnswerKeyInput) => pdfUploadRequest(meta, file);
 
-export function listRecentAnswerKeys() {
-  return adminApi<AnswerKey[]>(BASE);
+export function listRecentAnswerKeys(filters?: ListFilters) {
+  return adminApi<AnswerKey[]>(`${BASE}${listFiltersQuery(filters)}`);
 }
 
 export function getAnswerKeyStats() {

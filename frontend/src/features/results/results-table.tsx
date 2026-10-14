@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { wasEdited } from "@/features/documents/constants";
+import { DateTime } from "@/features/documents/date-time-cell";
 import { DeleteDocumentButton } from "@/features/documents/delete-document-button";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
 import type { ResultSet } from "@/types/result";
-import { formatDate, formatDateTime, formatNumber } from "@/utils/format";
+import { formatNumber } from "@/utils/format";
 import { deleteResultAction } from "./actions";
 import { RESULTS_PATH, resultEditHref, resultProgramLabel, resultSetHref } from "./constants";
 
@@ -38,30 +39,30 @@ type ResultsTableProps = {
   title?: string;
   /** Hidden on a school's own page, where every row is that school. */
   showSchool?: boolean;
-  /** Rendered next to the count. */
+  /** Filter controls or a button, shown beside the title. */
   headerAction?: ReactNode;
+  /** The list is narrowed by filters, so an empty list means "no matches". */
+  filtered?: boolean;
 };
 
 export function ResultsTable({
   resultSets,
   uploadHref,
-  title = "Uploaded results",
+  title = "Results",
   showSchool = true,
   headerAction,
+  filtered = false,
 }: ResultsTableProps) {
   return (
     <section className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-[0_1px_2px_rgb(25_28_95/0.04),0_12px_32px_-16px_rgb(25_28_95/0.18)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-100 px-6 py-4">
-        <div>
-          <h2 className="text-base font-semibold text-neutral-950">{title}</h2>
-          <p className="mt-0.5 text-xs text-neutral-500">One row per test. Newest and recently edited first.</p>
-        </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-base font-bold text-neutral-950">{title}</h2>
           <span className="rounded-full border border-brand-100 bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-800 tabular-nums">
-            {resultSets.length} {resultSets.length === 1 ? "test" : "tests"}
+            {resultSets.length}
           </span>
-          {headerAction}
         </div>
+        {headerAction}
       </header>
 
       {resultSets.length > 0 ? (
@@ -73,7 +74,8 @@ export function ResultsTable({
               <TableHead className={cn(HEAD, "hidden lg:table-cell")}>Program</TableHead>
               <TableHead className={cn(HEAD, "hidden md:table-cell")}>Classes</TableHead>
               <TableHead className={cn(HEAD, "hidden text-right xl:table-cell")}>Students</TableHead>
-              <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Last updated</TableHead>
+              <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Uploaded</TableHead>
+              <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Updated</TableHead>
               <TableHead className={cn(HEAD, "pr-6 text-right")}>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -130,19 +132,10 @@ export function ResultsTable({
                     {formatNumber(students)}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <p className="text-sm whitespace-nowrap text-neutral-800">{formatDateTime(resultSet.updatedAt)}</p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
-                      {wasEdited(resultSet) ? (
-                        <>
-                          <span className="rounded-full bg-brand-50 px-1.5 py-px text-[10px] font-semibold tracking-wide text-brand-700 uppercase">
-                            Edited
-                          </span>
-                          Uploaded {formatDate(resultSet.createdAt)}
-                        </>
-                      ) : (
-                        "Uploaded"
-                      )}
-                    </p>
+                    <DateTime iso={resultSet.createdAt} />
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <DateTime iso={wasEdited(resultSet) ? resultSet.updatedAt : null} />
                   </TableCell>
                   <TableCell className="pr-6">
                     <div className="ml-auto flex w-fit divide-x divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
@@ -164,6 +157,16 @@ export function ResultsTable({
             })}
           </TableBody>
         </Table>
+      ) : filtered ? (
+        <Empty className="py-14">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Trophy />
+            </EmptyMedia>
+            <EmptyTitle>No matching results</EmptyTitle>
+            <EmptyDescription>Try another test, type or school.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <Empty className="py-14">
           <EmptyHeader>

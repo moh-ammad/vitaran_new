@@ -19,8 +19,9 @@ export type AnswerKeySummary = Prisma.AnswerKeyGetPayload<{
   select: typeof answerKeySummarySelect;
 }>;
 
-export function findRecentAnswerKeys(limit: number) {
+export function findRecentAnswerKeys(where: Prisma.AnswerKeyWhereInput, limit: number) {
   return prisma.answerKey.findMany({
+    where,
     select: answerKeySummarySelect,
     orderBy: { updatedAt: "desc" },
     take: limit,

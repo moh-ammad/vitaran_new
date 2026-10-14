@@ -4,6 +4,7 @@ import * as answerKeyRepository from "../repositories/answer-key.repository.js";
 import type { AnswerKeySummary } from "../repositories/answer-key.repository.js";
 import * as schoolRepository from "../repositories/school.repository.js";
 import type {
+  ListAnswerKeysQuery,
   UpdateAnswerKeyQuery,
   UploadAnswerKeyQuery,
 } from "../schemas/answer-key.schema.js";
@@ -37,7 +38,8 @@ async function resolveSchoolId(type: SchoolType, schoolId?: string) {
  * Regular schools get the regular keys for their programs; customized schools get only
  * the keys uploaded for them.
  */
-function schoolAccessFilter(school: SchoolAccountDto): Prisma.AnswerKeyWhereInput {
+/** The answer keys a school can open: its own if customized, otherwise the regular ones for its programs. */
+function schoolAccessFilter(school: Pick<SchoolAccountDto, "id" | "type" | "programs">): Prisma.AnswerKeyWhereInput {
   return {
     program: { in: school.programs },
     ...(school.type === SchoolType.CUSTOMIZED
@@ -46,8 +48,14 @@ function schoolAccessFilter(school: SchoolAccountDto): Prisma.AnswerKeyWhereInpu
   };
 }
 
-export async function listRecentAnswerKeys(limit: number) {
-  return (await answerKeyRepository.findRecentAnswerKeys(limit)).map(toAnswerKeyDto);
+export async function listRecentAnswerKeys({ limit, testNumber, type, schoolId }: ListAnswerKeysQuery) {
+  const where: Prisma.AnswerKeyWhereInput[] = [{ testNumber, type }];
+  if (schoolId) {
+    const school = await schoolRepository.findSchoolById(schoolId);
+    if (!school) return [];
+    where.push(schoolAccessFilter(school));
+  }
+  return (await answerKeyRepository.findRecentAnswerKeys({ AND: where }, limit)).map(toAnswerKeyDto);
 }
 
 export async function getAnswerKeyStats() {

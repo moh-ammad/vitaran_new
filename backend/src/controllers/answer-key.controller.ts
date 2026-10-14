@@ -12,8 +12,7 @@ import { sendPdf } from "../utils/pdf.js";
 type IdParams = { id: string };
 
 export const listAnswerKeys: RequestHandler = async (req, res) => {
-  const { limit } = req.query as unknown as ListAnswerKeysQuery;
-  sendSuccess(res, await answerKeyService.listRecentAnswerKeys(limit));
+  sendSuccess(res, await answerKeyService.listRecentAnswerKeys(req.query as unknown as ListAnswerKeysQuery));
 };
 
 export const getAnswerKeyStats: RequestHandler = async (_req, res) => {

@@ -1,6 +1,7 @@
 import "server-only";
 import { ApiError } from "@/services/api-client";
 import { adminApi, adminFetch } from "@/services/admin-api";
+import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { schoolApi, schoolFetch } from "@/services/school-api";
 import type { ResultSet, ResultSheet } from "@/types/result";
 
@@ -20,9 +21,8 @@ async function orNull<T>(request: Promise<T>): Promise<T | null> {
   }
 }
 
-export function listResultSets({ schoolId }: { schoolId?: string } = {}) {
-  const suffix = schoolId ? `?${new URLSearchParams({ schoolId })}` : "";
-  return adminApi<ResultSet[]>(`${BASE}${suffix}`);
+export function listResultSets(filters?: ListFilters) {
+  return adminApi<ResultSet[]>(`${BASE}${listFiltersQuery(filters)}`);
 }
 
 export function getResultStats() {

@@ -10,12 +10,16 @@ import {
   ANSWER_KEYS_PATH,
 } from "@/features/answer-keys/constants";
 import { DocumentTable } from "@/features/documents/document-table";
+import { hasListFilters, parseListFilters } from "@/features/documents/list-filters";
+import { ListFiltersBar } from "@/features/documents/list-filters-bar";
 import { listRecentAnswerKeys } from "@/services/answer-keys";
+import { listSchoolOptions } from "@/services/schools";
 
 export const metadata: Metadata = { title: "Answer Keys" };
 
-export default async function AdminAnswerKeysPage() {
-  const answerKeys = await listRecentAnswerKeys();
+export default async function AdminAnswerKeysPage({ searchParams }: PageProps<"/admin/answer-keys">) {
+  const filters = parseListFilters(await searchParams);
+  const [answerKeys, schools] = await Promise.all([listRecentAnswerKeys(filters), listSchoolOptions()]);
 
   return (
     <>
@@ -38,6 +42,8 @@ export default async function AdminAnswerKeysPage() {
         basePath={ANSWER_KEYS_PATH}
         uploadHref={ANSWER_KEY_UPLOAD_PATH}
         showType
+        filters={<ListFiltersBar filters={filters} schools={schools} />}
+        filtered={hasListFilters(filters)}
         deleteAction={deleteAnswerKeyAction}
       />
     </>

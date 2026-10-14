@@ -27,6 +27,9 @@ export const updateAnswerKeyQuerySchema = answerKeyMetaSchema
 
 export const listAnswerKeysQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  testNumber: z.coerce.number().int().min(1).max(100).optional(),
+  type: z.enum(SchoolType).optional(),
+  schoolId: z.uuid().optional(),
 });
 
 export const answerKeyIdParamsSchema = z.object({
