@@ -21,12 +21,12 @@ export default async function AdminPanelLayout({
     <TooltipProvider>
       <SidebarProvider
         defaultOpen={defaultOpen}
-        style={{ "--sidebar-width": "12rem" } as React.CSSProperties}
+        style={{ "--sidebar-width": "10.8rem" } as React.CSSProperties}
       >
         <AdminSidebar admin={admin} />
         <SidebarInset className="min-w-0 bg-neutral-50">
           <AdminHeader />
-          <div className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-5 lg:px-8 lg:py-6">
+          <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
             {children}
           </div>
         </SidebarInset>

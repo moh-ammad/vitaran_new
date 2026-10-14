@@ -104,8 +104,9 @@ const requireClasses = (count: number) => {
   if (count === 0) throw fieldError(400, "classes", "Upload at least one class");
 };
 
-export async function listResultSets({ limit, schoolId }: ListResultSetsQuery) {
-  return (await resultRepository.findResultSets(schoolId ? { schoolId } : {}, limit)).map(toResultSetDto);
+export async function listResultSets({ limit, testNumber, type, schoolId }: ListResultSetsQuery) {
+  const where: Prisma.ResultSetWhereInput = { testNumber, schoolId, ...(type && { school: { type } }) };
+  return (await resultRepository.findResultSets(where, limit)).map(toResultSetDto);
 }
 
 export async function getResultStats() {

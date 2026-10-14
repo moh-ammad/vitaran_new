@@ -50,10 +50,7 @@ export async function saveDocument<Field extends string, Input>({
   const files = Object.fromEntries(fileFields.map((field) => [field, formData.get(field)]));
   const parsed = schema.safeParse({ ...values, ...files });
   if (!parsed.success) {
-    return fail({
-      message: "Please fix the highlighted fields.",
-      fieldErrors: z.flattenError(parsed.error).fieldErrors as unknown as FieldErrors<Field>,
-    });
+    return fail({ fieldErrors: z.flattenError(parsed.error).fieldErrors as unknown as FieldErrors<Field> });
   }
 
   try {
@@ -68,7 +65,7 @@ export async function saveDocument<Field extends string, Input>({
     }
     if (error instanceof ApiError && error.status < 500) {
       const fieldErrors = fieldErrorsFromApi<Field>(error.details);
-      return fail({ message: fieldErrors ? "Please fix the highlighted fields." : error.message, fieldErrors });
+      return fail(fieldErrors ? { fieldErrors } : { message: error.message });
     }
 
     console.error(`Failed to save ${noun}`, error);

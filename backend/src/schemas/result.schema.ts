@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Program } from "../generated/prisma/enums.js";
+import { Program, SchoolType } from "../generated/prisma/enums.js";
 
 export const CLASS_LEVELS = Array.from({ length: 12 }, (_, index) => index + 1);
 
@@ -29,6 +29,8 @@ export const resultSetFieldsSchema = z.object({
 
 export const listResultSetsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  testNumber: z.coerce.number().int().min(1).max(100).optional(),
+  type: z.enum(SchoolType).optional(),
   schoolId: z.uuid().optional(),
 });
 

@@ -57,10 +57,7 @@ async function saveSchool(
   const parsed = getSchoolFormSchema(mode).safeParse(values);
 
   if (!parsed.success) {
-    return errorState(mode, values, {
-      message: "Please fix the highlighted fields.",
-      fieldErrors: z.flattenError(parsed.error).fieldErrors,
-    });
+    return errorState(mode, values, { fieldErrors: z.flattenError(parsed.error).fieldErrors });
   }
 
   try {
@@ -72,10 +69,7 @@ async function saveSchool(
 
     if (error instanceof ApiError && (error.status === 400 || error.status === 409)) {
       const fieldErrors = fieldErrorsFromApi(error.details);
-      return errorState(mode, values, {
-        message: fieldErrors ? "Please fix the highlighted fields." : error.message,
-        fieldErrors,
-      });
+      return errorState(mode, values, fieldErrors ? { fieldErrors } : { message: error.message });
     }
 
     if (error instanceof ApiError && error.status === 404) {
