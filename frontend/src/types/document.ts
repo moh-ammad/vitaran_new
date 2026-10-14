@@ -14,4 +14,10 @@ export type PdfDocument = {
   updatedAt: string;
 };
 
+/** Schools only see what the admin has published. */
+export type Publishable = {
+  published: boolean;
+  publishedAt: string | null;
+};
+
 export type DeleteResult = { ok: true } | { ok: false; message: string };

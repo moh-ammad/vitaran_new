@@ -4,6 +4,7 @@ import type {
   UpdateAnswerKeyQuery,
   UploadAnswerKeyQuery,
 } from "../schemas/answer-key.schema.js";
+import type { PublishBody } from "../schemas/publish.schema.js";
 import * as answerKeyService from "../services/answer-key.service.js";
 import type { SchoolAccountDto } from "../services/school.service.js";
 import { sendSuccess } from "../utils/api-response.js";
@@ -55,6 +56,11 @@ export const getSchoolAnswerKeyFile: RequestHandler<IdParams> = async (req, res)
     res,
     await answerKeyService.getAnswerKeyFile(req.params.id, res.locals.school as SchoolAccountDto),
   );
+};
+
+export const setAnswerKeyPublished: RequestHandler<IdParams> = async (req, res) => {
+  const { published } = req.body as PublishBody;
+  sendSuccess(res, await answerKeyService.setAnswerKeyPublished(req.params.id, published));
 };
 
 export const deleteAnswerKey: RequestHandler<IdParams> = async (req, res) => {

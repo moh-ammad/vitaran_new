@@ -4,6 +4,7 @@ import type {
   ResultSetFields,
   ResultSheetParams,
 } from "../schemas/result.schema.js";
+import type { PublishBody } from "../schemas/publish.schema.js";
 import * as resultService from "../services/result.service.js";
 import type { UploadedFiles } from "../services/result.service.js";
 import type { SchoolAccountDto } from "../services/school.service.js";
@@ -47,6 +48,11 @@ export const updateResultSet: RequestHandler<IdParams> = async (req, res) => {
     res,
     await resultService.updateResultSet(req.params.id, req.body as ResultSetFields, req.files as UploadedFiles),
   );
+};
+
+export const setResultSetPublished: RequestHandler<IdParams> = async (req, res) => {
+  const { published } = req.body as PublishBody;
+  sendSuccess(res, await resultService.setResultSetPublished(req.params.id, published));
 };
 
 export const deleteResultSet: RequestHandler<IdParams> = async (req, res) => {

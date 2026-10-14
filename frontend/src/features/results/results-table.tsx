@@ -25,7 +25,8 @@ import { DeleteDocumentButton } from "@/features/documents/delete-document-butto
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
 import type { ResultSet } from "@/types/result";
 import { formatNumber } from "@/utils/format";
-import { deleteResultAction } from "./actions";
+import { PublishSwitch } from "@/features/documents/publish-switch";
+import { deleteResultAction, setResultPublishedAction } from "./actions";
 import { RESULTS_PATH, resultEditHref, resultProgramLabel, resultSetHref } from "./constants";
 
 const HEAD = "h-10 text-[11px] font-semibold tracking-wider text-neutral-500 uppercase";
@@ -78,6 +79,7 @@ export function ResultsTable({
               <TableHead className={cn(HEAD, "hidden text-right xl:table-cell")}>Students</TableHead>
               <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Uploaded</TableHead>
               <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Updated</TableHead>
+              <TableHead className={HEAD}>Schools</TableHead>
               <TableHead className={cn(HEAD, "pr-6 text-right")}>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -138,6 +140,13 @@ export function ResultsTable({
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <DateTime iso={wasEdited(resultSet) ? resultSet.updatedAt : null} />
+                  </TableCell>
+                  <TableCell>
+                    <PublishSwitch
+                      published={resultSet.published}
+                      label={label}
+                      onToggle={setResultPublishedAction.bind(null, resultSet.id)}
+                    />
                   </TableCell>
                   <TableCell className="pr-6">
                     <div className="ml-auto flex w-fit divide-x divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">

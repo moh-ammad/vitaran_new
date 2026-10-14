@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PROGRAM_LABELS } from "@/features/schools/constants";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
-import type { DeleteResult, PdfDocument, SchoolRef } from "@/types/document";
+import type { DeleteResult, PdfDocument, Publishable, SchoolRef } from "@/types/document";
 import type { SchoolType } from "@/types/school";
 import {
   capitalize,
@@ -31,6 +31,7 @@ import {
 } from "./constants";
 import { DateTime } from "./date-time-cell";
 import { DeleteDocumentButton } from "./delete-document-button";
+import { PublishSwitch } from "./publish-switch";
 
 const ROW_ACTION =
   "inline-flex size-8 items-center justify-center text-neutral-500 transition-colors hover:bg-brand-50 hover:text-brand-900 [&_svg]:size-4";
@@ -40,7 +41,7 @@ const NUMBER_PILL =
 
 const HEAD = "h-10 text-[11px] font-semibold tracking-wider text-neutral-500 uppercase";
 
-type DocumentRow = PdfDocument & { type?: SchoolType; school: SchoolRef | null };
+type DocumentRow = PdfDocument & Publishable & { type?: SchoolType; school: SchoolRef | null };
 
 type DocumentTableProps = {
   items: DocumentRow[];
@@ -53,6 +54,7 @@ type DocumentTableProps = {
   showType?: boolean;
   /** The list is narrowed by filters, so an empty list means "no matches". */
   filtered?: boolean;
+  publishAction: (id: string, published: boolean) => Promise<DeleteResult>;
   deleteAction: (id: string) => Promise<DeleteResult>;
 };
 
@@ -63,6 +65,7 @@ export function DocumentTable({
   uploadHref,
   showType = false,
   filtered = false,
+  publishAction,
   deleteAction,
 }: DocumentTableProps) {
   return (
@@ -79,6 +82,7 @@ export function DocumentTable({
               <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Uploaded</TableHead>
               <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Updated</TableHead>
               <TableHead className={HEAD}>{capitalize(noun)}</TableHead>
+              <TableHead className={HEAD}>Schools</TableHead>
               <TableHead className={cn(HEAD, "pr-6 text-right")}>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -134,6 +138,13 @@ export function DocumentTable({
                       </p>
                     </div>
                   </div>
+                </TableCell>
+                <TableCell>
+                  <PublishSwitch
+                    published={item.published}
+                    label={item.fileName}
+                    onToggle={publishAction.bind(null, item.id)}
+                  />
                 </TableCell>
                 <TableCell className="pr-6">
                   <div className="ml-auto flex w-fit divide-x divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">

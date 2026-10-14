@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHero } from "@/components/shared/page-hero";
+import { LiveRefresh } from "@/features/live/live-refresh";
 import { SCHOOL_RESULTS_PATH } from "@/features/results/constants";
 import { ResultSetView, selectedClass } from "@/features/results/result-set-view";
 import { getSchoolResultSet, getSchoolResultSheet } from "@/services/results";
@@ -16,6 +17,7 @@ export default async function SchoolResultPage({ params, searchParams }: PagePro
 
   return (
     <>
+      <LiveRefresh kind="results" />
       <PageHero
         title={
           <>

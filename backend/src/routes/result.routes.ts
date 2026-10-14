@@ -11,6 +11,7 @@ import {
   getSchoolResultSheetFile,
   listResultSets,
   listSchoolResultSets,
+  setResultSetPublished,
   updateResultSet,
   uploadResultSet,
 } from "../controllers/result.controller.js";
@@ -24,6 +25,7 @@ import {
   resultSetIdParamsSchema,
   resultSheetParamsSchema,
 } from "../schemas/result.schema.js";
+import { publishBodySchema } from "../schemas/publish.schema.js";
 import { EXCEL_MAX_BYTES } from "../utils/excel.js";
 
 const validateId = validate(resultSetIdParamsSchema, "params");
@@ -47,6 +49,7 @@ resultRouter.get("/stats", getResultStats);
 resultRouter.get("/:id", validateId, getResultSet);
 resultRouter.patch("/:id", validateId, readClassFiles, validateFields, updateResultSet);
 resultRouter.delete("/:id", validateId, deleteResultSet);
+resultRouter.patch("/:id/publish", validateId, validate(publishBodySchema, "body"), setResultSetPublished);
 resultRouter.get("/:id/classes/:classLevel", validateSheet, getResultSheet);
 resultRouter.get("/:id/classes/:classLevel/file", validateSheet, getResultSheetFile);
 

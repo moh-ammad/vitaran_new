@@ -42,6 +42,10 @@ export function updateResultSet(id: string, form: FormData) {
   return adminApi<ResultSet>(setPath(BASE, id), { method: "PATCH", body: form });
 }
 
+export function setResultSetPublished(id: string, published: boolean) {
+  return adminApi<ResultSet>(`${setPath(BASE, id)}/publish`, { method: "PATCH", body: { published } });
+}
+
 export function deleteResultSet(id: string) {
   return adminApi<void>(setPath(BASE, id), { method: "DELETE" });
 }

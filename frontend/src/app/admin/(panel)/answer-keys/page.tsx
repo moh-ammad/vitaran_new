@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Upload } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
-import { deleteAnswerKeyAction } from "@/features/answer-keys/actions";
+import { deleteAnswerKeyAction, setAnswerKeyPublishedAction } from "@/features/answer-keys/actions";
 import {
   ANSWER_KEY_NOUN,
   ANSWER_KEY_UPLOAD_PATH,
@@ -44,6 +44,7 @@ export default async function AdminAnswerKeysPage({ searchParams }: PageProps<"/
         uploadHref={ANSWER_KEY_UPLOAD_PATH}
         showType
         filtered={hasListFilters(filters)}
+        publishAction={setAnswerKeyPublishedAction}
         deleteAction={deleteAnswerKeyAction}
       />
     </>

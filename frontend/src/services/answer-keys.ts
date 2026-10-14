@@ -39,6 +39,10 @@ export function updateAnswerKey(id: string, input: AnswerKeyInput) {
   return adminApi<AnswerKey>(`${itemPath(BASE, id)}?${query}`, { method: "PATCH", ...init });
 }
 
+export function setAnswerKeyPublished(id: string, published: boolean) {
+  return adminApi<AnswerKey>(`${itemPath(BASE, id)}/publish`, { method: "PATCH", body: { published } });
+}
+
 export function deleteAnswerKey(id: string) {
   return adminApi<void>(itemPath(BASE, id), { method: "DELETE" });
 }

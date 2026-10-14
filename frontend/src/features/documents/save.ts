@@ -73,6 +73,27 @@ export async function saveDocument<Field extends string, Input>({
   }
 }
 
+/** Shows or hides a document from schools. */
+export async function publishDocument(
+  publish: () => Promise<unknown>,
+  revalidate: string,
+  noun: string,
+): Promise<DeleteResult> {
+  try {
+    await publish();
+    revalidatePath(revalidate, "layout");
+    return { ok: true };
+  } catch (error) {
+    unstable_rethrow(error);
+
+    if (error instanceof ApiError && error.status === 404) {
+      revalidatePath(revalidate, "layout");
+      return { ok: false, message: `This ${noun} no longer exists.` };
+    }
+    return { ok: false, message: `We couldn't update the ${noun}. Please try again.` };
+  }
+}
+
 export async function deleteDocument(
   remove: () => Promise<unknown>,
   revalidate: string,

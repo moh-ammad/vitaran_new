@@ -7,6 +7,7 @@ import {
   getSchoolAnswerKeyFile,
   listAnswerKeys,
   listSchoolAnswerKeys,
+  setAnswerKeyPublished,
   updateAnswerKey,
   uploadAnswerKey,
 } from "../controllers/answer-key.controller.js";
@@ -18,6 +19,7 @@ import {
   updateAnswerKeyQuerySchema,
   uploadAnswerKeyQuerySchema,
 } from "../schemas/answer-key.schema.js";
+import { publishBodySchema } from "../schemas/publish.schema.js";
 import { readPdfBody } from "../utils/pdf.js";
 
 const validateId = validate(answerKeyIdParamsSchema, "params");
@@ -37,6 +39,7 @@ answerKeyRouter.patch(
   readPdfBody,
   updateAnswerKey,
 );
+answerKeyRouter.patch("/:id/publish", validateId, validate(publishBodySchema, "body"), setAnswerKeyPublished);
 answerKeyRouter.get("/:id/file", validateId, getAnswerKeyFile);
 answerKeyRouter.delete("/:id", validateId, deleteAnswerKey);
 
