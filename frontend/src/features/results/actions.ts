@@ -1,7 +1,7 @@
 "use server";
 
 import { ADMIN_BASE_PATH } from "@/constants/auth";
-import { deleteDocument, saveDocument } from "@/features/documents/save";
+import { deleteDocument, publishDocument, saveDocument } from "@/features/documents/save";
 import * as resultService from "@/services/results";
 import {
   CLASS_FILE_FIELDS,
@@ -56,6 +56,10 @@ export async function updateResultAction(
     formData,
     save: (input) => resultService.updateResultSet(id, toApiForm(input)),
   });
+}
+
+export async function setResultPublishedAction(id: string, published: boolean) {
+  return publishDocument(() => resultService.setResultSetPublished(id, published), REVALIDATE_PATH, NOUN);
 }
 
 export async function deleteResultAction(id: string) {

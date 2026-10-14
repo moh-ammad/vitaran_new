@@ -9,13 +9,17 @@ import type {
   UploadAnswerKeyQuery,
 } from "../schemas/answer-key.schema.js";
 import { AppError } from "../utils/app-error.js";
+import { notifyContentChanged } from "../utils/content-events.js";
 import { readPdf, requirePdf, toPdfData } from "../utils/pdf.js";
 import { toSchoolRef, type SchoolAccountDto } from "./school.service.js";
 
-function toAnswerKeyDto({ school, createdAt, updatedAt, ...rest }: AnswerKeySummary) {
+const KIND = "answer-keys";
+
+function toAnswerKeyDto({ school, createdAt, updatedAt, publishedAt, ...rest }: AnswerKeySummary) {
   return {
     ...rest,
     school: school && toSchoolRef(school),
+    publishedAt: publishedAt?.toISOString() ?? null,
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
   };
@@ -38,7 +42,6 @@ async function resolveSchoolId(type: SchoolType, schoolId?: string) {
  * Regular schools get the regular keys for their programs; customized schools get only
  * the keys uploaded for them.
  */
-/** The answer keys a school can open: its own if customized, otherwise the regular ones for its programs. */
 function schoolAccessFilter(school: Pick<SchoolAccountDto, "id" | "type" | "programs">): Prisma.AnswerKeyWhereInput {
   return {
     program: { in: school.programs },
@@ -47,6 +50,12 @@ function schoolAccessFilter(school: Pick<SchoolAccountDto, "id" | "type" | "prog
       : { type: SchoolType.REGULAR }),
   };
 }
+
+/** What a signed-in school can see: keys it has access to that the admin has published. */
+const schoolVisibleFilter = (school: SchoolAccountDto): Prisma.AnswerKeyWhereInput => ({
+  ...schoolAccessFilter(school),
+  published: true,
+});
 
 export async function listRecentAnswerKeys({ limit, testNumber, type, schoolId }: ListAnswerKeysQuery) {
   const where: Prisma.AnswerKeyWhereInput[] = [{ testNumber, type }];
@@ -90,28 +99,37 @@ export async function updateAnswerKey(
 ) {
   const pdf = readPdf(body);
 
-  return toAnswerKeyDto(
-    await answerKeyRepository.updateAnswerKey(id, {
-      ...meta,
-      schoolId: await resolveSchoolId(meta.type, schoolId),
-      ...(pdf && toPdfData(pdf, fileName ?? "answer-key.pdf")),
-    }),
-  );
+  const answerKey = await answerKeyRepository.updateAnswerKey(id, {
+    ...meta,
+    schoolId: await resolveSchoolId(meta.type, schoolId),
+    ...(pdf && toPdfData(pdf, fileName ?? "answer-key.pdf")),
+  });
+  // The key may have moved to another school, so tell every school.
+  if (answerKey.published) notifyContentChanged({ kind: KIND, schoolId: null });
+  return toAnswerKeyDto(answerKey);
 }
 
 export async function getAnswerKeyFile(id: string, school?: SchoolAccountDto) {
   const file = await answerKeyRepository.findAnswerKeyFile({
     id,
-    ...(school && schoolAccessFilter(school)),
+    ...(school && schoolVisibleFilter(school)),
   });
   if (!file) throw new AppError(404, "Answer key not found");
   return file;
 }
 
 export async function listSchoolAnswerKeys(school: SchoolAccountDto) {
-  return (await answerKeyRepository.findAnswerKeys(schoolAccessFilter(school))).map(toAnswerKeyDto);
+  return (await answerKeyRepository.findAnswerKeys(schoolVisibleFilter(school))).map(toAnswerKeyDto);
+}
+
+export async function setAnswerKeyPublished(id: string, published: boolean) {
+  const answerKey = await answerKeyRepository.setAnswerKeyPublished(id, published);
+  if (!answerKey) throw new AppError(404, "Answer key not found");
+  notifyContentChanged({ kind: KIND, schoolId: answerKey.school?.id ?? null });
+  return toAnswerKeyDto(answerKey);
 }
 
 export async function deleteAnswerKey(id: string) {
-  await answerKeyRepository.deleteAnswerKey(id);
+  const { schoolId, published } = await answerKeyRepository.deleteAnswerKey(id);
+  if (published) notifyContentChanged({ kind: KIND, schoolId });
 }

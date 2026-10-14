@@ -15,8 +15,11 @@ import {
   type ResultSheetParams,
 } from "../schemas/result.schema.js";
 import { AppError } from "../utils/app-error.js";
+import { notifyContentChanged } from "../utils/content-events.js";
 import { ExcelParseError, parseResultSheet, type CellValue } from "../utils/excel.js";
 import { toSchoolRef, type SchoolAccountDto } from "./school.service.js";
+
+const KIND = "results";
 
 export type UploadedFiles = Partial<Record<string, Express.Multer.File[]>>;
 
@@ -25,9 +28,10 @@ type FieldIssue = { path: [string]; message: string };
 const fieldError = (status: number, path: string, message: string) =>
   new AppError(status, message, [{ path: [path], message }] satisfies FieldIssue[]);
 
-function toResultSetDto({ school, sheets, createdAt, updatedAt, ...rest }: ResultSetSummary) {
+function toResultSetDto({ school, sheets, createdAt, updatedAt, publishedAt, ...rest }: ResultSetSummary) {
   return {
     ...rest,
+    publishedAt: publishedAt?.toISOString() ?? null,
     school: { ...toSchoolRef(school), type: school.type },
     classes: sheets.map(({ updatedAt: sheetUpdatedAt, ...sheet }) => ({
       ...sheet,
@@ -113,8 +117,11 @@ export async function getResultStats() {
   return { total: await resultRepository.countResultSets() };
 }
 
+/** Schools only reach their own results, and only once the admin has published them. */
+const schoolScope = (school: SchoolAccountDto) => ({ schoolId: school.id, published: true });
+
 export async function getResultSet(id: string, school?: SchoolAccountDto) {
-  const resultSet = await resultRepository.findResultSet({ id, ...(school && { schoolId: school.id }) });
+  const resultSet = await resultRepository.findResultSet({ id, ...(school && schoolScope(school)) });
   if (!resultSet) throw new AppError(404, "Result not found");
   return toResultSetDto(resultSet);
 }
@@ -135,22 +142,25 @@ export async function updateResultSet(id: string, fields: ResultSetFields, files
   const meta = await resolveMeta(fields);
   const sheets = await readSheets(files);
 
+  let resultSet: ResultSetSummary;
   try {
-    return toResultSetDto(
-      await resultRepository.updateResultSet(id, meta, sheets, fields.removeClasses, requireClasses),
-    );
+    resultSet = await resultRepository.updateResultSet(id, meta, sheets, fields.removeClasses, requireClasses);
   } catch (error) {
     throw duplicateTest(error, meta.testNumber);
   }
+  // The set may have moved to another school, so tell every school.
+  if (resultSet.published) notifyContentChanged({ kind: KIND, schoolId: null });
+  return toResultSetDto(resultSet);
 }
 
 export async function deleteResultSet(id: string) {
-  await resultRepository.deleteResultSet(id);
+  const { schoolId, published } = await resultRepository.deleteResultSet(id);
+  if (published) notifyContentChanged({ kind: KIND, schoolId });
 }
 
 const sheetWhere = ({ id, classLevel }: ResultSheetParams, school?: SchoolAccountDto) => ({
   classLevel,
-  resultSet: { id, ...(school && { schoolId: school.id }) },
+  resultSet: { id, ...(school && schoolScope(school)) },
 });
 
 export async function getResultSheet(params: ResultSheetParams, school?: SchoolAccountDto) {
@@ -173,5 +183,12 @@ export async function getResultSheetFile(params: ResultSheetParams, school?: Sch
 }
 
 export async function listSchoolResultSets(school: SchoolAccountDto) {
-  return (await resultRepository.findResultSets({ schoolId: school.id })).map(toResultSetDto);
+  return (await resultRepository.findResultSets(schoolScope(school))).map(toResultSetDto);
+}
+
+export async function setResultSetPublished(id: string, published: boolean) {
+  const resultSet = await resultRepository.setResultSetPublished(id, published);
+  if (!resultSet) throw new AppError(404, "Result not found");
+  notifyContentChanged({ kind: KIND, schoolId: resultSet.school.id });
+  return toResultSetDto(resultSet);
 }

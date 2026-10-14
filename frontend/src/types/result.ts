@@ -1,4 +1,4 @@
-import type { SchoolRef } from "@/types/document";
+import type { Publishable, SchoolRef } from "@/types/document";
 import type { Program, SchoolType } from "@/types/school";
 
 export type ResultClass = {
@@ -10,7 +10,7 @@ export type ResultClass = {
 };
 
 /** One test's results for one school and program. */
-export type ResultSet = {
+export type ResultSet = Publishable & {
   id: string;
   school: SchoolRef & { type: SchoolType };
   /** Regular schools. */

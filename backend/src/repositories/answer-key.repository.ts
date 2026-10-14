@@ -10,6 +10,8 @@ export const answerKeySummarySelect = {
   classLevel: true,
   fileName: true,
   fileSize: true,
+  published: true,
+  publishedAt: true,
   createdAt: true,
   updatedAt: true,
   school: { select: { id: true, name: true, serial: true } },
@@ -59,6 +61,17 @@ export function updateAnswerKey(id: string, data: Prisma.AnswerKeyUncheckedUpdat
   return prisma.answerKey.update({ where: { id }, data, select: answerKeySummarySelect });
 }
 
+/** Publishing isn't an edit, so `updatedAt` is kept as it was. Returns null when the key is gone. */
+export async function setAnswerKeyPublished(id: string, published: boolean) {
+  const current = await prisma.answerKey.findUnique({ where: { id }, select: { updatedAt: true } });
+  if (!current) return null;
+  return prisma.answerKey.update({
+    where: { id },
+    data: { published, publishedAt: published ? new Date() : null, updatedAt: current.updatedAt },
+    select: answerKeySummarySelect,
+  });
+}
+
 export function deleteAnswerKey(id: string) {
-  return prisma.answerKey.delete({ where: { id } });
+  return prisma.answerKey.delete({ where: { id }, select: { schoolId: true, published: true } });
 }

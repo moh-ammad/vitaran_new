@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/shared/page-hero";
 import { Reveal } from "@/components/shared/reveal";
+import { LiveRefresh } from "@/features/live/live-refresh";
 import { SchoolResults } from "@/features/results/school-results";
 import { listSchoolResultSets } from "@/services/results";
 
@@ -14,6 +15,7 @@ export default async function ResultsPage() {
 
   return (
     <>
+      <LiveRefresh kind="results" />
       <PageHero
         title={
           <>

@@ -83,6 +83,9 @@ model AnswerKey {
   fileSize   Int        @map("file_size")
   /// PDF bytes; never selected in list queries.
   data       Bytes
+  /// Schools only see published answer keys.
+  published   Boolean   @default(false)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
   createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -103,6 +106,9 @@ model ResultSet {
   /// `program`, or the lowercased custom name; keeps one set per school, program and test.
   programKey  String        @map("program_key") @db.VarChar(130)
   testNumber  Int           @map("test_number") @db.SmallInt
+  /// Schools only see published results.
+  published   Boolean       @default(false)
+  publishedAt DateTime?     @map("published_at") @db.Timestamptz(3)
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   sheets      ResultSheet[]

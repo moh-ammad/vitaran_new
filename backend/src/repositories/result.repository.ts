@@ -11,6 +11,8 @@ export const resultSetSummarySelect = {
   program: true,
   programName: true,
   testNumber: true,
+  published: true,
+  publishedAt: true,
   createdAt: true,
   updatedAt: true,
   school: { select: { id: true, name: true, serial: true, type: true } },
@@ -57,6 +59,17 @@ export function findResultSets(where: Prisma.ResultSetWhereInput, limit?: number
     select: resultSetSummarySelect,
     orderBy: { updatedAt: "desc" },
     take: limit,
+  });
+}
+
+/** Publishing isn't an edit, so `updatedAt` is kept as it was. Returns null when the set is gone. */
+export async function setResultSetPublished(id: string, published: boolean) {
+  const current = await prisma.resultSet.findUnique({ where: { id }, select: { updatedAt: true } });
+  if (!current) return null;
+  return prisma.resultSet.update({
+    where: { id },
+    data: { published, publishedAt: published ? new Date() : null, updatedAt: current.updatedAt },
+    select: resultSetSummarySelect,
   });
 }
 
@@ -128,5 +141,5 @@ export function updateResultSet(
 }
 
 export function deleteResultSet(id: string) {
-  return prisma.resultSet.delete({ where: { id } });
+  return prisma.resultSet.delete({ where: { id }, select: { schoolId: true, published: true } });
 }

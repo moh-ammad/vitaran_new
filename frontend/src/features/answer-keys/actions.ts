@@ -1,6 +1,6 @@
 "use server";
 
-import { deleteDocument, saveDocument } from "@/features/documents/save";
+import { deleteDocument, publishDocument, saveDocument } from "@/features/documents/save";
 import * as answerKeyService from "@/services/answer-keys";
 import { ANSWER_KEY_NOUN, ANSWER_KEYS_PATH } from "./constants";
 import { ANSWER_KEY_FIELDS, getAnswerKeySchema, type AnswerKeyFormState } from "./schema";
@@ -30,6 +30,14 @@ export async function updateAnswerKeyAction(
     schema: getAnswerKeySchema("edit"),
     save: (input) => answerKeyService.updateAnswerKey(id, input),
   });
+}
+
+export async function setAnswerKeyPublishedAction(id: string, published: boolean) {
+  return publishDocument(
+    () => answerKeyService.setAnswerKeyPublished(id, published),
+    ANSWER_KEYS_PATH,
+    ANSWER_KEY_NOUN,
+  );
 }
 
 export async function deleteAnswerKeyAction(id: string) {
