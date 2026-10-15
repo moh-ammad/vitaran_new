@@ -20,4 +20,6 @@ export type Publishable = {
   publishedAt: string | null;
 };
 
+export type ContentStats = { total: number; published: number };
+
 export type DeleteResult = { ok: true } | { ok: false; message: string };

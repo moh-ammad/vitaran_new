@@ -38,8 +38,8 @@ export function findAnswerKeys(where: Prisma.AnswerKeyWhereInput) {
   });
 }
 
-export function countAnswerKeys() {
-  return prisma.answerKey.count();
+export function countAnswerKeys(where?: Prisma.AnswerKeyWhereInput) {
+  return prisma.answerKey.count({ where });
 }
 
 export function findAnswerKeyById(id: string) {

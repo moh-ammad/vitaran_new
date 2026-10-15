@@ -68,7 +68,11 @@ export async function listRecentAnswerKeys({ limit, testNumber, type, schoolId }
 }
 
 export async function getAnswerKeyStats() {
-  return { total: await answerKeyRepository.countAnswerKeys() };
+  const [total, published] = await Promise.all([
+    answerKeyRepository.countAnswerKeys(),
+    answerKeyRepository.countAnswerKeys({ published: true }),
+  ]);
+  return { total, published };
 }
 
 export async function getAnswerKey(id: string) {

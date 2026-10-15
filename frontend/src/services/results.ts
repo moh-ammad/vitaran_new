@@ -3,6 +3,7 @@ import { ApiError } from "@/services/api-client";
 import { adminApi, adminFetch } from "@/services/admin-api";
 import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { schoolApi, schoolFetch } from "@/services/school-api";
+import type { ContentStats } from "@/types/document";
 import type { ResultSet, ResultSheet } from "@/types/result";
 
 const BASE = "/results";
@@ -26,7 +27,7 @@ export function listResultSets(filters?: ListFilters) {
 }
 
 export function getResultStats() {
-  return adminApi<{ total: number }>(`${BASE}/stats`);
+  return adminApi<ContentStats>(`${BASE}/stats`);
 }
 
 export function getResultSet(id: string) {
