@@ -114,7 +114,11 @@ export async function listResultSets({ limit, testNumber, type, schoolId }: List
 }
 
 export async function getResultStats() {
-  return { total: await resultRepository.countResultSets() };
+  const [total, published] = await Promise.all([
+    resultRepository.countResultSets(),
+    resultRepository.countResultSets({ published: true }),
+  ]);
+  return { total, published };
 }
 
 /** Schools only reach their own results, and only once the admin has published them. */

@@ -73,8 +73,8 @@ export async function setResultSetPublished(id: string, published: boolean) {
   });
 }
 
-export function countResultSets() {
-  return prisma.resultSet.count();
+export function countResultSets(where?: Prisma.ResultSetWhereInput) {
+  return prisma.resultSet.count({ where });
 }
 
 export function findResultSet(where: Prisma.ResultSetWhereInput) {

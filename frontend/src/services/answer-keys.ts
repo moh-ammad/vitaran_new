@@ -5,6 +5,7 @@ import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { pdfUploadRequest } from "@/services/pdf-upload";
 import { schoolApi, schoolFetch } from "@/services/school-api";
 import type { AnswerKey, AnswerKeyInput } from "@/types/answer-key";
+import type { ContentStats } from "@/types/document";
 
 const BASE = "/answer-keys";
 const SCHOOL_BASE = "/school/answer-keys";
@@ -17,7 +18,7 @@ export function listRecentAnswerKeys(filters?: ListFilters) {
 }
 
 export function getAnswerKeyStats() {
-  return adminApi<{ total: number }>(`${BASE}/stats`);
+  return adminApi<ContentStats>(`${BASE}/stats`);
 }
 
 export async function getAnswerKey(id: string): Promise<AnswerKey | null> {

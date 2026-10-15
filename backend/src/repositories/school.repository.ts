@@ -3,6 +3,7 @@ import type { Prisma } from "../generated/prisma/client.js";
 import {
   Program,
   SchoolStatus,
+  SchoolType,
   type SchoolBoard,
 } from "../generated/prisma/enums.js";
 import type { ListSchoolsQuery } from "../schemas/school.schema.js";
@@ -104,9 +105,10 @@ export function deleteSchool(id: string) {
 export async function getSchoolStats() {
   const programs = Object.values(Program);
 
-  const [total, active, byBoard, programCounts, recent] = await Promise.all([
+  const [total, active, customized, byBoard, programCounts, recent] = await Promise.all([
     prisma.school.count(),
     prisma.school.count({ where: { status: SchoolStatus.ACTIVE } }),
+    prisma.school.count({ where: { type: SchoolType.CUSTOMIZED } }),
     prisma.school.groupBy({
       by: ["board"],
       _count: { _all: true },
@@ -126,6 +128,8 @@ export async function getSchoolStats() {
   return {
     total,
     active,
+    customized,
+    regular: total - customized,
     byBoard: byBoard.map((row) => ({
       board: row.board as SchoolBoard,
       count: row._count._all,

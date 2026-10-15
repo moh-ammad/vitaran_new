@@ -80,6 +80,8 @@ export type SchoolStats = {
   total: number;
   active: number;
   inactive: number;
+  regular: number;
+  customized: number;
   byBoard: { board: SchoolBoard; count: number }[];
   byProgram: { program: Program; count: number }[];
   recent: School[];
