@@ -1,4 +1,4 @@
-import type { Program, SchoolBoard, SchoolStatus, SchoolType } from "@/types/school";
+import type { Program, SchoolBoard, SchoolStatus, SchoolType, Subject } from "@/types/school";
 
 export const BOARD_LABELS: Record<SchoolBoard, string> = {
   CBSE: "CBSE",
@@ -25,6 +25,14 @@ export const PROGRAM_LABELS: Record<Program, string> = {
   REVISED_ADVANCED: "Revised Advanced Program",
   OLYMPIAD: "Olympiad Program",
   OLYMPIAD_PRIMARY: "Olympiad Program Class 1 to 5",
+};
+
+export const SUBJECT_LABELS: Record<Subject, string> = {
+  MATHEMATICS: "Mathematics",
+  PHYSICS: "Physics",
+  CHEMISTRY: "Chemistry",
+  BIOLOGY: "Biology",
+  SCIENCE: "Science",
 };
 
 export const INDIAN_STATES = [

@@ -4,6 +4,7 @@ import {
   SchoolBoard,
   SchoolStatus,
   SchoolType,
+  Subject,
 } from "../generated/prisma/enums.js";
 
 const requiredText = (min: number, max: number) =>
@@ -35,6 +36,9 @@ const schoolFields = {
   programs: z
     .array(z.enum(Program))
     .transform((programs) => [...new Set(programs)]),
+  subjects: z
+    .array(z.enum(Subject))
+    .transform((subjects) => [...new Set(subjects)]),
   principalName: optionalText(120),
   contactName: requiredText(2, 120),
   contactEmail: email,
@@ -57,6 +61,7 @@ export const createSchoolSchema = z.object({
   type: schoolFields.type.default(SchoolType.REGULAR),
   status: schoolFields.status.default(SchoolStatus.ACTIVE),
   programs: schoolFields.programs.default([]),
+  subjects: schoolFields.subjects.default([]),
   password,
 });
 

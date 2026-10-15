@@ -1,8 +1,14 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 import { Reveal } from "@/components/shared/reveal";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { cn } from "@/lib/utils";
-import { services } from "./content";
+import { audiences, services } from "./content";
+
+const audienceTones = [
+  "bg-brand-800 text-white ring-1 ring-white/10",
+  "bg-brand-600 text-white",
+  "bg-white text-brand-900",
+];
 
 export function Services() {
   return (
@@ -61,6 +67,80 @@ export function Services() {
               </article>
             </Reveal>
           ))}
+        </div>
+
+        <Reveal className="mx-auto mt-24 max-w-2xl text-center">
+          <p className="text-xs font-semibold tracking-[0.2em] text-brand-300 uppercase">
+            Who we serve
+          </p>
+          <h3 className="mt-3 text-2xl font-bold text-balance sm:text-3xl">
+            Tailored solutions for every kind of learner
+          </h3>
+          <p className="mt-3 leading-relaxed text-pretty text-brand-200/80">
+            Suitable for all types of learners, whether in the boardroom, on the factory floor or in
+            the classroom.
+          </p>
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {audiences.map((audience, i) => {
+            const light = i === 2;
+            return (
+              <Reveal key={audience.title} delay={i * 120}>
+                <article
+                  className={cn(
+                    "group relative flex h-full flex-col overflow-hidden rounded-[2rem] p-8 transition-transform duration-300 hover:-translate-y-1.5 sm:p-10",
+                    audienceTones[i],
+                  )}
+                >
+                  <div
+                    aria-hidden
+                    className={cn(
+                      "absolute -right-6 -bottom-6 flex h-40 gap-2 opacity-15 transition-opacity group-hover:opacity-25",
+                      light ? "text-brand-800" : "text-white",
+                    )}
+                  >
+                    <span className="w-8 rounded-sm bg-current" />
+                    <span className="w-8 rounded-sm bg-current opacity-75" />
+                    <span className="w-8 rounded-sm bg-current opacity-50" />
+                  </div>
+
+                  <div
+                    className={cn(
+                      "flex size-14 items-center justify-center rounded-2xl",
+                      light ? "bg-brand-800 text-white" : "bg-white/15 text-white",
+                    )}
+                  >
+                    <audience.icon className="size-6" />
+                  </div>
+                  <h4 className="mt-8 text-2xl font-bold">{audience.title}</h4>
+                  <p
+                    className={cn(
+                      "mt-3 leading-relaxed",
+                      light ? "text-brand-700" : "text-white/75",
+                    )}
+                  >
+                    {audience.description}
+                  </p>
+                  <ul className="relative mt-8 space-y-3">
+                    {audience.points.map((point) => (
+                      <li key={point} className="flex items-center gap-3 text-sm font-medium">
+                        <span
+                          className={cn(
+                            "flex size-5 items-center justify-center rounded-full",
+                            light ? "bg-brand-800 text-white" : "bg-white text-brand-800",
+                          )}
+                        >
+                          <Check className="size-3" strokeWidth={3} />
+                        </span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>

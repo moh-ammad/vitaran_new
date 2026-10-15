@@ -36,6 +36,7 @@ import {
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
   SCHOOL_TYPES,
+  SUBJECTS,
   type SchoolDetail,
 } from "@/types/school";
 import { smoothScrollToElement, useSmoothWheelScroll } from "@/hooks/use-smooth-scroll";
@@ -49,6 +50,7 @@ import {
   INDIAN_STATES,
   PROGRAM_LABELS,
   STATUS_LABELS,
+  SUBJECT_LABELS,
   TYPE_LABELS,
 } from "./constants";
 import {
@@ -76,6 +78,7 @@ import {
   type SchoolFormMode,
   type SchoolFormState,
   type SchoolFormValues,
+  type TextField,
 } from "./schema";
 
 type SchoolFormProps = { school?: SchoolDetail };
@@ -84,6 +87,8 @@ const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[va
 const typeItems = SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] }));
 const statusItems = SCHOOL_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }));
 const stateItems = INDIAN_STATES.map((value) => ({ value, label: value }));
+const programOptions = PROGRAMS.map((value) => ({ value, label: PROGRAM_LABELS[value] }));
+const subjectOptions = SUBJECTS.map((value) => ({ value, label: SUBJECT_LABELS[value] }));
 
 const emailInput = { type: "email", getHint: getEmailHint } as const;
 
@@ -126,7 +131,7 @@ const BOLD_SECTION_HEADINGS =
   "[&_[data-slot=section-heading]]:text-sm [&_[data-slot=section-heading]]:font-bold [&_[data-slot=section-heading]]:text-neutral-950";
 
 function toFormValues(school?: SchoolDetail): SchoolFormValues {
-  if (!school) return { type: "REGULAR", status: "ACTIVE", programs: [] };
+  if (!school) return { type: "REGULAR", status: "ACTIVE", programs: [], subjects: [...SUBJECTS] };
 
   return {
     name: school.name,
@@ -134,6 +139,7 @@ function toFormValues(school?: SchoolDetail): SchoolFormValues {
     type: school.type,
     status: school.status,
     programs: school.programs,
+    subjects: school.subjects,
     principalName: school.principalName ?? "",
     contactName: school.contactName,
     contactEmail: school.contactEmail,
@@ -305,6 +311,15 @@ function SchoolFormWizard({
       updateDirty();
     });
 
+  const saveCheckboxSoon = (field: CheckboxGroupProps["name"]) =>
+    setTimeout(() => {
+      saveDraft();
+      updateDirty();
+      if (errors[field]) {
+        setClientErrors((prev) => ({ ...prev, [field]: validate(readValues())[field] }));
+      }
+    });
+
   const scrollToFirstInvalid = () =>
     requestAnimationFrame(() => {
       const invalidField = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
@@ -377,7 +392,7 @@ function SchoolFormWizard({
     setClientErrors((prev) => ({ ...prev, [field]: fieldErrors }));
   };
 
-  const fieldProps = (name: Exclude<SchoolFormField, "programs">) => ({
+  const fieldProps = (name: TextField) => ({
     id: name,
     name,
     defaultValue: values[name],
@@ -548,25 +563,28 @@ function SchoolFormWizard({
             </div>
 
             <div {...panel(1)}>
-              {isEdit && <SectionHeading>Programs</SectionHeading>}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {PROGRAMS.map((program) => (
-                  <FieldLabel key={program} htmlFor={`program-${program}`}>
-                    <Field orientation="horizontal" className="py-1">
-                      <Checkbox
-                        id={`program-${program}`}
-                        name="programs"
-                        value={program}
-                        defaultChecked={values.programs?.includes(program) ?? false}
-                        onCheckedChange={saveDraftSoon}
-                      />
-                      <FieldContent>
-                        <span className="text-sm font-medium">{PROGRAM_LABELS[program]}</span>
-                      </FieldContent>
-                    </Field>
-                  </FieldLabel>
-                ))}
-              </div>
+              <FormSection title="Programs">
+                <CheckboxGroup
+                  name="programs"
+                  options={programOptions}
+                  checked={values.programs}
+                  onChange={saveCheckboxSoon}
+                />
+              </FormSection>
+
+              <FormSection title="Subjects">
+                <p className="-mt-1 text-sm text-neutral-500">
+                  The school only gets teacher resources for the subjects ticked here.
+                </p>
+                <CheckboxGroup
+                  name="subjects"
+                  options={subjectOptions}
+                  checked={values.subjects}
+                  invalid={invalid("subjects")}
+                  onChange={saveCheckboxSoon}
+                />
+                {error("subjects")}
+              </FormSection>
             </div>
 
             <div {...panel(2)}>
@@ -697,6 +715,38 @@ function SectionHeading({ children }: { children: ReactNode }) {
     >
       {children}
     </h3>
+  );
+}
+
+type CheckboxGroupProps = {
+  name: "programs" | "subjects";
+  options: { value: string; label: string }[];
+  checked?: string[];
+  invalid?: boolean;
+  onChange: (name: CheckboxGroupProps["name"]) => void;
+};
+
+function CheckboxGroup({ name, options, checked = [], invalid, onChange }: CheckboxGroupProps) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {options.map(({ value, label }) => (
+        <FieldLabel key={value} htmlFor={`${name}-${value}`}>
+          <Field orientation="horizontal" data-invalid={invalid} className="py-1">
+            <Checkbox
+              id={`${name}-${value}`}
+              name={name}
+              value={value}
+              defaultChecked={checked.includes(value)}
+              aria-invalid={invalid}
+              onCheckedChange={() => onChange(name)}
+            />
+            <FieldContent>
+              <span className="text-sm font-medium">{label}</span>
+            </FieldContent>
+          </Field>
+        </FieldLabel>
+      ))}
+    </div>
   );
 }
 

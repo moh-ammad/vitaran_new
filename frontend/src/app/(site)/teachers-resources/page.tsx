@@ -18,6 +18,7 @@ export default async function TeachersResourcesPage() {
       highlight="Resources"
       books={solutionBooks}
       programIds={school.programs}
+      subjectIds={school.subjects}
       label="Solution Books"
       emptyMessage="Solution books for this program will be available here soon."
     />

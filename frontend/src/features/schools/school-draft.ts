@@ -5,7 +5,10 @@ import { readFormValues, withoutPasswords, type SchoolFormValues } from "./schem
 const DRAFT_KEY = "vitaran:school-registration-draft";
 
 const draftSchema = z
-  .object({ programs: z.array(z.string()).optional() })
+  .object({
+    programs: z.array(z.string()).optional(),
+    subjects: z.array(z.string()).optional(),
+  })
   .catchall(z.string());
 
 const subscribe = () => () => {};
