@@ -19,10 +19,13 @@ export const PROGRAMS = [
   "OLYMPIAD_PRIMARY",
 ] as const;
 
+export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
+
 export type SchoolBoard = (typeof SCHOOL_BOARDS)[number];
 export type SchoolType = (typeof SCHOOL_TYPES)[number];
 export type SchoolStatus = (typeof SCHOOL_STATUSES)[number];
 export type Program = (typeof PROGRAMS)[number];
+export type Subject = (typeof SUBJECTS)[number];
 
 export type School = {
   id: string;
@@ -32,6 +35,7 @@ export type School = {
   type: SchoolType;
   status: SchoolStatus;
   programs: Program[];
+  subjects: Subject[];
   principalName: string | null;
   contactName: string;
   contactEmail: string;

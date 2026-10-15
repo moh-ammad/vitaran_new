@@ -36,6 +36,7 @@ import {
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
   SCHOOL_TYPES,
+  SUBJECTS,
   type SchoolDetail,
 } from "@/types/school";
 import { smoothScrollToElement, useSmoothWheelScroll } from "@/hooks/use-smooth-scroll";
@@ -49,6 +50,7 @@ import {
   INDIAN_STATES,
   PROGRAM_LABELS,
   STATUS_LABELS,
+  SUBJECT_LABELS,
   TYPE_LABELS,
 } from "./constants";
 import {
@@ -76,9 +78,13 @@ import {
   type SchoolFormMode,
   type SchoolFormState,
   type SchoolFormValues,
+  type TextField,
 } from "./schema";
 
 type SchoolFormProps = { school?: SchoolDetail };
+
+const programOptions = PROGRAMS.map((value) => ({ value, label: PROGRAM_LABELS[value] }));
+const subjectOptions = SUBJECTS.map((value) => ({ value, label: SUBJECT_LABELS[value] }));
 
 const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[value] }));
 const typeItems = SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] }));
@@ -126,7 +132,7 @@ const BOLD_SECTION_HEADINGS =
   "[&_[data-slot=section-heading]]:text-sm [&_[data-slot=section-heading]]:font-bold [&_[data-slot=section-heading]]:text-neutral-950";
 
 function toFormValues(school?: SchoolDetail): SchoolFormValues {
-  if (!school) return { type: "REGULAR", status: "ACTIVE", programs: [] };
+  if (!school) return { type: "REGULAR", status: "ACTIVE", programs: [], subjects: [] };
 
   return {
     name: school.name,
@@ -134,6 +140,7 @@ function toFormValues(school?: SchoolDetail): SchoolFormValues {
     type: school.type,
     status: school.status,
     programs: school.programs,
+    subjects: school.subjects,
     principalName: school.principalName ?? "",
     contactName: school.contactName,
     contactEmail: school.contactEmail,
@@ -377,7 +384,7 @@ function SchoolFormWizard({
     setClientErrors((prev) => ({ ...prev, [field]: fieldErrors }));
   };
 
-  const fieldProps = (name: Exclude<SchoolFormField, "programs">) => ({
+  const fieldProps = (name: TextField) => ({
     id: name,
     name,
     defaultValue: values[name],
@@ -548,25 +555,27 @@ function SchoolFormWizard({
             </div>
 
             <div {...panel(1)}>
-              {isEdit && <SectionHeading>Programs</SectionHeading>}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {PROGRAMS.map((program) => (
-                  <FieldLabel key={program} htmlFor={`program-${program}`}>
-                    <Field orientation="horizontal" className="py-1">
-                      <Checkbox
-                        id={`program-${program}`}
-                        name="programs"
-                        value={program}
-                        defaultChecked={values.programs?.includes(program) ?? false}
-                        onCheckedChange={saveDraftSoon}
-                      />
-                      <FieldContent>
-                        <span className="text-sm font-medium">{PROGRAM_LABELS[program]}</span>
-                      </FieldContent>
-                    </Field>
-                  </FieldLabel>
-                ))}
-              </div>
+              <FormSection title="Programs">
+                <CheckboxGroup
+                  name="programs"
+                  options={programOptions}
+                  checked={values.programs}
+                  onChange={saveDraftSoon}
+                />
+              </FormSection>
+
+              <FormSection title="Subjects">
+                <p className="-mt-1 text-sm text-neutral-500">
+                  Teachers&apos; resources are shared only for the checked subjects.
+                </p>
+                <CheckboxGroup
+                  name="subjects"
+                  options={subjectOptions}
+                  checked={values.subjects}
+                  onChange={saveDraftSoon}
+                />
+                {error("subjects")}
+              </FormSection>
             </div>
 
             <div {...panel(2)}>
@@ -697,6 +706,39 @@ function SectionHeading({ children }: { children: ReactNode }) {
     >
       {children}
     </h3>
+  );
+}
+
+type CheckboxGroupProps = {
+  name: string;
+  options: { value: string; label: string }[];
+  checked?: string[];
+  onChange: () => void;
+};
+
+function CheckboxGroup({ name, options, checked = [], onChange }: CheckboxGroupProps) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {options.map((option) => {
+        const id = `${name}-${option.value}`;
+        return (
+          <FieldLabel key={option.value} htmlFor={id}>
+            <Field orientation="horizontal" className="py-1">
+              <Checkbox
+                id={id}
+                name={name}
+                value={option.value}
+                defaultChecked={checked.includes(option.value)}
+                onCheckedChange={onChange}
+              />
+              <FieldContent>
+                <span className="text-sm font-medium">{option.label}</span>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
+        );
+      })}
+    </div>
   );
 }
 

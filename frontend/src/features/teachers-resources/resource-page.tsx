@@ -1,6 +1,7 @@
 import { PageHero } from "@/components/shared/page-hero";
 import { Reveal } from "@/components/shared/reveal";
-import type { Program } from "@/types/school";
+import { SUBJECT_LABELS } from "@/features/schools/constants";
+import type { Program, Subject } from "@/types/school";
 import { programs } from "./content";
 import { ProgramTabs } from "./program-tabs";
 import type { SolutionBook } from "./solution-books";
@@ -11,6 +12,8 @@ type ResourcePageProps = {
   books: Record<string, SolutionBook[]>;
   /** Programs the signed-in school has been given; others are never sent to the browser. */
   programIds: Program[];
+  /** Subjects the school has been given; books in other subjects are never sent either. */
+  subjectIds: Subject[];
   label: string;
   emptyMessage: string;
 };
@@ -20,13 +23,18 @@ export function ResourcePage({
   highlight,
   books,
   programIds,
+  subjectIds,
   label,
   emptyMessage,
 }: ResourcePageProps) {
+  const allowedSubjects = new Set<string>(subjectIds.map((id) => SUBJECT_LABELS[id]));
   const allowedBooks = Object.fromEntries(
     programs
       .filter((program) => programIds.includes(program.id))
-      .map((program) => [program.title, books[program.title] ?? []]),
+      .map((program) => [
+        program.title,
+        (books[program.title] ?? []).filter((book) => allowedSubjects.has(book.subject)),
+      ]),
   );
 
   return (

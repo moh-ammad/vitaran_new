@@ -4,6 +4,7 @@ import {
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
   SCHOOL_TYPES,
+  SUBJECTS,
   type SchoolInput,
 } from "@/types/school";
 import { SCHOOLS_PAGE_SIZE } from "./constants";
@@ -43,6 +44,7 @@ const schoolFields = z.object({
   type: z.enum(SCHOOL_TYPES, { error: "Select a type." }),
   status: z.enum(SCHOOL_STATUSES, { error: "Select a status." }),
   programs: z.array(z.enum(PROGRAMS)),
+  subjects: z.array(z.enum(SUBJECTS)),
   principalName: z
     .string()
     .trim()
@@ -107,11 +109,13 @@ export function toSchoolInput({
   return password ? { ...input, password } : input;
 }
 
-export type SchoolFormValues = Partial<
-  Record<Exclude<SchoolFormField, "programs">, string>
-> & {
-  programs?: string[];
-};
+/** Checkbox groups; every other field is a single text value. */
+export const LIST_FIELDS = ["programs", "subjects"] as const;
+export type ListField = (typeof LIST_FIELDS)[number];
+export type TextField = Exclude<SchoolFormField, ListField>;
+
+export type SchoolFormValues = Partial<Record<TextField, string>> &
+  Partial<Record<ListField, string[]>>;
 
 export type SchoolFormErrors = Partial<Record<SchoolFormField, string[]>>;
 
@@ -127,14 +131,15 @@ export type SchoolFormState =
   | undefined;
 
 const TEXT_FIELDS = Object.keys(schoolFields.shape).filter(
-  (field) => field !== "programs",
-) as Exclude<SchoolFormField, "programs">[];
+  (field) => !(LIST_FIELDS as readonly string[]).includes(field),
+) as TextField[];
 
 export function readFormValues(formData: FormData): SchoolFormValues {
-  const values: SchoolFormValues = {
-    programs: formData.getAll("programs").map(String),
-  };
+  const values: SchoolFormValues = {};
 
+  for (const field of LIST_FIELDS) {
+    values[field] = formData.getAll(field).map(String);
+  }
   for (const field of TEXT_FIELDS) {
     values[field] = String(formData.get(field) ?? "");
   }
@@ -142,12 +147,13 @@ export function readFormValues(formData: FormData): SchoolFormValues {
   return values;
 }
 
-/** True when both hold the same field values, ignoring program order. */
+/** True when both hold the same field values, ignoring checkbox order. */
 export function sameFormValues(a: SchoolFormValues, b: SchoolFormValues): boolean {
-  const programs = (values: SchoolFormValues) => [...(values.programs ?? [])].sort().join(",");
+  const list = (values: SchoolFormValues, field: ListField) =>
+    [...(values[field] ?? [])].sort().join(",");
 
   return (
-    programs(a) === programs(b) &&
+    LIST_FIELDS.every((field) => list(a, field) === list(b, field)) &&
     TEXT_FIELDS.every((field) => (a[field] ?? "") === (b[field] ?? ""))
   );
 }

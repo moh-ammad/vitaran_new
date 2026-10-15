@@ -15,14 +15,15 @@ export function Logo({ variant = "color", className }: LogoProps) {
       className={cn("inline-flex shrink-0", className)}
     >
       <Image
-        src="/brand/vitaran-logo.png"
+        src="/brand/vitaran_edtech_logo.png"
         alt="Vitaran Learning"
-        width={407}
-        height={150}
+        width={100}
+        height={39}
         priority
         className={cn(
-          "h-10 w-auto",
-          variant === "white" && "brightness-0 invert",
+          "h-12 w-auto",
+          // The PNG has a solid white background: blend it away on dark surfaces.
+          variant === "white" ? "mix-blend-screen grayscale invert" : "mix-blend-multiply",
         )}
       />
     </Link>

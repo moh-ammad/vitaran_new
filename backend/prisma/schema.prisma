@@ -36,6 +36,14 @@ enum Program {
   OLYMPIAD_PRIMARY
 }
 
+enum Subject {
+  MATHEMATICS
+  PHYSICS
+  CHEMISTRY
+  BIOLOGY
+  SCIENCE
+}
+
 model School {
   id              String       @id @default(uuid()) @db.Uuid
   serial          Int          @unique @default(autoincrement())
@@ -44,6 +52,8 @@ model School {
   type            SchoolType   @default(REGULAR)
   status          SchoolStatus @default(ACTIVE)
   programs        Program[]
+  /// Teachers' resources are limited to these subjects within the school's programs.
+  subjects        Subject[]    @default([])
   principalName   String?      @map("principal_name") @db.VarChar(120)
   contactName     String       @map("contact_name") @db.VarChar(120)
   contactEmail    String       @map("contact_email") @db.VarChar(254)

@@ -11,6 +11,7 @@ import {
   BOARD_LABELS,
   PROGRAM_LABELS,
   STATUS_LABELS,
+  SUBJECT_LABELS,
   TYPE_LABELS,
 } from "@/features/schools/constants";
 import { CopyButton } from "@/features/schools/copy-button";
@@ -118,6 +119,11 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
             <Field label="Programs" span={2}>
               {school.programs.length > 0
                 ? school.programs.map((program) => PROGRAM_LABELS[program]).join(", ")
+                : null}
+            </Field>
+            <Field label="Subjects" span={3}>
+              {school.subjects.length > 0
+                ? school.subjects.map((subject) => SUBJECT_LABELS[subject]).join(", ")
                 : null}
             </Field>
           </Panel>
