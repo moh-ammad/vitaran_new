@@ -4,11 +4,13 @@ import { adminApi, adminFetch } from "@/services/admin-api";
 import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { pdfUploadRequest } from "@/services/pdf-upload";
 import { schoolApi, schoolFetch } from "@/services/school-api";
+import { teacherApi, teacherFetch } from "@/services/teacher-api";
 import type { AnswerKey, AnswerKeyInput } from "@/types/answer-key";
 import type { ContentStats } from "@/types/document";
 
 const BASE = "/answer-keys";
 const SCHOOL_BASE = "/school/answer-keys";
+const TEACHER_BASE = "/teacher/answer-keys";
 const itemPath = (base: string, id: string) => `${base}/${encodeURIComponent(id)}`;
 
 const toRequest = ({ file, ...meta }: AnswerKeyInput) => pdfUploadRequest(meta, file);
@@ -59,4 +61,13 @@ export function listSchoolAnswerKeys() {
 
 export function fetchSchoolAnswerKeyFile(id: string) {
   return schoolFetch(`${itemPath(SCHOOL_BASE, id)}/file`);
+}
+
+/** Keys for the signed-in teacher's assigned classes. */
+export function listTeacherAnswerKeys() {
+  return teacherApi<AnswerKey[]>(TEACHER_BASE);
+}
+
+export function fetchTeacherAnswerKeyFile(id: string) {
+  return teacherFetch(`${itemPath(TEACHER_BASE, id)}/file`);
 }

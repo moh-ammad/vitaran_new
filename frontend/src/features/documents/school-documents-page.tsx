@@ -1,13 +1,12 @@
 import { PageHero } from "@/components/shared/page-hero";
 import { Reveal } from "@/components/shared/reveal";
 import type { PdfDocument } from "@/types/document";
-import type { Program } from "@/types/school";
 import { SchoolDocuments } from "./school-documents";
 
 type SchoolDocumentsPageProps = {
   title: string;
   highlight: string;
-  programIds: Program[];
+  programIds: string[];
   documents: PdfDocument[];
   noun: string;
   basePath: string;

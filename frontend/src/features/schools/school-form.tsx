@@ -13,10 +13,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
-  FieldContent,
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
@@ -32,13 +30,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  PROGRAMS,
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
   SCHOOL_TYPES,
   SUBJECTS,
   type SchoolDetail,
 } from "@/types/school";
+import type { LearningProgram } from "@/types/program";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { smoothScrollToElement, useSmoothWheelScroll } from "@/hooks/use-smooth-scroll";
 import {
   createSchoolAction,
@@ -48,11 +47,12 @@ import {
 import {
   BOARD_LABELS,
   INDIAN_STATES,
-  PROGRAM_LABELS,
   STATUS_LABELS,
   SUBJECT_LABELS,
   TYPE_LABELS,
 } from "./constants";
+import { schoolProgramsToTokens } from "./offerings";
+import { ProgramOfferingsField } from "./program-offerings-field";
 import {
   LAST_STEP,
   SCHOOL_FORM_STEPS,
@@ -81,7 +81,7 @@ import {
   type TextField,
 } from "./schema";
 
-type SchoolFormProps = { school?: SchoolDetail };
+type SchoolFormProps = { school?: SchoolDetail; catalog: LearningProgram[] };
 
 const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[value] }));
 const typeItems = SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] }));
@@ -131,15 +131,14 @@ const BOLD_SECTION_HEADINGS =
   "[&_[data-slot=section-heading]]:text-sm [&_[data-slot=section-heading]]:font-bold [&_[data-slot=section-heading]]:text-neutral-950";
 
 function toFormValues(school?: SchoolDetail): SchoolFormValues {
-  if (!school) return { type: "REGULAR", status: "ACTIVE", programs: [], subjects: [...SUBJECTS] };
+  if (!school) return { type: "REGULAR", status: "ACTIVE", offerings: [] };
 
   return {
     name: school.name,
     board: school.board,
     type: school.type,
     status: school.status,
-    programs: school.programs,
-    subjects: school.subjects,
+    offerings: schoolProgramsToTokens(school.schoolPrograms),
     principalName: school.principalName ?? "",
     contactName: school.contactName,
     contactEmail: school.contactEmail,
@@ -156,7 +155,7 @@ function toFormValues(school?: SchoolDetail): SchoolFormValues {
   };
 }
 
-export function SchoolForm({ school }: SchoolFormProps) {
+export function SchoolForm({ school, catalog }: SchoolFormProps) {
   const router = useRouter();
   const keepDraft = !school;
   const draft = useSchoolDraft(keepDraft);
@@ -188,6 +187,7 @@ export function SchoolForm({ school }: SchoolFormProps) {
       key={failed?.submittedAt ?? school?.updatedAt ?? "new"}
       mode={school ? "edit" : "create"}
       schoolId={school?.id}
+      catalog={catalog}
       action={formAction}
       pending={pending}
       initialValues={failed?.values ?? draft.values ?? toFormValues(school)}
@@ -204,6 +204,7 @@ export function SchoolForm({ school }: SchoolFormProps) {
 type SchoolFormWizardProps = {
   mode: SchoolFormMode;
   schoolId?: string;
+  catalog: LearningProgram[];
   action: (formData: FormData) => void;
   pending: boolean;
   initialValues: SchoolFormValues;
@@ -219,6 +220,7 @@ type SchoolFormWizardProps = {
 function SchoolFormWizard({
   mode,
   schoolId,
+  catalog,
   action,
   pending,
   initialValues,
@@ -236,6 +238,7 @@ function SchoolFormWizard({
   // Inputs are uncontrolled, so their defaults must stay fixed after mount;
   // the parent re-reads the saved draft on every render.
   const [values] = useState(initialValues);
+  const [offerings, setOfferings] = useState(initialValues.offerings ?? []);
   const [step, setStep] = useState(() =>
     resolveInitialStep(searchParams.get(STEP_SEARCH_PARAM), values, serverErrors, mode),
   );
@@ -246,6 +249,7 @@ function SchoolFormWizard({
   const [dirty, setDirty] = useState(
     () => !!savedValues && !sameFormValues(initialValues, savedValues),
   );
+  const unsaved = useUnsavedChanges(isEdit && dirty, formRef);
   const emailCheckTimers = useRef<Partial<Record<EmailField, ReturnType<typeof setTimeout>>>>({});
 
   useEffect(() => {
@@ -417,6 +421,7 @@ function SchoolFormWizard({
         };
 
   return (
+    <>
     <form
       ref={formRef}
       action={action}
@@ -563,27 +568,22 @@ function SchoolFormWizard({
             </div>
 
             <div {...panel(1)}>
-              <FormSection title="Programs">
-                <CheckboxGroup
-                  name="programs"
-                  options={programOptions}
-                  checked={values.programs}
-                  onChange={saveCheckboxSoon}
-                />
-              </FormSection>
-
-              <FormSection title="Subjects">
+              <FormSection title="Programs & classes">
                 <p className="-mt-1 text-sm text-neutral-500">
-                  The school only gets teacher resources for the subjects ticked here.
+                  Select a program, then check the classes this school offers.
                 </p>
-                <CheckboxGroup
-                  name="subjects"
-                  options={subjectOptions}
-                  checked={values.subjects}
-                  invalid={invalid("subjects")}
-                  onChange={saveCheckboxSoon}
+                <ProgramOfferingsField
+                  catalog={catalog}
+                  value={offerings}
+                  onChange={(next) => {
+                    setOfferings(next);
+                    if (savedValues) {
+                      setDirty(!sameFormValues({ ...readValues(), offerings: next }, savedValues));
+                    }
+                    saveDraftSoon();
+                  }}
+                  error={errors.offerings?.[0]}
                 />
-                {error("subjects")}
               </FormSection>
             </div>
 
@@ -660,7 +660,11 @@ function SchoolFormWizard({
 
           {isEdit ? (
             <footer className="sticky bottom-0 z-10 flex min-h-17 items-center justify-between gap-2 border-t border-neutral-200 bg-white/95 px-5 py-3 backdrop-blur md:px-8">
-              <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>
+              <Link
+                href={cancelHref}
+                className={buttonVariants({ variant: "ghost" })}
+                onClick={unsaved.guardCancelClick(cancelHref)}
+              >
                 Cancel
               </Link>
               {dirty && (
@@ -704,6 +708,8 @@ function SchoolFormWizard({
         </div>
       </div>
     </form>
+    {unsaved.dialog}
+    </>
   );
 }
 

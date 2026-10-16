@@ -9,13 +9,17 @@ import {
   getSchoolResultSet,
   getSchoolResultSheet,
   getSchoolResultSheetFile,
+  getTeacherResultSet,
+  getTeacherResultSheet,
+  getTeacherResultSheetFile,
   listResultSets,
   listSchoolResultSets,
+  listTeacherResultSets,
   setResultSetPublished,
   updateResultSet,
   uploadResultSet,
 } from "../controllers/result.controller.js";
-import { requireAdmin, requireSchool } from "../middleware/authenticate.js";
+import { requireAdmin, requireSchool, requireTeacher } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import {
   CLASS_LEVELS,
@@ -62,3 +66,13 @@ schoolResultRouter.get("/", listSchoolResultSets);
 schoolResultRouter.get("/:id", validateId, getSchoolResultSet);
 schoolResultRouter.get("/:id/classes/:classLevel", validateSheet, getSchoolResultSheet);
 schoolResultRouter.get("/:id/classes/:classLevel/file", validateSheet, getSchoolResultSheetFile);
+
+/** Results as seen by a signed-in teacher (class-scoped). */
+export const teacherResultRouter = Router();
+
+teacherResultRouter.use(requireTeacher);
+
+teacherResultRouter.get("/", listTeacherResultSets);
+teacherResultRouter.get("/:id", validateId, getTeacherResultSet);
+teacherResultRouter.get("/:id/classes/:classLevel", validateSheet, getTeacherResultSheet);
+teacherResultRouter.get("/:id/classes/:classLevel/file", validateSheet, getTeacherResultSheetFile);

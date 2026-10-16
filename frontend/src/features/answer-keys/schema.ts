@@ -6,12 +6,12 @@ import {
   type DocumentFormMode,
   type DocumentFormState,
 } from "@/features/documents/schema";
-import { PROGRAMS, SCHOOL_TYPES } from "@/types/school";
+import { SCHOOL_TYPES } from "@/types/school";
 
 export function getAnswerKeySchema(mode: DocumentFormMode) {
   return z
     .object({
-      program: z.enum(PROGRAMS, { error: "Select a program." }),
+      program: z.string().trim().min(1, "Select a program.").max(64),
       type: z.enum(SCHOOL_TYPES, { error: "Select a type." }),
       schoolId: z.string().trim().optional(),
       testNumber: testNumberField,

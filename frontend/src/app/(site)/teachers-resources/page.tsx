@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { verifySchoolSession } from "@/features/school-auth/session";
+import { verifyTeacherSession } from "@/features/teacher-auth/session";
 import { ResourcePage } from "@/features/teachers-resources/resource-page";
 import { solutionBooks } from "@/features/teachers-resources/solution-books";
 
@@ -10,17 +10,19 @@ export const metadata: Metadata = {
 };
 
 export default async function TeachersResourcesPage() {
-  const school = await verifySchoolSession();
+  const teacher = await verifyTeacherSession();
+  const subjectIds = [...new Set(teacher.assignments.map((item) => item.subject))];
 
   return (
     <ResourcePage
       title="Teachers"
       highlight="Resources"
       books={solutionBooks}
-      programIds={school.programs}
-      subjectIds={school.subjects}
+      programIds={teacher.school.programCodes}
+      subjectIds={subjectIds}
+      assignments={teacher.assignments}
       label="Solution Books"
-      emptyMessage="Solution books for this program will be available here soon."
+      emptyMessage="Solution books for your assigned classes and subjects will appear here."
     />
   );
 }

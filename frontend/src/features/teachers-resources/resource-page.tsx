@@ -1,7 +1,8 @@
 import { PageHero } from "@/components/shared/page-hero";
 import { Reveal } from "@/components/shared/reveal";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
-import type { Program, Subject } from "@/types/school";
+import type { Subject } from "@/types/school";
+import type { TeacherAssignment } from "@/types/teacher";
 import { programs } from "./content";
 import { ProgramTabs } from "./program-tabs";
 import type { SolutionBook } from "./solution-books";
@@ -10,12 +11,34 @@ type ResourcePageProps = {
   title: string;
   highlight: string;
   books: Record<string, SolutionBook[]>;
-  /** Programs and subjects the signed-in school has been given; other books are never sent to the browser. */
-  programIds: Program[];
+  /** Programs the viewer has been given; others are never sent to the browser. */
+  programIds: string[];
+  /** Subjects the viewer has been given; books in other subjects are never sent either. */
   subjectIds: Subject[];
+  /**
+   * Teacher isolation: only exact class+subject pairs.
+   * Prefer this over a loose classLevels filter when assignments exist.
+   */
+  assignments?: TeacherAssignment[];
   label: string;
   emptyMessage: string;
+  /** Skip the public PageHero when embedded in a portal. */
+  compact?: boolean;
 };
+
+function bookAllowed(
+  book: SolutionBook,
+  subjectIds: Subject[],
+  assignments?: TeacherAssignment[],
+) {
+  if (assignments && assignments.length > 0) {
+    return assignments.some(
+      (item) => SUBJECT_LABELS[item.subject] === book.subject && item.classLevel === book.grade,
+    );
+  }
+  const allowedSubjects = new Set(subjectIds.map((id) => SUBJECT_LABELS[id]));
+  return allowedSubjects.has(book.subject);
+}
 
 export function ResourcePage({
   title,
@@ -23,19 +46,36 @@ export function ResourcePage({
   books,
   programIds,
   subjectIds,
+  assignments,
   label,
   emptyMessage,
+  compact,
 }: ResourcePageProps) {
-  const subjectLabels: string[] = subjectIds.map((subject) => SUBJECT_LABELS[subject]);
+  const allowedBooks = Object.fromEntries(
+    programs
+      .filter((program) => programIds.includes(program.id))
+      .map((program) => [
+        program.title,
+        (books[program.title] ?? []).filter((book) => bookAllowed(book, subjectIds, assignments)),
+      ]),
+  );
 
-  const allowed = programs
-    .filter((program) => programIds.includes(program.id))
-    .map((program) => {
-      const all = books[program.title] ?? [];
-      return { program, all, visible: all.filter((book) => subjectLabels.includes(book.subject)) };
-    })
-    // Hide programs whose books are all in subjects the school wasn't given.
-    .filter(({ all, visible }) => all.length === 0 || visible.length > 0);
+  const tabs = (
+    <ProgramTabs
+      programIds={programIds}
+      books={allowedBooks}
+      label={label}
+      emptyMessage={emptyMessage}
+    />
+  );
+
+  if (compact) {
+    return (
+      <section className="px-4 py-2 sm:px-5 lg:px-6">
+        <div className="mx-auto max-w-5xl">{tabs}</div>
+      </section>
+    );
+  }
 
   return (
     <>
@@ -49,14 +89,7 @@ export function ResourcePage({
 
       <section className="py-10 sm:py-12">
         <div className="mx-auto max-w-5xl px-5 sm:px-8">
-          <Reveal>
-            <ProgramTabs
-              programIds={allowed.map(({ program }) => program.id)}
-              books={Object.fromEntries(allowed.map(({ program, visible }) => [program.title, visible]))}
-              label={label}
-              emptyMessage={emptyMessage}
-            />
-          </Reveal>
+          <Reveal>{tabs}</Reveal>
         </div>
       </section>
     </>

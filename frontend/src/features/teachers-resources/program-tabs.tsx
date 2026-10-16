@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { classLabel } from "@/utils/format";
-import type { Program } from "@/types/school";
 import { programs } from "./content";
 import type { SolutionBook, Subject } from "./solution-books";
 
@@ -28,7 +27,7 @@ const subjectIcons: Record<Subject, LucideIcon> = {
 
 type ProgramTabsProps = {
   /** Programs to show, in the standard program order. */
-  programIds: Program[];
+  programIds: string[];
   books: Record<string, SolutionBook[]>;
   label: string;
   emptyMessage: string;

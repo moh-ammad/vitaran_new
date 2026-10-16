@@ -5,7 +5,6 @@ import { CalendarClock, Download, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { programs } from "@/features/teachers-resources/content";
 import type { PdfDocument } from "@/types/document";
-import type { Program } from "@/types/school";
 import { classLabel, formatDateTime } from "@/utils/format";
 import {
   documentDownloadHref,
@@ -16,7 +15,7 @@ import {
 
 type SchoolDocumentsProps = {
   /** Programs assigned to the signed-in school. */
-  programIds: Program[];
+  programIds: string[];
   documents: PdfDocument[];
   /** Lowercase, e.g. "answer key". */
   noun: string;

@@ -24,3 +24,4 @@ function createLoginRateLimit(field: "email" | "identifier") {
 
 export const loginRateLimit = createLoginRateLimit("email");
 export const schoolLoginRateLimit = createLoginRateLimit("identifier");
+export const teacherLoginRateLimit = createLoginRateLimit("identifier");

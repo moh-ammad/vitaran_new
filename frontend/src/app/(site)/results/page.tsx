@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/shared/page-hero";
 import { Reveal } from "@/components/shared/reveal";
-import { LiveRefresh } from "@/features/live/live-refresh";
+import { TEACHER_RESULTS_PATH } from "@/features/results/constants";
 import { SchoolResults } from "@/features/results/school-results";
-import { listSchoolResultSets } from "@/services/results";
+import { verifyTeacherSession } from "@/features/teacher-auth/session";
+import { listTeacherResultSets } from "@/services/results";
 
 export const metadata: Metadata = {
   title: "Results",
-  description: "Test results for your school, by program, test and class.",
+  description: "Test results for your assigned classes.",
 };
 
 export default async function ResultsPage() {
-  const resultSets = await listSchoolResultSets();
+  await verifyTeacherSession();
+  const resultSets = await listTeacherResultSets();
 
   return (
     <>
-      <LiveRefresh kind="results" />
       <PageHero
         title={
           <>
@@ -27,7 +28,7 @@ export default async function ResultsPage() {
       <section className="py-10 sm:py-12">
         <div className="mx-auto max-w-5xl px-5 sm:px-8">
           <Reveal>
-            <SchoolResults resultSets={resultSets} />
+            <SchoolResults resultSets={resultSets} basePath={TEACHER_RESULTS_PATH} />
           </Reveal>
         </div>
       </section>

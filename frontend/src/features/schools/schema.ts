@@ -1,13 +1,14 @@
 import { z } from "zod";
 import {
-  PROGRAMS,
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
   SCHOOL_TYPES,
   SUBJECTS,
   type SchoolInput,
+  type Subject,
 } from "@/types/school";
 import { SCHOOLS_PAGE_SIZE } from "./constants";
+import { offeringsToPrograms, parseOfferingToken } from "./offerings";
 
 const emptyToNull = (value: string) => (value === "" ? null : value);
 
@@ -33,6 +34,13 @@ export const toPhoneDigits = (value: string) => value.replace(/\D/g, "").slice(0
 export const capitalizeWords = (value: string) =>
   value.replace(/(^|\s)(\p{L})/gu, (_match, space: string, letter: string) => space + letter.toUpperCase());
 
+const offeringToken = z
+  .string()
+  .refine((value) => {
+    const parsed = parseOfferingToken(value);
+    return parsed !== null && SUBJECTS.includes(parsed.subject as Subject);
+  }, "Invalid class or subject selection.");
+
 const schoolFields = z.object({
   name: z
     .string()
@@ -43,8 +51,7 @@ const schoolFields = z.object({
   board: z.enum(SCHOOL_BOARDS, { error: "Select a board." }),
   type: z.enum(SCHOOL_TYPES, { error: "Select a type." }),
   status: z.enum(SCHOOL_STATUSES, { error: "Select a status." }),
-  programs: z.array(z.enum(PROGRAMS)),
-  subjects: z.array(z.enum(SUBJECTS)).min(1, "Select at least one subject."),
+  offerings: z.array(offeringToken),
   principalName: z
     .string()
     .trim()
@@ -104,14 +111,16 @@ export type SchoolFormField = keyof z.input<typeof schoolFields>;
 
 export function toSchoolInput({
   password,
+  offerings,
   ...input
 }: z.output<typeof schoolFields>): SchoolInput {
-  return password ? { ...input, password } : input;
+  const programs = offeringsToPrograms(offerings);
+  return password ? { ...input, programs, password } : { ...input, programs };
 }
 
-/** Checkbox groups: submitted as repeated form entries. */
-export const LIST_FIELDS = ["programs", "subjects"] as const;
-type ListField = (typeof LIST_FIELDS)[number];
+/** Checkbox groups; every other field is a single text value. */
+export const LIST_FIELDS = ["offerings"] as const;
+export type ListField = (typeof LIST_FIELDS)[number];
 export type TextField = Exclude<SchoolFormField, ListField>;
 
 export type SchoolFormValues = Partial<Record<TextField, string>> &

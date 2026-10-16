@@ -1,15 +1,26 @@
 import { prisma } from "../config/database.js";
-import type { Prisma } from "../generated/prisma/client.js";
+import type { Prisma, Subject } from "../generated/prisma/client.js";
 import {
-  Program,
   SchoolStatus,
   SchoolType,
   type SchoolBoard,
 } from "../generated/prisma/enums.js";
-import type { ListSchoolsQuery } from "../schemas/school.schema.js";
+import type { ListSchoolsQuery, SchoolProgramInput } from "../schemas/school.schema.js";
 
 const SCHOOL_CODE_PATTERN = /^VLS-?(\d{1,9})$/i;
 const RECENT_SCHOOLS_LIMIT = 5;
+
+export const schoolProgramInclude = {
+  schoolPrograms: {
+    include: {
+      program: true,
+      classes: { orderBy: { classLevel: "asc" } },
+    },
+    orderBy: { program: { name: "asc" } },
+  },
+} satisfies Prisma.SchoolInclude;
+
+export type SchoolWithPrograms = Prisma.SchoolGetPayload<{ include: typeof schoolProgramInclude }>;
 
 function buildWhere(query: ListSchoolsQuery): Prisma.SchoolWhereInput {
   const where: Prisma.SchoolWhereInput = {};
@@ -41,6 +52,7 @@ export async function findSchools(query: ListSchoolsQuery) {
   const [items, total] = await prisma.$transaction([
     prisma.school.findMany({
       where,
+      include: schoolProgramInclude,
       orderBy: [{ [query.sortBy]: query.sortOrder }, { serial: "desc" }],
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
@@ -52,7 +64,7 @@ export async function findSchools(query: ListSchoolsQuery) {
 }
 
 export function findSchoolById(id: string) {
-  return prisma.school.findUnique({ where: { id } });
+  return prisma.school.findUnique({ where: { id }, include: schoolProgramInclude });
 }
 
 export function findSchoolByAccount(account: { email?: string; phone?: string }) {
@@ -60,6 +72,7 @@ export function findSchoolByAccount(account: { email?: string; phone?: string })
     where: account.email
       ? { accountEmail: { equals: account.email, mode: "insensitive" } }
       : { accountPhone: account.phone },
+    include: schoolProgramInclude,
   });
 }
 
@@ -90,12 +103,68 @@ export function findAccountConflicts(
   });
 }
 
-export function createSchool(data: Prisma.SchoolCreateInput) {
-  return prisma.school.create({ data });
+function programNestedCreate(programs: SchoolProgramInput[]) {
+  return {
+    create: programs.map((row) => ({
+      programId: row.programId,
+      classes: {
+        create: row.classes.map((cls) => ({
+          classLevel: cls.classLevel,
+          subjects: cls.subjects as Subject[],
+        })),
+      },
+    })),
+  };
 }
 
-export function updateSchool(id: string, data: Prisma.SchoolUpdateInput) {
-  return prisma.school.update({ where: { id }, data });
+export function createSchool(
+  data: Prisma.SchoolCreateInput & { programs?: SchoolProgramInput[] },
+) {
+  const { programs = [], ...rest } = data as Prisma.SchoolCreateInput & {
+    programs?: SchoolProgramInput[];
+  };
+  return prisma.school.create({
+    data: {
+      ...rest,
+      schoolPrograms: programNestedCreate(programs),
+    },
+    include: schoolProgramInclude,
+  });
+}
+
+export async function updateSchool(
+  id: string,
+  data: Prisma.SchoolUpdateInput & { programs?: SchoolProgramInput[] },
+) {
+  const { programs, ...rest } = data as Prisma.SchoolUpdateInput & {
+    programs?: SchoolProgramInput[];
+  };
+
+  return prisma.$transaction(async (tx) => {
+    if (programs) {
+      await tx.schoolProgram.deleteMany({ where: { schoolId: id } });
+      for (const row of programs) {
+        await tx.schoolProgram.create({
+          data: {
+            schoolId: id,
+            programId: row.programId,
+            classes: {
+              create: row.classes.map((cls) => ({
+                classLevel: cls.classLevel,
+                subjects: cls.subjects as Subject[],
+              })),
+            },
+          },
+        });
+      }
+    }
+
+    return tx.school.update({
+      where: { id },
+      data: rest,
+      include: schoolProgramInclude,
+    });
+  });
 }
 
 export function deleteSchool(id: string) {
@@ -103,7 +172,7 @@ export function deleteSchool(id: string) {
 }
 
 export async function getSchoolStats() {
-  const programs = Object.values(Program);
+  const catalog = await prisma.learningProgram.findMany({ orderBy: { name: "asc" } });
 
   const [total, active, customized, byBoard, programCounts, recent] = await Promise.all([
     prisma.school.count(),
@@ -115,11 +184,12 @@ export async function getSchoolStats() {
       orderBy: { _count: { board: "desc" } },
     }),
     Promise.all(
-      programs.map((program) =>
-        prisma.school.count({ where: { programs: { has: program } } }),
+      catalog.map((program) =>
+        prisma.schoolProgram.count({ where: { programId: program.id } }),
       ),
     ),
     prisma.school.findMany({
+      include: schoolProgramInclude,
       orderBy: { createdAt: "desc" },
       take: RECENT_SCHOOLS_LIMIT,
     }),
@@ -134,8 +204,9 @@ export async function getSchoolStats() {
       board: row.board as SchoolBoard,
       count: row._count._all,
     })),
-    byProgram: programs.map((program, index) => ({
-      program,
+    byProgram: catalog.map((program, index) => ({
+      program: program.code,
+      programName: program.name,
       count: programCounts[index] ?? 0,
     })),
     recent,
