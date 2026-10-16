@@ -6,8 +6,8 @@ export const RESULT_UPLOAD_PATH = `${RESULTS_PATH}/upload`;
 /** School portal results. */
 export const SCHOOL_RESULTS_PATH = "/school/results";
 
-/** Teacher (public site) results. */
-export const TEACHER_RESULTS_PATH = "/results";
+/** Teacher portal results. */
+export const TEACHER_RESULTS_PATH = "/teacher/results";
 
 export const EXCEL_MAX_BYTES = 2 * 1024 * 1024;
 export const EXCEL_ACCEPT =

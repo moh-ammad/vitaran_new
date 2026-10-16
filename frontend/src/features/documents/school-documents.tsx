@@ -158,12 +158,12 @@ function DocumentRow({
     <li className="grid gap-4 px-5 py-4 transition-colors hover:bg-brand-50/40 sm:px-6 md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-center md:gap-6">
       <div className="flex min-w-0 items-center gap-4">
         <span className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
-          <span className="text-[9px] font-semibold tracking-wider text-white/70 uppercase">Test</span>
+          <span className="text-[8px] font-semibold tracking-wider text-white/70 uppercase">ID</span>
           <span className="text-lg leading-none font-bold tabular-nums">{document.testNumber}</span>
         </span>
         <div className="min-w-0">
           <p className="text-base font-semibold text-neutral-950">
-            Test {document.testNumber} {noun}
+            Test ID {document.testNumber} {noun}
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
             <FileText className="size-3.5 shrink-0" />

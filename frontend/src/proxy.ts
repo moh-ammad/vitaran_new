@@ -7,6 +7,7 @@ import {
   SCHOOL_BASE_PATH,
   SCHOOL_LOGIN_PATH,
   SCHOOL_SESSION_COOKIE,
+  TEACHER_BASE_PATH,
   TEACHER_LOGIN_PATH,
   TEACHER_SESSION_COOKIE,
 } from "@/constants/auth";
@@ -42,7 +43,14 @@ export function proxy(request: NextRequest) {
     return redirectToLogin(request, SCHOOL_LOGIN_PATH);
   }
 
-  // Public content pages: teachers only.
+  if (pathname.startsWith(TEACHER_BASE_PATH)) {
+    if (pathname === TEACHER_LOGIN_PATH || request.cookies.has(TEACHER_SESSION_COOKIE)) {
+      return NextResponse.next();
+    }
+    return redirectToLogin(request, TEACHER_LOGIN_PATH);
+  }
+
+  // Legacy public content pages: teachers only.
   if (request.cookies.has(TEACHER_SESSION_COOKIE)) {
     return NextResponse.next();
   }
@@ -56,6 +64,8 @@ export const config = {
     "/admin/:path*",
     "/school",
     "/school/:path*",
+    "/teacher",
+    "/teacher/:path*",
     "/teachers-resources",
     "/teachers-resources/:path*",
     "/answer-keys",
