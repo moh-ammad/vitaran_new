@@ -3,10 +3,16 @@ export const ADMIN_BASE_PATH = "/admin";
 export const ADMIN_LOGIN_PATH = "/admin/login";
 
 export const SCHOOL_SESSION_COOKIE = "vitaran_school_session";
+export const SCHOOL_BASE_PATH = "/school";
 export const SCHOOL_LOGIN_PATH = "/school/login";
-export const SCHOOL_HOME_PATH = "/teachers-resources";
+export const SCHOOL_HOME_PATH = "/school";
 
-/** School-only page the user tried to open before being sent to the login; read once after signing in. */
+export const TEACHER_SESSION_COOKIE = "vitaran_teacher_session";
+export const TEACHER_BASE_PATH = "/teacher";
+export const TEACHER_LOGIN_PATH = "/teacher/login";
+export const TEACHER_HOME_PATH = "/teachers-resources";
+
+/** Page the user tried to open before being sent to login; read once after signing in. */
 export const RETURN_TO_COOKIE = "vitaran_return_to";
 
 /** Only same-site paths are allowed, so a return path can't send users to another origin. */

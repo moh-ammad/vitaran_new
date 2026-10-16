@@ -15,7 +15,7 @@ export function Logo({ variant = "color", className }: LogoProps) {
       className={cn("inline-flex shrink-0", className)}
     >
       <Image
-        src="/brand/vitaran_edtech_logo.png"
+        src="/brand/vitaran-logo.png"
         alt="Vitaran Learning"
         width={100}
         height={39}

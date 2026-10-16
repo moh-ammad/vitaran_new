@@ -1,4 +1,4 @@
-import type { Program, SchoolBoard, SchoolStatus, SchoolType, Subject } from "@/types/school";
+import type { SchoolBoard, SchoolStatus, SchoolType, Subject } from "@/types/school";
 
 export const BOARD_LABELS: Record<SchoolBoard, string> = {
   CBSE: "CBSE",
@@ -19,13 +19,18 @@ export const STATUS_LABELS: Record<SchoolStatus, string> = {
   INACTIVE: "Inactive",
 };
 
-export const PROGRAM_LABELS: Record<Program, string> = {
+/** Fallback labels for seeded catalog codes; prefer LearningProgram.name when available. */
+export const PROGRAM_LABELS: Record<string, string> = {
   INTEGRATED: "Integrated Program",
   ADVANCED: "Advanced Program",
   REVISED_ADVANCED: "Revised Advanced Program",
   OLYMPIAD: "Olympiad Program",
   OLYMPIAD_PRIMARY: "Olympiad Program Class 1 to 5",
 };
+
+export function programLabel(code: string, name?: string | null) {
+  return name?.trim() || PROGRAM_LABELS[code] || code.replaceAll("_", " ");
+}
 
 /** Also the `subject` names used by the solution books. */
 export const SUBJECT_LABELS = {

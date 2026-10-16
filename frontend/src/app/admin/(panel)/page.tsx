@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { Meter, Panel, StatCard, SummaryTile } from "@/features/admin/dashboard-parts";
 import { PageHeader } from "@/features/admin/page-header";
 import { RESULT_UPLOAD_PATH } from "@/features/results/constants";
-import { BOARD_LABELS, PROGRAM_LABELS } from "@/features/schools/constants";
+import { BOARD_LABELS, programLabel } from "@/features/schools/constants";
 import { SchoolStatusBadge } from "@/features/schools/school-status-badge";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
 import { getAnswerKeyStats } from "@/services/answer-keys";
@@ -137,7 +137,7 @@ export default async function AdminDashboardPage() {
             {stats.byProgram.map((row, index) => (
               <Meter
                 key={row.program}
-                label={PROGRAM_LABELS[row.program]}
+                label={programLabel(row.program, row.programName)}
                 value={row.count}
                 max={stats.total}
                 color={PROGRAM_COLORS[index % PROGRAM_COLORS.length]}

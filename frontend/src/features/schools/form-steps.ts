@@ -30,8 +30,8 @@ export const SCHOOL_FORM_STEPS = [
   },
   {
     id: "programs",
-    title: "Programs & subjects",
-    fields: ["programs", "subjects"],
+    title: "Programs & classes",
+    fields: ["offerings"],
   },
   {
     id: "contact",

@@ -34,4 +34,8 @@ export type ResultSheet = Omit<ResultClass, "updatedAt"> & {
   updatedAt: string;
 };
 
-export type ResultSchoolOption = SchoolRef & { type: SchoolType; programs: Program[] };
+export type ResultSchoolOption = SchoolRef & {
+  type: SchoolType;
+  programs: Program[];
+  programLabels?: Record<string, string>;
+};

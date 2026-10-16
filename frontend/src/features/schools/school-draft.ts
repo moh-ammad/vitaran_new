@@ -6,8 +6,7 @@ const DRAFT_KEY = "vitaran:school-registration-draft";
 
 const draftSchema = z
   .object({
-    programs: z.array(z.string()).optional(),
-    subjects: z.array(z.string()).optional(),
+    offerings: z.array(z.string()).optional(),
   })
   .catchall(z.string());
 

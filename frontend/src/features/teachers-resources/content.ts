@@ -6,10 +6,8 @@ import {
   Trophy,
   type LucideIcon,
 } from "lucide-react";
-import type { Program } from "@/types/school";
-
 type ProgramContent = {
-  id: Program;
+  id: string;
   icon: LucideIcon;
   /** Also the key used in `solutionBooks`. */
   title: string;

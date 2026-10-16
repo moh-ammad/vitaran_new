@@ -1,7 +1,13 @@
 import "server-only";
 import { apiClient } from "@/services/api-client";
-import type { AdminLoginResult, AdminProfile, SchoolLoginResult } from "@/types/auth";
+import type {
+  AdminLoginResult,
+  AdminProfile,
+  SchoolLoginResult,
+  TeacherLoginResult,
+} from "@/types/auth";
 import type { SchoolAccount } from "@/types/school";
+import type { TeacherAccount } from "@/types/teacher";
 
 const authHeader = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -36,4 +42,21 @@ export async function fetchCurrentSchool(token: string): Promise<SchoolAccount> 
     cache: "no-store",
   });
   return school;
+}
+
+/** `identifier` is the teacher's login email or phone number. */
+export function loginTeacher(credentials: { identifier: string; password: string }) {
+  return apiClient<TeacherLoginResult>("/auth/teacher/login", {
+    method: "POST",
+    body: credentials,
+    cache: "no-store",
+  });
+}
+
+export async function fetchCurrentTeacher(token: string): Promise<TeacherAccount> {
+  const { teacher } = await apiClient<{ teacher: TeacherAccount }>("/auth/teacher/me", {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return teacher;
 }

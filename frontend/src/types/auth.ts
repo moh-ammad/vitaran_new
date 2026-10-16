@@ -1,4 +1,5 @@
 import type { SchoolAccount } from "./school";
+import type { TeacherAccount } from "./teacher";
 
 export type AdminProfile = {
   email: string;
@@ -15,4 +16,10 @@ export type SchoolLoginResult = {
   token: string;
   expiresAt: string;
   school: SchoolAccount;
+};
+
+export type TeacherLoginResult = {
+  token: string;
+  expiresAt: string;
+  teacher: TeacherAccount;
 };

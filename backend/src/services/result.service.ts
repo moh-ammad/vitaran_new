@@ -17,6 +17,11 @@ import {
 import { AppError } from "../utils/app-error.js";
 import { notifyContentChanged } from "../utils/content-events.js";
 import { ExcelParseError, parseResultSheet, type CellValue } from "../utils/excel.js";
+import {
+  resultSetAccessFilter,
+  resultSheetClassFilter,
+  type ContentActor,
+} from "./content-access.js";
 import { toSchoolRef, type SchoolAccountDto } from "./school.service.js";
 
 const KIND = "results";
@@ -28,9 +33,11 @@ type FieldIssue = { path: [string]; message: string };
 const fieldError = (status: number, path: string, message: string) =>
   new AppError(status, message, [{ path: [path], message }] satisfies FieldIssue[]);
 
-function toResultSetDto({ school, sheets, createdAt, updatedAt, publishedAt, ...rest }: ResultSetSummary) {
+function toResultSetDto({ school, sheets, createdAt, updatedAt, publishedAt, programCode, ...rest }: ResultSetSummary) {
   return {
     ...rest,
+    program: programCode,
+    programCode,
     publishedAt: publishedAt?.toISOString() ?? null,
     school: { ...toSchoolRef(school), type: school.type },
     classes: sheets.map(({ updatedAt: sheetUpdatedAt, ...sheet }) => ({
@@ -51,7 +58,7 @@ async function resolveMeta({ schoolId, program, programName, testNumber }: Resul
     if (!programName) throw fieldError(400, "programName", "Enter the program name");
     return {
       schoolId,
-      program: null,
+      programCode: null,
       programName,
       programKey: `custom:${programName.toLowerCase().replace(/\s+/g, " ")}`,
       testNumber,
@@ -59,10 +66,11 @@ async function resolveMeta({ schoolId, program, programName, testNumber }: Resul
   }
 
   if (!program) throw fieldError(400, "program", "Select a program");
-  if (!school.programs.includes(program)) {
+  const enrolled = school.schoolPrograms.some((row) => row.program.code === program);
+  if (!enrolled) {
     throw fieldError(400, "program", "This school isn't enrolled in that program");
   }
-  return { schoolId, program, programName: null, programKey: program, testNumber };
+  return { schoolId, programCode: program, programName: null, programKey: program, testNumber };
 }
 
 /** Parses every uploaded class file, reporting all bad files at once. */
@@ -122,12 +130,33 @@ export async function getResultStats() {
 }
 
 /** Schools only reach their own results, and only once the admin has published them. */
-const schoolScope = (school: SchoolAccountDto) => ({ schoolId: school.id, published: true });
+function withActorSheetFilter<T extends { classes: { classLevel: number }[] }>(
+  dto: T,
+  actor?: ContentActor,
+): T {
+  const allowed = actor ? resultSheetClassFilter(actor) : null;
+  if (!allowed) return dto;
+  return { ...dto, classes: dto.classes.filter((sheet) => allowed.includes(sheet.classLevel)) };
+}
 
-export async function getResultSet(id: string, school?: SchoolAccountDto) {
-  const resultSet = await resultRepository.findResultSet({ id, ...(school && schoolScope(school)) });
+function toContentActor(actor?: ContentActor | SchoolAccountDto): ContentActor | undefined {
+  if (!actor) return undefined;
+  if ("kind" in actor) return actor;
+  return { kind: "school", school: actor };
+}
+
+export async function getResultSet(id: string, actor?: ContentActor | SchoolAccountDto) {
+  const contentActor = toContentActor(actor);
+  const resultSet = await resultRepository.findResultSet({
+    id,
+    ...(contentActor && resultSetAccessFilter(contentActor)),
+  });
   if (!resultSet) throw new AppError(404, "Result not found");
-  return toResultSetDto(resultSet);
+  const dto = withActorSheetFilter(toResultSetDto(resultSet), contentActor);
+  if (contentActor?.kind === "teacher" && dto.classes.length === 0) {
+    throw new AppError(404, "Result not found");
+  }
+  return dto;
 }
 
 export async function uploadResultSet(fields: ResultSetFields, files?: UploadedFiles) {
@@ -162,13 +191,22 @@ export async function deleteResultSet(id: string) {
   if (published) notifyContentChanged({ kind: KIND, schoolId });
 }
 
-const sheetWhere = ({ id, classLevel }: ResultSheetParams, school?: SchoolAccountDto) => ({
+const sheetWhere = ({ id, classLevel }: ResultSheetParams, actor?: ContentActor) => ({
   classLevel,
-  resultSet: { id, ...(school && schoolScope(school)) },
+  resultSet: { id, ...(actor && resultSetAccessFilter(actor)) },
 });
 
-export async function getResultSheet(params: ResultSheetParams, school?: SchoolAccountDto) {
-  const sheet = await resultRepository.findResultSheet(sheetWhere(params, school));
+function assertSheetClassAllowed(classLevel: number, actor?: ContentActor) {
+  const allowed = actor ? resultSheetClassFilter(actor) : null;
+  if (allowed && !allowed.includes(classLevel)) {
+    throw new AppError(404, "Result not found");
+  }
+}
+
+export async function getResultSheet(params: ResultSheetParams, actor?: ContentActor | SchoolAccountDto) {
+  const contentActor = toContentActor(actor);
+  assertSheetClassAllowed(params.classLevel, contentActor);
+  const sheet = await resultRepository.findResultSheet(sheetWhere(params, contentActor));
   if (!sheet) throw new AppError(404, "Result not found");
 
   const { rows, columns, updatedAt, ...rest } = sheet;
@@ -180,14 +218,30 @@ export async function getResultSheet(params: ResultSheetParams, school?: SchoolA
   };
 }
 
-export async function getResultSheetFile(params: ResultSheetParams, school?: SchoolAccountDto) {
-  const file = await resultRepository.findResultSheetFile(sheetWhere(params, school));
+export async function getResultSheetFile(
+  params: ResultSheetParams,
+  actor?: ContentActor | SchoolAccountDto,
+) {
+  const contentActor = toContentActor(actor);
+  assertSheetClassAllowed(params.classLevel, contentActor);
+  const file = await resultRepository.findResultSheetFile(sheetWhere(params, contentActor));
   if (!file) throw new AppError(404, "Result not found");
   return file;
 }
 
+export async function listVisibleResultSets(actor: ContentActor) {
+  const sets = await resultRepository.findResultSets(resultSetAccessFilter(actor));
+  return sets
+    .map((set) => withActorSheetFilter(toResultSetDto(set), actor))
+    .filter((set) => set.classes.length > 0 || actor.kind === "school");
+}
+
+export async function countVisibleResultSets(actor: ContentActor) {
+  return resultRepository.countResultSets(resultSetAccessFilter(actor));
+}
+
 export async function listSchoolResultSets(school: SchoolAccountDto) {
-  return (await resultRepository.findResultSets(schoolScope(school))).map(toResultSetDto);
+  return listVisibleResultSets({ kind: "school", school });
 }
 
 export async function setResultSetPublished(id: string, published: boolean) {

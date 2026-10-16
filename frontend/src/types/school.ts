@@ -1,3 +1,5 @@
+import type { SchoolProgramOffering } from "./program";
+
 export const SCHOOL_BOARDS = [
   "CBSE",
   "ICSE",
@@ -11,6 +13,9 @@ export const SCHOOL_TYPES = ["REGULAR", "CUSTOMIZED"] as const;
 
 export const SCHOOL_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 
+export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
+
+/** @deprecated Prefer LearningProgram.code from the programs catalog. */
 export const PROGRAMS = [
   "INTEGRATED",
   "ADVANCED",
@@ -19,13 +24,11 @@ export const PROGRAMS = [
   "OLYMPIAD_PRIMARY",
 ] as const;
 
-export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
-
 export type SchoolBoard = (typeof SCHOOL_BOARDS)[number];
 export type SchoolType = (typeof SCHOOL_TYPES)[number];
 export type SchoolStatus = (typeof SCHOOL_STATUSES)[number];
-export type Program = (typeof PROGRAMS)[number];
 export type Subject = (typeof SUBJECTS)[number];
+export type Program = (typeof PROGRAMS)[number] | string;
 
 export type School = {
   id: string;
@@ -34,8 +37,8 @@ export type School = {
   board: SchoolBoard;
   type: SchoolType;
   status: SchoolStatus;
-  programs: Program[];
-  subjects: Subject[];
+  schoolPrograms: SchoolProgramOffering[];
+  programCodes: string[];
   principalName: string | null;
   contactName: string;
   contactEmail: string;
@@ -52,19 +55,29 @@ export type School = {
   updatedAt: string;
 };
 
-/** What a signed-in school sees about itself; admin-only fields are left out. */
 export type SchoolAccount = Omit<School, "notes">;
 
-/** Admin detail view; `password` is null for schools created before it was stored. */
 export type SchoolDetail = School & { password: string | null };
+
+export type SchoolProgramInput = {
+  programId: string;
+  classes: { classLevel: number; subjects: Subject[] }[];
+};
 
 export type SchoolInput = Omit<
   School,
-  "id" | "code" | "accountEmail" | "accountPhone" | "createdAt" | "updatedAt"
+  | "id"
+  | "code"
+  | "accountEmail"
+  | "accountPhone"
+  | "createdAt"
+  | "updatedAt"
+  | "schoolPrograms"
+  | "programCodes"
 > & {
   accountEmail: string;
   accountPhone: string;
-  /** Omitted on update to keep the current password. */
+  programs: SchoolProgramInput[];
   password?: string;
 };
 
@@ -87,6 +100,6 @@ export type SchoolStats = {
   regular: number;
   customized: number;
   byBoard: { board: SchoolBoard; count: number }[];
-  byProgram: { program: Program; count: number }[];
+  byProgram: { program: string; programName: string; count: number }[];
   recent: School[];
 };

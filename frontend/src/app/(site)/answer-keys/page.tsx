@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { ANSWER_KEY_NOUN, SCHOOL_ANSWER_KEYS_PATH } from "@/features/answer-keys/constants";
+import { ANSWER_KEY_NOUN, TEACHER_ANSWER_KEYS_PATH } from "@/features/answer-keys/constants";
 import { SchoolDocumentsPage } from "@/features/documents/school-documents-page";
-import { LiveRefresh } from "@/features/live/live-refresh";
-import { verifySchoolSession } from "@/features/school-auth/session";
-import { listSchoolAnswerKeys } from "@/services/answer-keys";
+import { verifyTeacherSession } from "@/features/teacher-auth/session";
+import { listTeacherAnswerKeys } from "@/services/answer-keys";
 
 export const metadata: Metadata = {
   title: "Answer Keys",
@@ -12,19 +11,19 @@ export const metadata: Metadata = {
 };
 
 export default async function AnswerKeysPage() {
-  const [school, answerKeys] = await Promise.all([verifySchoolSession(), listSchoolAnswerKeys()]);
+  const [teacher, answerKeys] = await Promise.all([
+    verifyTeacherSession(),
+    listTeacherAnswerKeys(),
+  ]);
 
   return (
-    <>
-      <LiveRefresh kind="answer-keys" />
-      <SchoolDocumentsPage
-        title="Answer"
-        highlight="Keys"
-        programIds={school.programs}
-        documents={answerKeys}
-        noun={ANSWER_KEY_NOUN}
-        basePath={SCHOOL_ANSWER_KEYS_PATH}
-      />
-    </>
+    <SchoolDocumentsPage
+      title="Answer"
+      highlight="Keys"
+      programIds={teacher.school.programCodes}
+      documents={answerKeys}
+      noun={ANSWER_KEY_NOUN}
+      basePath={TEACHER_ANSWER_KEYS_PATH}
+    />
   );
 }
