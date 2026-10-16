@@ -6,7 +6,9 @@ import type {
 } from "../schemas/answer-key.schema.js";
 import type { PublishBody } from "../schemas/publish.schema.js";
 import * as answerKeyService from "../services/answer-key.service.js";
+import type { ContentActor } from "../services/content-access.js";
 import type { SchoolAccountDto } from "../services/school.service.js";
+import type { TeacherAccountDto } from "../services/teacher.service.js";
 import { sendSuccess } from "../utils/api-response.js";
 import { sendPdf } from "../utils/pdf.js";
 
@@ -56,6 +58,16 @@ export const getSchoolAnswerKeyFile: RequestHandler<IdParams> = async (req, res)
     res,
     await answerKeyService.getAnswerKeyFile(req.params.id, res.locals.school as SchoolAccountDto),
   );
+};
+
+export const listTeacherAnswerKeys: RequestHandler = async (_req, res) => {
+  const actor: ContentActor = { kind: "teacher", teacher: res.locals.teacher as TeacherAccountDto };
+  sendSuccess(res, await answerKeyService.listVisibleAnswerKeys(actor));
+};
+
+export const getTeacherAnswerKeyFile: RequestHandler<IdParams> = async (req, res) => {
+  const actor: ContentActor = { kind: "teacher", teacher: res.locals.teacher as TeacherAccountDto };
+  sendPdf(res, await answerKeyService.getAnswerKeyFile(req.params.id, actor));
 };
 
 export const setAnswerKeyPublished: RequestHandler<IdParams> = async (req, res) => {

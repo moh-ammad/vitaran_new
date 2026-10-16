@@ -4,27 +4,16 @@ import {
   ADMIN_LOGIN_PATH,
   ADMIN_SESSION_COOKIE,
   RETURN_TO_COOKIE,
+  SCHOOL_BASE_PATH,
   SCHOOL_LOGIN_PATH,
   SCHOOL_SESSION_COOKIE,
+  TEACHER_LOGIN_PATH,
+  TEACHER_SESSION_COOKIE,
 } from "@/constants/auth";
 
-// Optimistic cookie checks only; pages verify the session with the API.
-export function proxy(request: NextRequest) {
+function redirectToLogin(request: NextRequest, loginPath: string) {
   const { pathname, search } = request.nextUrl;
-
-  if (pathname.startsWith(ADMIN_BASE_PATH)) {
-    if (pathname === ADMIN_LOGIN_PATH || request.cookies.has(ADMIN_SESSION_COOKIE)) {
-      return NextResponse.next();
-    }
-    return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl));
-  }
-
-  // Teachers resources, answer keys and results: school sign-in only.
-  if (request.cookies.has(SCHOOL_SESSION_COOKIE)) {
-    return NextResponse.next();
-  }
-
-  const response = NextResponse.redirect(new URL(SCHOOL_LOGIN_PATH, request.nextUrl));
+  const response = NextResponse.redirect(new URL(loginPath, request.nextUrl));
   response.cookies.set(RETURN_TO_COOKIE, pathname + search, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -35,11 +24,38 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
-// Matchers have to be literals.
+// Optimistic cookie checks only; pages verify the session with the API.
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith(ADMIN_BASE_PATH)) {
+    if (pathname === ADMIN_LOGIN_PATH || request.cookies.has(ADMIN_SESSION_COOKIE)) {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl));
+  }
+
+  if (pathname.startsWith(SCHOOL_BASE_PATH)) {
+    if (pathname === SCHOOL_LOGIN_PATH || request.cookies.has(SCHOOL_SESSION_COOKIE)) {
+      return NextResponse.next();
+    }
+    return redirectToLogin(request, SCHOOL_LOGIN_PATH);
+  }
+
+  // Public content pages: teachers only.
+  if (request.cookies.has(TEACHER_SESSION_COOKIE)) {
+    return NextResponse.next();
+  }
+
+  return redirectToLogin(request, TEACHER_LOGIN_PATH);
+}
+
 export const config = {
   matcher: [
     "/admin",
     "/admin/:path*",
+    "/school",
+    "/school/:path*",
     "/teachers-resources",
     "/teachers-resources/:path*",
     "/answer-keys",

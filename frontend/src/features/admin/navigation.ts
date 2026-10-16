@@ -1,9 +1,11 @@
 import {
+  BookMarked,
   CirclePlus,
   KeyRound,
   LayoutDashboard,
   School,
   Trophy,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +30,8 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       { title: "Register School", href: "/admin/schools/new", icon: CirclePlus },
       { title: "Schools", href: "/admin/schools", icon: School },
+      { title: "Teachers", href: "/admin/teachers", icon: Users },
+      { title: "Programs", href: "/admin/programs", icon: BookMarked },
     ],
   },
   {
@@ -57,11 +61,14 @@ export function isNavItemActive(href: string, pathname: string): boolean {
 
 const SEGMENT_LABELS: Record<string, string> = {
   schools: "Schools",
+  teachers: "Teachers",
+  programs: "Programs",
   new: "Register",
   edit: "Edit",
   "answer-keys": "Answer Keys",
   upload: "Upload",
   results: "Results",
+  classes: "Classes",
 };
 
 export type AdminBreadcrumb = { label: string; href: string };

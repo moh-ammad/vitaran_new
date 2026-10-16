@@ -7,10 +7,16 @@ import { cn } from "@/lib/utils";
 import { wasEdited } from "@/features/documents/constants";
 import type { ResultSet } from "@/types/result";
 import { formatDateTime, formatNumber } from "@/utils/format";
-import { resultProgramLabel, resultSetHref, SCHOOL_RESULTS_PATH } from "./constants";
+import { resultProgramLabel, resultSetHref, TEACHER_RESULTS_PATH } from "./constants";
 
-/** What a signed-in school sees: a tab per program, then a card per test with its classes. */
-export function SchoolResults({ resultSets }: { resultSets: ResultSet[] }) {
+/** What a signed-in school or teacher sees: a tab per program, then a card per test with its classes. */
+export function SchoolResults({
+  resultSets,
+  basePath = TEACHER_RESULTS_PATH,
+}: {
+  resultSets: ResultSet[];
+  basePath?: string;
+}) {
   const programs = [...new Set(resultSets.map(resultProgramLabel))].sort((a, b) => a.localeCompare(b));
   const [program, setProgram] = useState(programs[0]);
 
@@ -116,7 +122,7 @@ export function SchoolResults({ resultSets }: { resultSets: ResultSet[] }) {
                 {resultSet.classes.map((item) => (
                   <li key={item.classLevel}>
                     <Link
-                      href={resultSetHref(SCHOOL_RESULTS_PATH, resultSet.id, item.classLevel)}
+                      href={resultSetHref(basePath, resultSet.id, item.classLevel)}
                       className="group flex items-center justify-between gap-3 rounded-xl border border-brand-100 bg-white px-4 py-3 transition-colors hover:border-brand-900 hover:bg-brand-50"
                     >
                       <span>

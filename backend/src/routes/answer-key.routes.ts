@@ -5,13 +5,15 @@ import {
   getAnswerKeyFile,
   getAnswerKeyStats,
   getSchoolAnswerKeyFile,
+  getTeacherAnswerKeyFile,
   listAnswerKeys,
   listSchoolAnswerKeys,
+  listTeacherAnswerKeys,
   setAnswerKeyPublished,
   updateAnswerKey,
   uploadAnswerKey,
 } from "../controllers/answer-key.controller.js";
-import { requireAdmin, requireSchool } from "../middleware/authenticate.js";
+import { requireAdmin, requireSchool, requireTeacher } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import {
   answerKeyIdParamsSchema,
@@ -50,3 +52,11 @@ schoolAnswerKeyRouter.use(requireSchool);
 
 schoolAnswerKeyRouter.get("/", listSchoolAnswerKeys);
 schoolAnswerKeyRouter.get("/:id/file", validateId, getSchoolAnswerKeyFile);
+
+/** Answer keys as seen by a signed-in teacher (class-scoped). */
+export const teacherAnswerKeyRouter = Router();
+
+teacherAnswerKeyRouter.use(requireTeacher);
+
+teacherAnswerKeyRouter.get("/", listTeacherAnswerKeys);
+teacherAnswerKeyRouter.get("/:id/file", validateId, getTeacherAnswerKeyFile);

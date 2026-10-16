@@ -1,9 +1,13 @@
-import { PROGRAM_LABELS } from "@/features/schools/constants";
+import { programLabel } from "@/features/schools/constants";
 import type { ResultSet } from "@/types/result";
 
 export const RESULTS_PATH = "/admin/results";
 export const RESULT_UPLOAD_PATH = `${RESULTS_PATH}/upload`;
-export const SCHOOL_RESULTS_PATH = "/results";
+/** School portal results. */
+export const SCHOOL_RESULTS_PATH = "/school/results";
+
+/** Teacher (public site) results. */
+export const TEACHER_RESULTS_PATH = "/results";
 
 export const EXCEL_MAX_BYTES = 2 * 1024 * 1024;
 export const EXCEL_ACCEPT =
@@ -26,6 +30,6 @@ export const resultSheetDownloadHref = (basePath: string, id: string, classLevel
   `${basePath}/${id}/classes/${classLevel}/file`;
 
 export const resultProgramLabel = ({ program, programName }: Pick<ResultSet, "program" | "programName">) =>
-  program ? PROGRAM_LABELS[program] : (programName ?? "");
+  program ? programLabel(program) : (programName ?? "");
 
 export const studentCount = (count: number) => `${count} ${count === 1 ? "student" : "students"}`;

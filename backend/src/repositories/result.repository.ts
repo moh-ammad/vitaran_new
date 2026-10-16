@@ -1,6 +1,5 @@
 import { prisma } from "../config/database.js";
 import type { Prisma } from "../generated/prisma/client.js";
-import type { Program } from "../generated/prisma/enums.js";
 import type { CellValue } from "../utils/excel.js";
 
 /** Uploads write a set, its sheets and every student row; Neon round trips need some headroom. */
@@ -8,7 +7,7 @@ const WRITE_TIMEOUT_MS = 30_000;
 
 export const resultSetSummarySelect = {
   id: true,
-  program: true,
+  programCode: true,
   programName: true,
   testNumber: true,
   published: true,
@@ -26,7 +25,7 @@ export type ResultSetSummary = Prisma.ResultSetGetPayload<{ select: typeof resul
 
 export type ResultSetMeta = {
   schoolId: string;
-  program: Program | null;
+  programCode: string | null;
   programName: string | null;
   programKey: string;
   testNumber: number;

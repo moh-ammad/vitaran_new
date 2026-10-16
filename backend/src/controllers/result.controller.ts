@@ -7,13 +7,19 @@ import type {
 import type { PublishBody } from "../schemas/publish.schema.js";
 import * as resultService from "../services/result.service.js";
 import type { UploadedFiles } from "../services/result.service.js";
+import type { ContentActor } from "../services/content-access.js";
 import type { SchoolAccountDto } from "../services/school.service.js";
+import type { TeacherAccountDto } from "../services/teacher.service.js";
 import { sendSuccess } from "../utils/api-response.js";
 import { EXCEL_MIME_TYPE } from "../utils/excel.js";
 
 type IdParams = { id: string };
 
 const signedInSchool = (res: Response) => res.locals.school as SchoolAccountDto;
+const signedInTeacher = (res: Response): ContentActor => ({
+  kind: "teacher",
+  teacher: res.locals.teacher as TeacherAccountDto,
+});
 const sheetParams = (params: unknown) => params as ResultSheetParams;
 
 function sendExcel(res: Response, { fileName, data }: { fileName: string; data: Uint8Array }) {
@@ -82,4 +88,20 @@ export const getSchoolResultSheet: RequestHandler = async (req, res) => {
 
 export const getSchoolResultSheetFile: RequestHandler = async (req, res) => {
   sendExcel(res, await resultService.getResultSheetFile(sheetParams(req.params), signedInSchool(res)));
+};
+
+export const listTeacherResultSets: RequestHandler = async (_req, res) => {
+  sendSuccess(res, await resultService.listVisibleResultSets(signedInTeacher(res)));
+};
+
+export const getTeacherResultSet: RequestHandler<IdParams> = async (req, res) => {
+  sendSuccess(res, await resultService.getResultSet(req.params.id, signedInTeacher(res)));
+};
+
+export const getTeacherResultSheet: RequestHandler = async (req, res) => {
+  sendSuccess(res, await resultService.getResultSheet(sheetParams(req.params), signedInTeacher(res)));
+};
+
+export const getTeacherResultSheetFile: RequestHandler = async (req, res) => {
+  sendExcel(res, await resultService.getResultSheetFile(sheetParams(req.params), signedInTeacher(res)));
 };

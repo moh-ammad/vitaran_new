@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { PROGRAM_LABELS } from "@/features/schools/constants";
+import { programLabel } from "@/features/schools/constants";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
 import type { DeleteResult, PdfDocument, Publishable, SchoolRef } from "@/types/document";
 import type { SchoolType } from "@/types/school";
@@ -101,7 +101,7 @@ export function DocumentTable({
                   <span className={NUMBER_PILL}>{item.classLevel}</span>
                 </TableCell>
                 <TableCell className="hidden text-sm text-neutral-800 lg:table-cell">
-                  {PROGRAM_LABELS[item.program]}
+                  {programLabel(item.program)}
                 </TableCell>
                 {showType && item.type && (
                   <TableCell>
@@ -137,7 +137,7 @@ export function DocumentTable({
                       </p>
                       <p className="text-xs text-neutral-500">
                         {formatFileSize(item.fileSize)}
-                        <span className="lg:hidden"> · {PROGRAM_LABELS[item.program]}</span>
+                        <span className="lg:hidden"> · {programLabel(item.program)}</span>
                       </p>
                     </div>
                   </div>

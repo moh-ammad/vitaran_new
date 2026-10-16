@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Program, SchoolType } from "../generated/prisma/enums.js";
+import { SchoolType } from "../generated/prisma/enums.js";
 
 export const CLASS_LEVELS = Array.from({ length: 12 }, (_, index) => index + 1);
 
@@ -9,12 +9,12 @@ export const classFileField = (level: number) => `class_${level}`;
 const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
 
 /**
- * Multipart text fields. Regular schools send `program`, customized schools send `programName`;
+ * Multipart text fields. Regular schools send `program` (catalog code), customized schools send `programName`;
  * the service checks which one applies to the chosen school.
  */
 export const resultSetFieldsSchema = z.object({
   schoolId: z.uuid({ error: "Select a school" }),
-  program: z.preprocess(emptyToUndefined, z.enum(Program).optional()),
+  program: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(64).optional()),
   programName: z.preprocess(emptyToUndefined, z.string().trim().min(2).max(120).optional()),
   testNumber: z.coerce.number().int().min(1).max(100),
   /** Classes whose sheet should be deleted on update, e.g. "3,7". */

@@ -10,10 +10,9 @@ import { cn } from "@/lib/utils";
 import { CLASS_LEVELS, hasChanges, testItems } from "@/features/documents/constants";
 import { DocumentFormShell } from "@/features/documents/document-form-shell";
 import { SelectField } from "@/features/documents/select-field";
-import { PROGRAM_LABELS } from "@/features/schools/constants";
+import { programLabel } from "@/features/schools/constants";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
 import type { ResultSchoolOption, ResultSet } from "@/types/result";
-import type { Program } from "@/types/school";
 import { updateResultAction, uploadResultAction } from "./actions";
 import { ClassFileRow } from "./class-file-row";
 import { classFileField, RESULTS_PATH } from "./constants";
@@ -111,14 +110,18 @@ function FormFields({ schools, resultSet, backHref, values, errors, message, pen
 
   const school = schools.find(({ id }) => id === current.schoolId);
   const customized = school?.type === "CUSTOMIZED";
-  const programItems = (school?.programs ?? []).map((value) => ({ value, label: PROGRAM_LABELS[value] }));
+  const programItems = (school?.programs ?? []).map((value) => ({
+    value,
+    label: programLabel(value, school?.programLabels?.[value]),
+  }));
   const schoolItems = schools.map(({ id, name, code }) => ({ value: id, label: name, hint: code }));
   const savedClasses = new Map(resultSet?.classes.map((item) => [item.classLevel, item]));
 
   const selectSchool = (schoolId: string) =>
     setCurrent((prev) => {
       const next = schools.find(({ id }) => id === schoolId);
-      const keepProgram = next?.type === "REGULAR" && next.programs.includes(prev.program as Program);
+      const keepProgram =
+        next?.type === "REGULAR" && !!prev.program && next.programs.includes(prev.program);
       return {
         ...prev,
         schoolId,

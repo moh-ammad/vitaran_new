@@ -27,5 +27,5 @@ export async function schoolLogin(
 
 export async function schoolLogout() {
   await deleteSchoolSession();
-  redirect("/");
+  redirect("/school/login");
 }

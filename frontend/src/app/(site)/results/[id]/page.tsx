@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHero } from "@/components/shared/page-hero";
-import { LiveRefresh } from "@/features/live/live-refresh";
-import { SCHOOL_RESULTS_PATH } from "@/features/results/constants";
+import { TEACHER_RESULTS_PATH } from "@/features/results/constants";
 import { ResultSetView, selectedClass } from "@/features/results/result-set-view";
-import { getSchoolResultSet, getSchoolResultSheet } from "@/services/results";
+import { verifyTeacherSession } from "@/features/teacher-auth/session";
+import { getTeacherResultSet, getTeacherResultSheet } from "@/services/results";
 
 export const metadata: Metadata = { title: "Results" };
 
-export default async function SchoolResultPage({ params, searchParams }: PageProps<"/results/[id]">) {
+export default async function TeacherResultPage({ params, searchParams }: PageProps<"/results/[id]">) {
+  await verifyTeacherSession();
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const resultSet = await getSchoolResultSet(id);
+  const resultSet = await getTeacherResultSet(id);
   const classLevel = resultSet && selectedClass(resultSet, query.class);
-  const sheet = classLevel ? await getSchoolResultSheet(id, classLevel) : null;
+  const sheet = classLevel ? await getTeacherResultSheet(id, classLevel) : null;
   if (!resultSet || !sheet) notFound();
 
   return (
     <>
-      <LiveRefresh kind="results" />
       <PageHero
         title={
           <>
@@ -31,8 +31,8 @@ export default async function SchoolResultPage({ params, searchParams }: PagePro
           <ResultSetView
             resultSet={resultSet}
             sheet={sheet}
-            basePath={SCHOOL_RESULTS_PATH}
-            backHref={SCHOOL_RESULTS_PATH}
+            basePath={TEACHER_RESULTS_PATH}
+            backHref={TEACHER_RESULTS_PATH}
           />
         </div>
       </section>

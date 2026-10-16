@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogIn, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/shared/logo";
-import { SCHOOL_HOME_PATH } from "@/constants/auth";
+import { TEACHER_LOGIN_PATH } from "@/constants/auth";
 import { navLinks } from "@/features/home/content";
-import { schoolLogout } from "@/features/school-auth/actions";
+import { teacherLogout } from "@/features/teacher-auth/actions";
 import { cn } from "@/lib/utils";
 
 const HEADER_OFFSET = 72;
@@ -34,7 +34,7 @@ const mobileAuthClasses =
 
 const authIconClasses = "size-4";
 
-/** School Log in when signed out, Log out when signed in. */
+/** Teacher Log in when signed out, Log out when signed in. */
 function AuthControl({
   signedIn,
   className,
@@ -53,7 +53,7 @@ function AuthControl({
         disabled={pending}
         onClick={() => {
           onNavigate?.();
-          startTransition(() => schoolLogout());
+          startTransition(() => teacherLogout());
         }}
         className={className}
       >
@@ -64,7 +64,7 @@ function AuthControl({
   }
 
   return (
-    <Link href={SCHOOL_HOME_PATH} onClick={onNavigate} className={className}>
+    <Link href={TEACHER_LOGIN_PATH} onClick={onNavigate} className={className}>
       <LogIn className={authIconClasses} />
       <span>Log in</span>
     </Link>

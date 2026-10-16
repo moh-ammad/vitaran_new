@@ -41,7 +41,16 @@ export async function listCustomizedSchoolOptions() {
 /** Options for pickers that target any school, with its type and enrolled programs. */
 export async function listSchoolOptions() {
   const { items } = await listSchools({ pageSize: 100 });
-  return items.map(({ id, name, code, type, programs }) => ({ id, name, code, type, programs }));
+  return items.map(({ id, name, code, type, programCodes, schoolPrograms }) => ({
+    id,
+    name,
+    code,
+    type,
+    programs: programCodes,
+    programLabels: Object.fromEntries(
+      schoolPrograms.map((row) => [row.programCode, row.programName]),
+    ),
+  }));
 }
 
 export function getSchoolStats() {

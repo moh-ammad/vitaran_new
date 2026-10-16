@@ -3,11 +3,13 @@ import { ApiError } from "@/services/api-client";
 import { adminApi, adminFetch } from "@/services/admin-api";
 import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { schoolApi, schoolFetch } from "@/services/school-api";
+import { teacherApi, teacherFetch } from "@/services/teacher-api";
 import type { ContentStats } from "@/types/document";
 import type { ResultSet, ResultSheet } from "@/types/result";
 
 const BASE = "/results";
 const SCHOOL_BASE = "/school/results";
+const TEACHER_BASE = "/teacher/results";
 const setPath = (base: string, id: string) => `${base}/${encodeURIComponent(id)}`;
 const sheetPath = (base: string, id: string, classLevel: number) =>
   `${setPath(base, id)}/classes/${classLevel}`;
@@ -74,4 +76,20 @@ export function getSchoolResultSheet(id: string, classLevel: number) {
 
 export function fetchSchoolResultSheetFile(id: string, classLevel: number) {
   return schoolFetch(`${sheetPath(SCHOOL_BASE, id, classLevel)}/file`);
+}
+
+export function listTeacherResultSets() {
+  return teacherApi<ResultSet[]>(TEACHER_BASE);
+}
+
+export function getTeacherResultSet(id: string) {
+  return orNull(teacherApi<ResultSet>(setPath(TEACHER_BASE, id)));
+}
+
+export function getTeacherResultSheet(id: string, classLevel: number) {
+  return orNull(teacherApi<ResultSheet>(sheetPath(TEACHER_BASE, id, classLevel)));
+}
+
+export function fetchTeacherResultSheetFile(id: string, classLevel: number) {
+  return teacherFetch(`${sheetPath(TEACHER_BASE, id, classLevel)}/file`);
 }

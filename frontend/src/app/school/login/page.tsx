@@ -35,7 +35,7 @@ export default async function SchoolLoginPage() {
           Sign in to your <span className="text-gradient">school account</span>
         </>
       }
-      description="Access teachers resources and answer keys for your school."
+      description="Manage teachers and view resources, answer keys and results for your school."
       highlights={highlights}
       footnote="Use the login details shared with your school by Vitaran."
     >

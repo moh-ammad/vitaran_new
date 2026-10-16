@@ -4,7 +4,7 @@ import type { Prisma } from "../generated/prisma/client.js";
 /** Everything except the file bytes. */
 export const answerKeySummarySelect = {
   id: true,
-  program: true,
+  programCode: true,
   type: true,
   testNumber: true,
   classLevel: true,

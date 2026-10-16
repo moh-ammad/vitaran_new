@@ -9,10 +9,11 @@ import { resultUploadHrefFor } from "@/features/results/constants";
 import { ResultsTable } from "@/features/results/results-table";
 import {
   BOARD_LABELS,
-  PROGRAM_LABELS,
   STATUS_LABELS,
+  SUBJECT_LABELS,
   TYPE_LABELS,
 } from "@/features/schools/constants";
+import { uniqueSubjectsFromOfferings } from "@/features/schools/offerings";
 import { CopyButton } from "@/features/schools/copy-button";
 import { SchoolDetailActions } from "@/features/schools/school-detail-actions";
 import { listResultSets } from "@/services/results";
@@ -95,7 +96,21 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
             }
           />
           <Chip label="Students" value={school.studentStrength ? formatNumber(school.studentStrength) : EMPTY} />
-          <Chip label="Programs" value={school.programs.length} />
+          <Chip label="Programs" value={school.schoolPrograms.length} />
+          <Link
+            href={`/admin/teachers?schoolId=${school.id}`}
+            className="min-w-18 rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-center transition-colors hover:bg-white/20"
+          >
+            <p className="text-[9px] font-semibold tracking-wider text-white/50 uppercase">Teachers</p>
+            <p className="text-sm font-bold text-white">View</p>
+          </Link>
+          <Link
+            href={`/admin/schools/${school.id}/teachers/new`}
+            className="min-w-18 rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-center transition-colors hover:bg-white/20"
+          >
+            <p className="text-[9px] font-semibold tracking-wider text-white/50 uppercase">Add</p>
+            <p className="text-sm font-bold text-white">Teacher</p>
+          </Link>
           <div className="flex gap-2 xl:ml-2 xl:border-l xl:border-white/15 xl:pl-4">
             <SchoolDetailActions school={school} inverted />
           </div>
@@ -116,9 +131,17 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
             </Field>
             <Field label="Principal">{school.principalName}</Field>
             <Field label="Programs" span={2}>
-              {school.programs.length > 0
-                ? school.programs.map((program) => PROGRAM_LABELS[program]).join(", ")
+              {school.schoolPrograms.length > 0
+                ? school.schoolPrograms.map((program) => program.programName).join(", ")
                 : null}
+            </Field>
+            <Field label="Subjects" span={3}>
+              {(() => {
+                const subjects = uniqueSubjectsFromOfferings(school.schoolPrograms);
+                return subjects.length > 0
+                  ? subjects.map((subject) => SUBJECT_LABELS[subject]).join(", ")
+                  : null;
+              })()}
             </Field>
           </Panel>
 

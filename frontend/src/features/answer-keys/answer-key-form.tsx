@@ -13,17 +13,17 @@ import {
 import { DocumentFormShell, FormSection } from "@/features/documents/document-form-shell";
 import { PdfField } from "@/features/documents/pdf-field";
 import { SelectField } from "@/features/documents/select-field";
-import { PROGRAM_LABELS, TYPE_LABELS } from "@/features/schools/constants";
+import { TYPE_LABELS } from "@/features/schools/constants";
 import type { AnswerKey } from "@/types/answer-key";
 import type { SchoolRef } from "@/types/document";
-import { PROGRAMS, SCHOOL_TYPES } from "@/types/school";
+import type { LearningProgram } from "@/types/program";
+import { SCHOOL_TYPES } from "@/types/school";
 import { updateAnswerKeyAction, uploadAnswerKeyAction } from "./actions";
 import { ANSWER_KEYS_PATH } from "./constants";
 import type { AnswerKeyFormState, AnswerKeyFormValues } from "./schema";
 
 type FieldErrors = Exclude<AnswerKeyFormState, undefined | { status: "success" }>["fieldErrors"];
 
-const programItems = PROGRAMS.map((value) => ({ value, label: PROGRAM_LABELS[value] }));
 const typeItems = SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] }));
 
 function toFormValues(answerKey?: AnswerKey): AnswerKeyFormValues {
@@ -40,11 +40,13 @@ function toFormValues(answerKey?: AnswerKey): AnswerKeyFormValues {
 type AnswerKeyFormProps = {
   /** Customized schools, for customized answer keys. */
   schools: SchoolRef[];
+  /** Catalog programs for the program dropdown. */
+  programs: LearningProgram[];
   /** Present when editing. */
   answerKey?: AnswerKey;
 };
 
-export function AnswerKeyForm({ schools, answerKey }: AnswerKeyFormProps) {
+export function AnswerKeyForm({ schools, programs, answerKey }: AnswerKeyFormProps) {
   const router = useRouter();
   const action = answerKey ? updateAnswerKeyAction.bind(null, answerKey.id) : uploadAnswerKeyAction;
   const [state, formAction, pending] = useActionState<AnswerKeyFormState, FormData>(action, undefined);
@@ -63,6 +65,7 @@ export function AnswerKeyForm({ schools, answerKey }: AnswerKeyFormProps) {
       <FormFields
         key={failed?.submittedAt ?? "initial"}
         schools={schools}
+        programs={programs}
         answerKey={answerKey}
         values={failed?.values ?? toFormValues(answerKey)}
         errors={failed?.fieldErrors ?? {}}
@@ -75,6 +78,7 @@ export function AnswerKeyForm({ schools, answerKey }: AnswerKeyFormProps) {
 
 type FormFieldsProps = {
   schools: SchoolRef[];
+  programs: LearningProgram[];
   answerKey?: AnswerKey;
   values: AnswerKeyFormValues;
   errors: NonNullable<FieldErrors>;
@@ -82,7 +86,11 @@ type FormFieldsProps = {
   pending: boolean;
 };
 
-function FormFields({ schools, answerKey, values, errors, message, pending }: FormFieldsProps) {
+function FormFields({ schools, programs, answerKey, values, errors, message, pending }: FormFieldsProps) {
+  const programItems = programs.map((program) => ({
+    value: program.code,
+    label: program.name,
+  }));
   const [current, setCurrent] = useState(values);
   const [hasNewFile, setHasNewFile] = useState(false);
   const customized = current.type === "CUSTOMIZED";

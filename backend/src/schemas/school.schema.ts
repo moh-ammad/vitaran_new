@@ -1,9 +1,9 @@
 import { z } from "zod";
 import {
-  Program,
   SchoolBoard,
   SchoolStatus,
   SchoolType,
+  Subject,
 } from "../generated/prisma/enums.js";
 
 const requiredText = (min: number, max: number) =>
@@ -27,14 +27,39 @@ const phone = z
 
 const password = z.string().min(1, "Password is required").max(128);
 
+const schoolProgramClassSchema = z.object({
+  classLevel: z.number().int().min(1).max(12),
+  subjects: z
+    .array(z.enum(Subject))
+    .min(1, "Select at least one subject for each class")
+    .transform((subjects) => [...new Set(subjects)]),
+});
+
+const schoolProgramSchema = z.object({
+  programId: z.uuid(),
+  classes: z
+    .array(schoolProgramClassSchema)
+    .min(1, "Select at least one class for each program")
+    .transform((classes) => {
+      const byClass = new Map<number, (typeof classes)[number]>();
+      for (const row of classes) byClass.set(row.classLevel, row);
+      return [...byClass.values()].sort((a, b) => a.classLevel - b.classLevel);
+    }),
+});
+
 const schoolFields = {
   name: requiredText(2, 200),
   board: z.enum(SchoolBoard),
   type: z.enum(SchoolType),
   status: z.enum(SchoolStatus),
   programs: z
-    .array(z.enum(Program))
-    .transform((programs) => [...new Set(programs)]),
+    .array(schoolProgramSchema)
+    .default([])
+    .transform((programs) => {
+      const byId = new Map<string, (typeof programs)[number]>();
+      for (const row of programs) byId.set(row.programId, row);
+      return [...byId.values()];
+    }),
   principalName: optionalText(120),
   contactName: requiredText(2, 120),
   contactEmail: email,
@@ -56,7 +81,6 @@ export const createSchoolSchema = z.object({
   ...schoolFields,
   type: schoolFields.type.default(SchoolType.REGULAR),
   status: schoolFields.status.default(SchoolStatus.ACTIVE),
-  programs: schoolFields.programs.default([]),
   password,
 });
 
@@ -91,3 +115,4 @@ export type CreateSchoolInput = z.infer<typeof createSchoolSchema>;
 export type UpdateSchoolInput = z.infer<typeof updateSchoolSchema>;
 export type ListSchoolsQuery = z.infer<typeof listSchoolsQuerySchema>;
 export type AccountAvailabilityQuery = z.infer<typeof accountAvailabilityQuerySchema>;
+export type SchoolProgramInput = z.infer<typeof schoolProgramSchema>;

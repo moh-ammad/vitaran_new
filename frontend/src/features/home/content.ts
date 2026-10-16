@@ -19,7 +19,6 @@ import {
 export const navLinks = [
   { label: "About", href: "#about" },
   { label: "Services", href: "#services" },
-  { label: "Solutions", href: "#solutions" },
   { label: "Teachers Resources", href: "/teachers-resources" },
   { label: "Answer Keys", href: "/answer-keys" },
   { label: "Results", href: "/results" },
