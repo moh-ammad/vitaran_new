@@ -24,6 +24,8 @@ export const PROGRAMS = [
   "OLYMPIAD_PRIMARY",
 ] as const;
 
+export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
+
 export type SchoolBoard = (typeof SCHOOL_BOARDS)[number];
 export type SchoolType = (typeof SCHOOL_TYPES)[number];
 export type SchoolStatus = (typeof SCHOOL_STATUSES)[number];
