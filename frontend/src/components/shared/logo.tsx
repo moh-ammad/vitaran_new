@@ -4,24 +4,28 @@ import { cn } from "@/lib/utils";
 
 type LogoProps = {
   variant?: "color" | "white";
+  /** Smaller mark for portal headers on mobile. */
+  compact?: boolean;
   className?: string;
 };
 
-export function Logo({ variant = "color", className }: LogoProps) {
+export function Logo({ variant = "color", compact = false, className }: LogoProps) {
   return (
     <Link
       href="/"
+      prefetch
       aria-label="Vitaran Learning home"
-      className={cn("inline-flex shrink-0", className)}
+      className={cn("relative z-10 inline-flex shrink-0 items-center", className)}
     >
       <Image
         src="/brand/vitaran-logo.png"
         alt="Vitaran Learning"
-        width={100}
-        height={39}
+        width={compact ? 88 : 100}
+        height={compact ? 34 : 39}
         priority
         className={cn(
-          "h-12 w-auto",
+          "w-auto",
+          compact ? "h-8" : "h-12",
           // The PNG has a solid white background: blend it away on dark surfaces.
           variant === "white" ? "mix-blend-screen grayscale invert" : "mix-blend-multiply",
         )}

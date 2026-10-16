@@ -10,7 +10,7 @@ export const SCHOOL_HOME_PATH = "/school";
 export const TEACHER_SESSION_COOKIE = "vitaran_teacher_session";
 export const TEACHER_BASE_PATH = "/teacher";
 export const TEACHER_LOGIN_PATH = "/teacher/login";
-export const TEACHER_HOME_PATH = "/teachers-resources";
+export const TEACHER_HOME_PATH = "/teacher";
 
 /** Page the user tried to open before being sent to login; read once after signing in. */
 export const RETURN_TO_COOKIE = "vitaran_return_to";

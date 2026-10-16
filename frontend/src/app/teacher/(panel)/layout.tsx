@@ -1,0 +1,43 @@
+import { cookies } from "next/headers";
+import { TeacherHeader } from "@/components/layout/teacher-header";
+import { TeacherMobileNav } from "@/components/layout/teacher-mobile-nav";
+import { TeacherSidebar } from "@/components/layout/teacher-sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { verifyTeacherSession } from "@/features/teacher-auth/session";
+
+const SIDEBAR_STATE_COOKIE = "teacher_sidebar_state";
+
+export default async function TeacherPanelLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [teacher, cookieStore] = await Promise.all([verifyTeacherSession(), cookies()]);
+  const defaultOpen = cookieStore.get(SIDEBAR_STATE_COOKIE)?.value !== "false";
+
+  return (
+    <TooltipProvider>
+      <SidebarProvider
+        defaultOpen={defaultOpen}
+        style={
+          {
+            // Narrow drawer on mobile; desktop matches school icon rail.
+            "--sidebar-width": "10.5rem",
+          } as React.CSSProperties
+        }
+      >
+        <TeacherSidebar teacher={teacher} />
+        <SidebarInset className="min-w-0 bg-neutral-50">
+          <TeacherHeader />
+          <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
+            <TeacherMobileNav />
+            {children}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+      <Toaster theme="light" position="top-right" richColors closeButton />
+    </TooltipProvider>
+  );
+}

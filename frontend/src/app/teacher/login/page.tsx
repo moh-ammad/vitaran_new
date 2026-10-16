@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { BookOpenCheck, ClipboardCheck, Trophy } from "lucide-react";
+import { BookOpenCheck, ClipboardCheck, ScanLine, Trophy } from "lucide-react";
 import { TEACHER_HOME_PATH } from "@/constants/auth";
 import { AuthShell } from "@/features/auth/auth-shell";
 import { LoginForm } from "@/features/auth/login-form";
@@ -27,6 +27,11 @@ const highlights = [
     title: "Results",
     description: "Results for the classes you teach.",
   },
+  {
+    icon: ScanLine,
+    title: "OMR Scan",
+    description: "Capture OMR sheets for your tests and classes.",
+  },
 ];
 
 export default async function TeacherLoginPage() {
@@ -40,7 +45,7 @@ export default async function TeacherLoginPage() {
           Sign in as a <span className="text-gradient">teacher</span>
         </>
       }
-      description="Access resources, answer keys and results for your assigned classes."
+      description="Access resources, answer keys, results and OMR scan for your assigned classes."
       highlights={highlights}
       footnote="Use the login details shared by your school."
     >

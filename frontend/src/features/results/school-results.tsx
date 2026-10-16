@@ -93,11 +93,13 @@ export function SchoolResults({
               <header className="flex flex-wrap items-center justify-between gap-4 border-b border-brand-100 bg-brand-50/60 px-5 py-4 sm:px-6">
                 <div className="flex items-center gap-4">
                   <span className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
-                    <span className="text-[9px] font-semibold tracking-wider text-white/70 uppercase">Test</span>
+                    <span className="text-[8px] font-semibold tracking-wider text-white/70 uppercase">ID</span>
                     <span className="text-lg leading-none font-bold tabular-nums">{resultSet.testNumber}</span>
                   </span>
                   <div>
-                    <h3 className="text-lg font-bold text-neutral-950">Test {resultSet.testNumber} results</h3>
+                    <h3 className="text-lg font-bold text-neutral-950">
+                      Test ID {resultSet.testNumber} results
+                    </h3>
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-600">
                       <Users className="size-3.5 text-brand-700" />
                       {resultSet.classes.length} {resultSet.classes.length === 1 ? "class" : "classes"} ·{" "}
