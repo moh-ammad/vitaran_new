@@ -5,7 +5,7 @@ import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { pdfUploadRequest } from "@/services/pdf-upload";
 import { schoolApi, schoolFetch } from "@/services/school-api";
 import { teacherApi, teacherFetch } from "@/services/teacher-api";
-import type { AnswerKey, AnswerKeyInput } from "@/types/answer-key";
+import type { AnswerKey, AnswerKeyInput, SchoolTestOption } from "@/types/answer-key";
 import type { ContentStats } from "@/types/document";
 
 const BASE = "/answer-keys";
@@ -17,6 +17,12 @@ const toRequest = ({ file, ...meta }: AnswerKeyInput) => pdfUploadRequest(meta, 
 
 export function listRecentAnswerKeys(filters?: ListFilters) {
   return adminApi<AnswerKey[]>(`${BASE}${listFiltersQuery(filters)}`);
+}
+
+/** Tests + program/class combos for a school, from its answer keys. */
+export function listSchoolTests(schoolId: string) {
+  const query = new URLSearchParams({ schoolId });
+  return adminApi<SchoolTestOption[]>(`${BASE}/school-tests?${query}`);
 }
 
 export function getAnswerKeyStats() {

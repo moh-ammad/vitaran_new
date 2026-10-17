@@ -8,6 +8,7 @@ import {
   getTeacherAnswerKeyFile,
   listAnswerKeys,
   listSchoolAnswerKeys,
+  listSchoolTests,
   listTeacherAnswerKeys,
   setAnswerKeyPublished,
   updateAnswerKey,
@@ -18,6 +19,7 @@ import { validate } from "../middleware/validate.js";
 import {
   answerKeyIdParamsSchema,
   listAnswerKeysQuerySchema,
+  schoolTestsQuerySchema,
   updateAnswerKeyQuerySchema,
   uploadAnswerKeyQuerySchema,
 } from "../schemas/answer-key.schema.js";
@@ -33,6 +35,7 @@ answerKeyRouter.use(requireAdmin);
 answerKeyRouter.get("/", validate(listAnswerKeysQuerySchema, "query"), listAnswerKeys);
 answerKeyRouter.post("/", validate(uploadAnswerKeyQuerySchema, "query"), readPdfBody, uploadAnswerKey);
 answerKeyRouter.get("/stats", getAnswerKeyStats);
+answerKeyRouter.get("/school-tests", validate(schoolTestsQuerySchema, "query"), listSchoolTests);
 answerKeyRouter.get("/:id", validateId, getAnswerKey);
 answerKeyRouter.patch(
   "/:id",

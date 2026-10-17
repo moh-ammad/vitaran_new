@@ -17,6 +17,9 @@ export type ResultSet = Publishable & {
   program: Program | null;
   /** Customized schools. */
   programName: string | null;
+  /** Freeform test ID. */
+  testId: string;
+  /** Ordinal test number. */
   testNumber: number;
   classes: ResultClass[];
   createdAt: string;
@@ -34,8 +37,17 @@ export type ResultSheet = Omit<ResultClass, "updatedAt"> & {
   updatedAt: string;
 };
 
+export type ResultSchoolProgramOption = {
+  code: Program;
+  name: string;
+  /** Class levels enrolled for this program at the school. */
+  classLevels: number[];
+};
+
 export type ResultSchoolOption = SchoolRef & {
   type: SchoolType;
+  /** @deprecated Prefer `offerings` — kept for callers that only need codes. */
   programs: Program[];
   programLabels?: Record<string, string>;
+  offerings: ResultSchoolProgramOption[];
 };

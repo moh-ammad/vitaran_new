@@ -72,9 +72,52 @@ export function TeacherForm({
 }: TeacherFormProps) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(action, undefined);
-  const [values] = useState(() =>
-    state?.status === "error" ? state.values : toValues(teacher, myClassTeacherSlots),
+  const isEdit = !!teacher;
+  const formKey =
+    state?.status === "error" ? `error-${state.submittedAt}` : teacher?.id ?? "new";
+
+  return (
+    <TeacherFormFields
+      key={formKey}
+      teacher={teacher}
+      schoolPrograms={schoolPrograms}
+      classTeacherSlots={classTeacherSlots}
+      myClassTeacherSlots={myClassTeacherSlots}
+      formAction={formAction}
+      pending={pending}
+      state={state}
+      cancelHref={cancelHref}
+      successHref={successHref}
+      isEdit={isEdit}
+      onSuccess={(teacherId) => {
+        toast.success(isEdit ? "Teacher updated" : "Teacher created");
+        router.replace(successHref.replaceAll("{id}", teacherId));
+      }}
+    />
   );
+}
+
+function TeacherFormFields({
+  teacher,
+  schoolPrograms,
+  classTeacherSlots,
+  myClassTeacherSlots = [],
+  formAction,
+  pending,
+  state,
+  cancelHref,
+  successHref,
+  isEdit,
+  onSuccess,
+}: Omit<TeacherFormProps, "action"> & {
+  formAction: (payload: FormData) => void;
+  pending: boolean;
+  state: TeacherFormState;
+  isEdit: boolean;
+  onSuccess: (teacherId: string) => void;
+}) {
+  void successHref;
+  const values = state?.status === "error" ? state.values : toValues(teacher, myClassTeacherSlots);
   const [assignments, setAssignments] = useState(values.assignments);
   const [classTeacherFor, setClassTeacherFor] = useState(values.classTeacherFor);
   const [selectedIds, setSelectedIds] = useState(() => {
@@ -83,20 +126,13 @@ export function TeacherForm({
       const programId = token.split(":")[0];
       if (programId) ids.add(programId);
     }
-    if (ids.size === 0 && schoolPrograms[0]) ids.add(schoolPrograms[0].programId);
     return ids;
   });
   const [baseline] = useState(() => ({
     assignments: values.assignments.slice().sort().join("|"),
     classTeacherFor: values.classTeacherFor.slice().sort().join("|"),
-    name: values.name,
-    email: values.email,
-    phone: values.phone,
-    status: values.status,
-    password: values.password,
   }));
   const [profileDirty, setProfileDirty] = useState(false);
-  const isEdit = !!teacher;
   const dirty =
     profileDirty ||
     assignments.slice().sort().join("|") !== baseline.assignments ||
@@ -122,12 +158,11 @@ export function TeacherForm({
   useEffect(() => {
     if (state?.status === "success") {
       markClean();
-      toast.success(isEdit ? "Teacher updated" : "Teacher created");
-      router.replace(successHref.replaceAll("{id}", state.teacherId));
+      onSuccess(state.teacherId);
     } else if (state?.status === "error" && state.message && !state.fieldErrors) {
       toast.error(state.message);
     }
-  }, [state, isEdit, router, successHref, markClean]);
+  }, [state, markClean, onSuccess]);
 
   const setToken = (programId: string, classLevel: number, subject: Subject, checked: boolean) => {
     const token = encodeAssignment(programId, classLevel, subject);
@@ -158,7 +193,8 @@ export function TeacherForm({
       <form
         ref={formRef}
         action={formAction}
-        className="space-y-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8"
+        noValidate
+        className="space-y-4 overflow-clip rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5"
         onChange={() => {
           if (isEdit) setProfileDirty(true);
         }}
@@ -170,13 +206,13 @@ export function TeacherForm({
           <input key={value} type="hidden" name="classTeacherFor" value={value} />
         ))}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field data-invalid={errors?.name ? true : undefined}>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
+          <Field data-invalid={errors?.name ? true : undefined} className="lg:col-span-3">
             <FieldLabel htmlFor="name">Full name *</FieldLabel>
-            <Input id="name" name="name" defaultValue={values.name} required />
+            <Input id="name" name="name" defaultValue={values.name} />
             {errors?.name && <FieldError>{errors.name[0]}</FieldError>}
           </Field>
-          <Field data-invalid={errors?.status ? true : undefined}>
+          <Field data-invalid={errors?.status ? true : undefined} className="lg:col-span-3">
             <FieldLabel htmlFor="status">Status *</FieldLabel>
             <Select
               name="status"
@@ -198,12 +234,12 @@ export function TeacherForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field data-invalid={errors?.email ? true : undefined}>
+          <Field data-invalid={errors?.email ? true : undefined} className="lg:col-span-2">
             <FieldLabel htmlFor="email">Email *</FieldLabel>
-            <Input id="email" name="email" type="email" defaultValue={values.email} required />
+            <Input id="email" name="email" type="email" defaultValue={values.email} />
             {errors?.email && <FieldError>{errors.email[0]}</FieldError>}
           </Field>
-          <Field data-invalid={errors?.phone ? true : undefined}>
+          <Field data-invalid={errors?.phone ? true : undefined} className="lg:col-span-2">
             <FieldLabel htmlFor="phone">Phone *</FieldLabel>
             <Input
               id="phone"
@@ -211,11 +247,10 @@ export function TeacherForm({
               inputMode="numeric"
               maxLength={10}
               defaultValue={values.phone}
-              required
             />
             {errors?.phone && <FieldError>{errors.phone[0]}</FieldError>}
           </Field>
-          <Field data-invalid={errors?.password ? true : undefined} className="md:col-span-2">
+          <Field data-invalid={errors?.password ? true : undefined} className="lg:col-span-2">
             <FieldLabel htmlFor="password">{isEdit ? "Password" : "Password *"}</FieldLabel>
             <Input
               id="password"
@@ -224,34 +259,33 @@ export function TeacherForm({
               defaultValue={values.password}
               autoComplete="off"
               spellCheck={false}
-              placeholder={isEdit ? "Leave blank to keep current password" : undefined}
+              placeholder={isEdit ? "Leave blank to keep current" : undefined}
             />
             {errors?.password && <FieldError>{errors.password[0]}</FieldError>}
           </Field>
         </div>
 
-        <section className="space-y-5">
+        <section className="space-y-3 border-t border-neutral-200 pt-4">
           <div>
             <h3 className="text-sm font-bold text-neutral-950">Programs & classes *</h3>
-            <p className="mt-1 text-sm text-neutral-500">
-              Check subjects per class. A class-teacher toggle appears when that class has no class
-              teacher yet.
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Select programs, then check subjects per class.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {schoolPrograms.map((row) => {
               const id = `teacher-program-${row.programId}`;
               return (
                 <label
                   key={row.programId}
                   htmlFor={id}
-                  className="flex cursor-pointer items-center gap-2"
+                  className="flex cursor-pointer items-center gap-1.5"
                 >
                   <input
                     id={id}
                     type="checkbox"
-                    className="size-4 rounded border-neutral-300 accent-brand-800"
+                    className="size-3.5 rounded border-neutral-300 accent-brand-800"
                     checked={selectedIds.has(row.programId)}
                     onChange={(event) => {
                       const checked = event.target.checked;
@@ -278,8 +312,8 @@ export function TeacherForm({
           </div>
 
           {selectedPrograms.map((offering) => (
-            <div key={offering.programId} className="space-y-3">
-              <h4 className="border-b border-neutral-200 pb-2 text-sm font-bold text-neutral-950">
+            <div key={offering.programId} className="space-y-2">
+              <h4 className="border-b border-neutral-200 pb-1.5 text-xs font-bold tracking-wide text-neutral-950 uppercase">
                 {offering.programName}
               </h4>
               <ClassSubjectGrid
@@ -326,7 +360,7 @@ export function TeacherForm({
           >
             Cancel
           </Link>
-          <Button type="submit" disabled={pending || assignments.length === 0}>
+          <Button type="submit" disabled={pending}>
             {pending ? <Loader2 className="animate-spin" /> : <Save />}
             {isEdit ? "Save changes" : "Create teacher"}
           </Button>

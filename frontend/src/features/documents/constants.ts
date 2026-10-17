@@ -8,7 +8,7 @@ const range = (from: number, to: number) =>
 export const TEST_NUMBERS = range(1, 100);
 export const CLASS_LEVELS = range(1, 12);
 
-export const testItems = TEST_NUMBERS.map((n) => ({ value: String(n), label: `Test ${n}` }));
+export const testItems = TEST_NUMBERS.map((n) => ({ value: String(n), label: `Test No ${n}` }));
 export const classItems = CLASS_LEVELS.map((n) => ({ value: String(n), label: classLabel(n) }));
 
 /** `basePath` is the section the document lives under, e.g. `/admin/results` or `/results`. */

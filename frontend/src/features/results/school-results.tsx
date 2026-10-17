@@ -60,7 +60,7 @@ export function SchoolResults({
                 {label}
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px] tabular-nums",
+                    "hidden rounded-full px-2 py-0.5 text-[11px] tabular-nums sm:inline-flex",
                     active ? "bg-white/15 text-white" : "bg-brand-50 text-brand-700",
                   )}
                 >
@@ -93,12 +93,12 @@ export function SchoolResults({
               <header className="flex flex-wrap items-center justify-between gap-4 border-b border-brand-100 bg-brand-50/60 px-5 py-4 sm:px-6">
                 <div className="flex items-center gap-4">
                   <span className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
-                    <span className="text-[8px] font-semibold tracking-wider text-white/70 uppercase">ID</span>
+                    <span className="text-[8px] font-semibold tracking-wider text-white/70 uppercase">No</span>
                     <span className="text-lg leading-none font-bold tabular-nums">{resultSet.testNumber}</span>
                   </span>
                   <div>
                     <h3 className="text-lg font-bold text-neutral-950">
-                      Test ID {resultSet.testNumber} results
+                      Test ID {resultSet.testId} results
                     </h3>
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-600">
                       <Users className="size-3.5 text-brand-700" />

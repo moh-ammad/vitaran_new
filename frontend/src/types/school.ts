@@ -67,7 +67,6 @@ export type SchoolProgramInput = {
 export type SchoolInput = Omit<
   School,
   | "id"
-  | "code"
   | "accountEmail"
   | "accountPhone"
   | "createdAt"
@@ -75,6 +74,8 @@ export type SchoolInput = Omit<
   | "schoolPrograms"
   | "programCodes"
 > & {
+  /** School ID shown as VLS-XXXX (e.g. VLS-0018). */
+  code: string;
   accountEmail: string;
   accountPhone: string;
   programs: SchoolProgramInput[];

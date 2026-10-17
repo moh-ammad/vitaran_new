@@ -89,13 +89,13 @@ export function ResultsTable({
             {resultSets.map((resultSet) => {
               const program = resultProgramLabel(resultSet);
               const students = resultSet.classes.reduce((sum, item) => sum + item.rowCount, 0);
-              const label = `Test ${resultSet.testNumber} · ${program}`;
+              const label = `Test ID ${resultSet.testId} · ${program}`;
               return (
                 <TableRow key={resultSet.id} className="border-brand-100/70 hover:bg-brand-50/30">
                   <TableCell className="py-3.5 pl-6">
                     <Link href={resultSetHref(RESULTS_PATH, resultSet.id)} className="group flex items-center gap-3">
                       <span className="flex size-11 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
-                        <span className="text-[9px] font-semibold tracking-wider text-white/70 uppercase">Test</span>
+                        <span className="text-[9px] font-semibold tracking-wider text-white/70 uppercase">No</span>
                         <span className="text-base leading-none font-bold tabular-nums">{resultSet.testNumber}</span>
                       </span>
                       <span className="min-w-0 lg:hidden">

@@ -14,6 +14,7 @@ export function getAnswerKeySchema(mode: DocumentFormMode) {
       program: z.string().trim().min(1, "Select a program.").max(64),
       type: z.enum(SCHOOL_TYPES, { error: "Select a type." }),
       schoolId: z.string().trim().optional(),
+      testId: z.string().trim().min(1, "Enter the test ID.").max(64, "Keep the test ID under 64 characters."),
       testNumber: testNumberField,
       classLevel: classLevelField,
       file: pdfFileField(mode),
@@ -27,7 +28,7 @@ export function getAnswerKeySchema(mode: DocumentFormMode) {
     );
 }
 
-export const ANSWER_KEY_FIELDS = ["program", "type", "schoolId", "testNumber", "classLevel"] as const;
+export const ANSWER_KEY_FIELDS = ["program", "type", "schoolId", "testId", "testNumber", "classLevel"] as const;
 
 export type AnswerKeyField = (typeof ANSWER_KEY_FIELDS)[number] | "file";
 export type AnswerKeyFormState = DocumentFormState<AnswerKeyField>;

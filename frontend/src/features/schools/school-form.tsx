@@ -130,6 +130,7 @@ function toFormValues(school?: SchoolDetail): SchoolFormValues {
   if (!school) return { type: "REGULAR", status: "ACTIVE", offerings: [] };
 
   return {
+    code: school.code,
     name: school.name,
     board: school.board,
     type: school.type,
@@ -450,7 +451,19 @@ function SchoolFormWizard({
             <div {...panel(0)}>
               {isEdit && <SectionHeading>School details</SectionHeading>}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-                <Field data-invalid={invalid("name")} className="md:col-span-2 lg:col-span-3">
+                <Field data-invalid={invalid("code")} className="md:col-span-1 lg:col-span-2">
+                  <FieldLabel htmlFor="code">School ID *</FieldLabel>
+                  <Input
+                    {...fieldProps("code")}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="e.g. VLS-0018"
+                    className="font-mono"
+                  />
+                  {error("code")}
+                </Field>
+
+                <Field data-invalid={invalid("name")} className="md:col-span-2 lg:col-span-4">
                   <FieldLabel htmlFor="name" className="capitalize">School name *</FieldLabel>
                   <Input {...fieldProps("name")} {...capitalized} autoComplete="organization" placeholder="e.g. Delhi Public School, Banjara Hills" />
                   {error("name")}

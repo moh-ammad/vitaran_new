@@ -24,7 +24,7 @@ type FilterKey = keyof typeof FILTER_PARAMS;
 
 export type FilterSchool = SchoolRef & { type: SchoolType };
 
-const testOptions = [{ value: ALL, label: "All tests" }, ...testItems];
+const testOptions = [{ value: ALL, label: "All test nos" }, ...testItems];
 const typeOptions = [
   { value: ALL, label: "All types" },
   ...SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] })),

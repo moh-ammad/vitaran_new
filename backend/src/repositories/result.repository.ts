@@ -9,12 +9,13 @@ export const resultSetSummarySelect = {
   id: true,
   programCode: true,
   programName: true,
+  testId: true,
   testNumber: true,
   published: true,
   publishedAt: true,
   createdAt: true,
   updatedAt: true,
-  school: { select: { id: true, name: true, serial: true, type: true } },
+  school: { select: { id: true, name: true, code: true, type: true } },
   sheets: {
     select: { classLevel: true, rowCount: true, fileName: true, fileSize: true, updatedAt: true },
     orderBy: { classLevel: "asc" },
@@ -28,6 +29,7 @@ export type ResultSetMeta = {
   programCode: string | null;
   programName: string | null;
   programKey: string;
+  testId: string;
   testNumber: number;
 };
 

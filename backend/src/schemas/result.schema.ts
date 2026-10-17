@@ -16,6 +16,9 @@ export const resultSetFieldsSchema = z.object({
   schoolId: z.uuid({ error: "Select a school" }),
   program: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(64).optional()),
   programName: z.preprocess(emptyToUndefined, z.string().trim().min(2).max(120).optional()),
+  /** Freeform test ID — any non-empty string. */
+  testId: z.string().trim().min(1, "Enter the test ID").max(64, "Keep the test ID under 64 characters"),
+  /** Ordinal test number. */
   testNumber: z.coerce.number().int().min(1).max(100),
   /** Classes whose sheet should be deleted on update, e.g. "3,7". */
   removeClasses: z

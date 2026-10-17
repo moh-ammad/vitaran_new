@@ -21,10 +21,18 @@ type SchoolDocumentsProps = {
   noun: string;
   /** Site section that serves the PDFs, e.g. `/results`. */
   basePath: string;
+  /** Hide the Test ID badge on small screens (teacher portal). */
+  hideIdBadgeOnMobile?: boolean;
 };
 
 /** What a signed-in school sees: program tabs, then each class with its tests. */
-export function SchoolDocuments({ programIds, documents, noun, basePath }: SchoolDocumentsProps) {
+export function SchoolDocuments({
+  programIds,
+  documents,
+  noun,
+  basePath,
+  hideIdBadgeOnMobile = false,
+}: SchoolDocumentsProps) {
   const visiblePrograms = programs.filter((program) => programIds.includes(program.id));
   const [programId, setProgramId] = useState(visiblePrograms[0]?.id);
   const [classLevel, setClassLevel] = useState<number | null>(null);
@@ -69,11 +77,11 @@ export function SchoolDocuments({ programIds, documents, noun, basePath }: Schoo
                   active ? "bg-brand-900 text-white" : "text-brand-800 hover:bg-brand-50",
                 )}
               >
-                <program.icon className="size-4" />
+                <program.icon className="hidden size-4 sm:block" />
                 {program.title}
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px] tabular-nums",
+                    "hidden rounded-full px-2 py-0.5 text-[11px] tabular-nums sm:inline-flex",
                     active ? "bg-white/15 text-white" : "bg-brand-50 text-brand-700",
                   )}
                 >
@@ -126,13 +134,19 @@ export function SchoolDocuments({ programIds, documents, noun, basePath }: Schoo
                 >
                   <header className="flex items-center justify-between gap-3 border-b border-brand-100 bg-brand-50/60 px-5 py-3.5 sm:px-6">
                     <h3 className="text-lg font-bold text-neutral-950">{classLabel(level)}</h3>
-                    <span className="rounded-full border border-brand-100 bg-white px-2.5 py-0.5 text-xs font-semibold text-brand-800">
+                    <span className="hidden rounded-full border border-brand-100 bg-white px-2.5 py-0.5 text-xs font-semibold text-brand-800 sm:inline-flex">
                       {plural(classDocuments.length)}
                     </span>
                   </header>
                   <ul className="divide-y divide-brand-100/70">
                     {classDocuments.map((document) => (
-                      <DocumentRow key={document.id} document={document} noun={noun} basePath={basePath} />
+                      <DocumentRow
+                        key={document.id}
+                        document={document}
+                        noun={noun}
+                        basePath={basePath}
+                        hideIdBadgeOnMobile={hideIdBadgeOnMobile}
+                      />
                     ))}
                   </ul>
                 </section>
@@ -149,21 +163,28 @@ function DocumentRow({
   document,
   noun,
   basePath,
+  hideIdBadgeOnMobile,
 }: {
   document: PdfDocument;
   noun: string;
   basePath: string;
+  hideIdBadgeOnMobile: boolean;
 }) {
   return (
     <li className="grid gap-4 px-5 py-4 transition-colors hover:bg-brand-50/40 sm:px-6 md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-center md:gap-6">
       <div className="flex min-w-0 items-center gap-4">
-        <span className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
-          <span className="text-[8px] font-semibold tracking-wider text-white/70 uppercase">ID</span>
+        <span
+          className={cn(
+            "flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-900 text-white",
+            hideIdBadgeOnMobile && "hidden sm:flex",
+          )}
+        >
+          <span className="text-[8px] font-semibold tracking-wider text-white/70 uppercase">No</span>
           <span className="text-lg leading-none font-bold tabular-nums">{document.testNumber}</span>
         </span>
         <div className="min-w-0">
           <p className="text-base font-semibold text-neutral-950">
-            Test ID {document.testNumber} {noun}
+            {document.testId ? `Test ID ${document.testId}` : `Test No ${document.testNumber}`} {noun}
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
             <FileText className="size-3.5 shrink-0" />

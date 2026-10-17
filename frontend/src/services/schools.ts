@@ -50,6 +50,11 @@ export async function listSchoolOptions() {
     programLabels: Object.fromEntries(
       schoolPrograms.map((row) => [row.programCode, row.programName]),
     ),
+    offerings: schoolPrograms.map((row) => ({
+      code: row.programCode,
+      name: row.programName,
+      classLevels: row.classes.map((cls) => cls.classLevel).sort((a, b) => a - b),
+    })),
   }));
 }
 

@@ -14,7 +14,6 @@ import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { decryptSecret, encryptSecret } from "../utils/secret-box.js";
 import {
-  formatSchoolCode,
   toSchoolRef,
   type SchoolAccountDto,
   type SchoolProgramDto,
@@ -119,7 +118,7 @@ export function toTeacherAccountDto(teacher: TeacherRecord): TeacherAccountDto {
     school: {
       id: teacher.school.id,
       name: teacher.school.name,
-      code: formatSchoolCode(teacher.school.serial),
+      code: teacher.school.code,
       type: teacher.school.type,
       schoolPrograms,
       programCodes: schoolPrograms.map((row) => row.programCode),

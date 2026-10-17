@@ -6,6 +6,8 @@ export type SchoolRef = { id: string; name: string; code: string };
 export type PdfDocument = {
   id: string;
   program: Program;
+  /** Freeform test ID when present (answer keys). */
+  testId?: string;
   testNumber: number;
   classLevel: number;
   fileName: string;

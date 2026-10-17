@@ -3,12 +3,13 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { FieldError } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   classItems,
   documentFileHref,
   hasChanges,
-  testItems,
 } from "@/features/documents/constants";
 import { DocumentFormShell, FormSection } from "@/features/documents/document-form-shell";
 import { PdfField } from "@/features/documents/pdf-field";
@@ -32,6 +33,7 @@ function toFormValues(answerKey?: AnswerKey): AnswerKeyFormValues {
     program: answerKey.program,
     type: answerKey.type,
     schoolId: answerKey.school?.id,
+    testId: answerKey.testId,
     testNumber: String(answerKey.testNumber),
     classLevel: String(answerKey.classLevel),
   };
@@ -103,6 +105,7 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
       hasChanges(toFormValues(answerKey), current, [
         "program",
         "type",
+        "testId",
         "testNumber",
         "classLevel",
         ...(customized ? (["schoolId"] as const) : []),
@@ -159,16 +162,39 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
       </FormSection>
 
       <FormSection title="Test & class">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField
-            name="testNumber"
-            label="Test"
-            placeholder="Select a test"
-            items={testItems}
-            defaultValue={values.testNumber}
-            onValueChange={track("testNumber")}
-            errors={errors.testNumber}
-          />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="testId" className="text-[13px] font-medium text-neutral-800">
+              Test ID <span className="text-brand-600">*</span>
+            </label>
+            <Input
+              id="testId"
+              name="testId"
+              placeholder="e.g. T-2026-01"
+              defaultValue={values.testId}
+              onChange={(event) => track("testId")(event.currentTarget.value)}
+              aria-invalid={errors.testId?.length ? true : undefined}
+              maxLength={64}
+              className="h-11 rounded-lg border-neutral-200 bg-white px-3.5 font-mono text-sm shadow-xs hover:border-brand-300 focus-visible:border-brand-600 focus-visible:ring-brand-600/15"
+            />
+            {errors.testId?.length ? <FieldError>{errors.testId[0]}</FieldError> : null}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="testNumber" className="text-[13px] font-medium text-neutral-800">
+              Test No <span className="text-brand-600">*</span>
+            </label>
+            <Input
+              id="testNumber"
+              name="testNumber"
+              inputMode="numeric"
+              placeholder="e.g. 3"
+              defaultValue={values.testNumber}
+              onChange={(event) => track("testNumber")(event.currentTarget.value)}
+              aria-invalid={errors.testNumber?.length ? true : undefined}
+              className="h-11 rounded-lg border-neutral-200 bg-white px-3.5 text-sm shadow-xs hover:border-brand-300 focus-visible:border-brand-600 focus-visible:ring-brand-600/15"
+            />
+            {errors.testNumber?.length ? <FieldError>{errors.testNumber[0]}</FieldError> : null}
+          </div>
           <SelectField
             name="classLevel"
             label="Class"

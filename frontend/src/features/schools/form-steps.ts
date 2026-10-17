@@ -17,6 +17,7 @@ export const SCHOOL_FORM_STEPS = [
     id: "school",
     title: "School",
     fields: [
+      "code",
       "name",
       "board",
       "type",

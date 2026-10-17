@@ -43,27 +43,30 @@ export function TeacherSidebar({ teacher }: { teacher: TeacherAccount }) {
 
   return (
     <Sidebar side={isMobile ? "right" : "left"} collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={<Link href="/teacher" />}
-              className="hover:bg-transparent active:bg-transparent"
-            >
-              <span className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-md bg-white text-brand-800">
-                <BrandBars className="h-3.5 w-3.5" />
-              </span>
-              <span className="grid min-w-0 flex-1 text-left leading-tight">
-                <span className="truncate text-xs font-heading font-bold text-white">
-                  Vitaran Learning
+      {/* Brand only on desktop — mobile already has logo in the page header. */}
+      {!isMobile && (
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                render={<Link href="/teacher/resources" />}
+                className="hover:bg-transparent active:bg-transparent"
+              >
+                <span className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-md bg-white text-brand-800">
+                  <BrandBars className="h-3.5 w-3.5" />
                 </span>
-                <span className="truncate text-[10px] text-brand-400">Teacher</span>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+                <span className="grid min-w-0 flex-1 text-left leading-tight">
+                  <span className="truncate text-xs font-heading font-bold text-white">
+                    Vitaran Learning
+                  </span>
+                  <span className="truncate text-[10px] text-brand-400">Teacher</span>
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+      )}
 
       <SidebarContent>
         {teacherNavGroups.map((group) => (

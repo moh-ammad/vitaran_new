@@ -38,7 +38,8 @@ export function ResultSetView({ resultSet, sheet, basePath, showSchool = false, 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-neutral-950">
-            Test ID {resultSet.testNumber}{" "}
+            Test ID {resultSet.testId}{" "}
+            <span className="text-neutral-300">·</span> Test No {resultSet.testNumber}{" "}
             <span className="text-neutral-300">·</span> {resultProgramLabel(resultSet)}
           </h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-500">

@@ -1,40 +1,39 @@
 "use client";
 
-import { useActionState, useEffect, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { FieldError } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { CLASS_LEVELS, hasChanges, testItems } from "@/features/documents/constants";
+import { hasChanges } from "@/features/documents/constants";
 import { DocumentFormShell } from "@/features/documents/document-form-shell";
+import { SearchableSelectField } from "@/features/documents/searchable-select-field";
 import { SelectField } from "@/features/documents/select-field";
-import { programLabel } from "@/features/schools/constants";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
+import type { SchoolTestOption } from "@/types/answer-key";
 import type { ResultSchoolOption, ResultSet } from "@/types/result";
 import { updateResultAction, uploadResultAction } from "./actions";
 import { ClassFileRow } from "./class-file-row";
 import { classFileField, RESULTS_PATH } from "./constants";
 import type { ResultFormState, ResultFormValues } from "./schema";
+import { loadSchoolTestsAction } from "./school-tests-action";
 
 type FieldErrors = NonNullable<Exclude<ResultFormState, undefined | { status: "success" }>["fieldErrors"]>;
 
-const TRACKED_FIELDS = ["schoolId", "program", "programName", "testNumber"] as const;
-
-/** Classes 1–6 and 7–12, side by side. */
-const CLASS_GROUPS = [CLASS_LEVELS.slice(0, 6), CLASS_LEVELS.slice(6)];
-
-/** Regular schools with a single program get it picked for them. */
-const onlyProgram = (school?: ResultSchoolOption) =>
-  school?.type === "REGULAR" && school.programs.length === 1 ? school.programs[0] : undefined;
+const TRACKED_FIELDS = ["schoolId", "program", "programName", "testId", "testNumber"] as const;
 
 function toFormValues(resultSet?: ResultSet, school?: ResultSchoolOption): ResultFormValues {
-  if (!resultSet) return { schoolId: school?.id, program: onlyProgram(school) };
+  if (!resultSet) {
+    return {
+      schoolId: school?.id,
+    };
+  }
   return {
     schoolId: resultSet.school.id,
     program: resultSet.program ?? undefined,
     programName: resultSet.programName ?? undefined,
+    testId: resultSet.testId,
     testNumber: String(resultSet.testNumber),
   };
 }
@@ -49,13 +48,14 @@ function toggle(set: Set<number>, level: number, on: boolean) {
   return next;
 }
 
+function testKey(test: Pick<SchoolTestOption, "testId" | "testNumber">) {
+  return `${test.testId}\0${test.testNumber}`;
+}
+
 type ResultFormProps = {
   schools: ResultSchoolOption[];
-  /** Present when editing. */
   resultSet?: ResultSet;
-  /** Pre-selects the school when uploading from its page. */
   defaultSchoolId?: string;
-  /** Where Cancel and a successful save go. */
   backHref?: string;
 };
 
@@ -75,7 +75,6 @@ export function ResultForm({ schools, resultSet, defaultSchoolId, backHref = RES
 
   return (
     <form action={formAction} noValidate>
-      {/* Remount after a failed save so the fields show what was submitted. */}
       <FormFields
         key={failed?.submittedAt ?? "initial"}
         schools={schools}
@@ -100,35 +99,113 @@ type FormFieldsProps = {
   pending: boolean;
 };
 
-/** Selection on the left, one upload row per class on the right. */
 function FormFields({ schools, resultSet, backHref, values, errors, message, pending }: FormFieldsProps) {
+  const editing = Boolean(resultSet);
   const [current, setCurrent] = useState(values);
   const [newFiles, setNewFiles] = useState<Set<number>>(new Set());
   const [removed, setRemoved] = useState(() => parseLevels(values.removeClasses));
-  const track = (field: keyof ResultFormValues) => (value: string) =>
-    setCurrent((prev) => ({ ...prev, [field]: value }));
+  const [tests, setTests] = useState<SchoolTestOption[]>([]);
+  const [testsLoading, startLoadTests] = useTransition();
+  const [selectedTestKey, setSelectedTestKey] = useState(() =>
+    values.testId && values.testNumber ? `${values.testId}\0${values.testNumber}` : "",
+  );
 
   const school = schools.find(({ id }) => id === current.schoolId);
   const customized = school?.type === "CUSTOMIZED";
-  const programItems = (school?.programs ?? []).map((value) => ({
-    value,
-    label: programLabel(value, school?.programLabels?.[value]),
-  }));
+  const selectedTest = tests.find((test) => testKey(test) === selectedTestKey) ?? null;
+  const programs = selectedTest?.programs ?? [];
+  const activeProgram =
+    programs.find((row) => row.code === current.program) ??
+    (current.programName
+      ? programs.find((row) => row.name === current.programName)
+      : undefined) ??
+    programs[0] ??
+    null;
+  const classLevels = activeProgram?.classLevels ?? [];
+
   const schoolItems = schools.map(({ id, name, code }) => ({ value: id, label: name, hint: code }));
   const savedClasses = new Map(resultSet?.classes.map((item) => [item.classLevel, item]));
 
-  const selectSchool = (schoolId: string) =>
+  const loadTests = (schoolId: string, prefer?: { testId?: string; testNumber?: string }) => {
+    startLoadTests(async () => {
+      const next = await loadSchoolTestsAction(schoolId);
+      setTests(next);
+      if (prefer?.testId && prefer.testNumber) {
+        const match = next.find(
+          (test) => test.testId === prefer.testId && String(test.testNumber) === prefer.testNumber,
+        );
+        if (match) {
+          setSelectedTestKey(testKey(match));
+          return;
+        }
+      }
+      setSelectedTestKey(next[0] ? testKey(next[0]) : "");
+    });
+  };
+
+  useEffect(() => {
+    if (!current.schoolId) {
+      setTests([]);
+      setSelectedTestKey("");
+      return;
+    }
+    loadTests(current.schoolId, {
+      testId: current.testId,
+      testNumber: current.testNumber,
+    });
+    // Only re-fetch when the school changes (or on first mount with a school).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [current.schoolId]);
+
+  useEffect(() => {
+    if (!selectedTest) return;
     setCurrent((prev) => {
-      const next = schools.find(({ id }) => id === schoolId);
-      const keepProgram =
-        next?.type === "REGULAR" && !!prev.program && next.programs.includes(prev.program);
+      const kept = customized
+        ? selectedTest.programs.find((row) => row.name === prev.programName)
+        : selectedTest.programs.find((row) => row.code === prev.program);
+      const program = kept ?? selectedTest.programs[0];
       return {
         ...prev,
-        schoolId,
-        program: keepProgram ? prev.program : onlyProgram(next),
-        programName: next?.type === "CUSTOMIZED" && next.id === prev.schoolId ? prev.programName : undefined,
+        testId: selectedTest.testId,
+        testNumber: String(selectedTest.testNumber),
+        program: customized ? undefined : program?.code,
+        programName: customized ? program?.name : undefined,
       };
     });
+    setNewFiles(new Set());
+    setRemoved(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when test selection changes
+  }, [selectedTestKey, customized]);
+
+  const selectSchool = (schoolId: string) => {
+    setCurrent((prev) => ({
+      ...prev,
+      schoolId,
+      program: undefined,
+      programName: undefined,
+      testId: undefined,
+      testNumber: undefined,
+    }));
+    setSelectedTestKey("");
+    setNewFiles(new Set());
+    setRemoved(new Set());
+  };
+
+  const selectTest = (key: string) => {
+    setSelectedTestKey(key);
+  };
+
+  const selectProgram = (code: string) => {
+    const program = programs.find((row) => row.code === code);
+    if (!program) return;
+    setCurrent((prev) => ({
+      ...prev,
+      program: customized ? undefined : program.code,
+      programName: customized ? program.name : undefined,
+    }));
+    setNewFiles(new Set());
+    setRemoved(new Set());
+  };
 
   const changed =
     newFiles.size > 0 ||
@@ -136,7 +213,7 @@ function FormFields({ schools, resultSet, backHref, values, errors, message, pen
     (resultSet !== undefined && hasChanges(toFormValues(resultSet), current, [...TRACKED_FIELDS]));
 
   const classError = errors.classes?.[0];
-  const readyCount = CLASS_LEVELS.filter(
+  const readyCount = classLevels.filter(
     (level) => newFiles.has(level) || (savedClasses.has(level) && !removed.has(level)),
   ).length;
 
@@ -144,118 +221,167 @@ function FormFields({ schools, resultSet, backHref, values, errors, message, pen
     <DocumentFormShell
       message={message}
       cancelHref={backHref}
-      editing={Boolean(resultSet)}
+      editing={editing}
       changed={changed}
       pending={pending}
       uploadLabel="Submit results"
     >
       {classError && (
-        <p role="alert" className="flex items-center gap-2 border-b border-destructive/15 bg-destructive/5 px-6 py-2.5 text-sm font-medium text-destructive">
+        <p
+          role="alert"
+          className="flex items-center gap-2 border-b border-destructive/15 bg-destructive/5 px-6 py-2.5 text-sm font-medium text-destructive"
+        >
           <AlertCircle className="size-4 shrink-0" />
           {classError}
         </p>
       )}
       <input type="hidden" name="removeClasses" value={[...removed].join(",")} />
+      <input type="hidden" name="testId" value={current.testId ?? ""} />
+      <input type="hidden" name="testNumber" value={current.testNumber ?? ""} />
+      {!customized && activeProgram && (
+        <input type="hidden" name="program" value={activeProgram.code} />
+      )}
+      {customized && activeProgram && (
+        <input type="hidden" name="programName" value={activeProgram.name} />
+      )}
 
-      <div className="grid divide-y divide-brand-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-        <Column title="Selection" description="Who these results are for.">
+      <div className="grid divide-y divide-brand-100 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] lg:divide-x lg:divide-y-0">
+        <Column title="Selection" description="School, then the test from its answer keys.">
           <div className="flex flex-col gap-4">
-            <SelectField
+            <SearchableSelectField
               name="schoolId"
               label="School"
               placeholder={schools.length > 0 ? "Select a school" : "No schools yet"}
               items={schoolItems}
               defaultValue={values.schoolId}
               onValueChange={selectSchool}
-              disabled={schools.length === 0}
+              disabled={schools.length === 0 || editing}
               errors={errors.schoolId}
             />
 
             {school && (
-              <div className="-mt-2 flex items-center gap-2.5 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 animate-in fade-in-0 duration-200">
+              <div className="-mt-2 flex items-center gap-2.5 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2">
                 <SchoolTypeBadge type={school.type} size="sm" />
                 <span className="text-xs text-neutral-600">
-                  {customized ? "Enter this school's own program name." : "Pick one of this school's programs."}
+                  Pick a test below. Programs and classes come from answer keys.
                 </span>
               </div>
             )}
 
-            {customized ? (
-              <div key={`name-${school.id}`} className="flex flex-col gap-2 animate-in fade-in-0 duration-200">
-                <label htmlFor="programName" className="text-[13px] font-medium text-neutral-800">
-                  Program <span className="text-brand-600">*</span>
-                </label>
-                <Input
-                  id="programName"
-                  name="programName"
-                  placeholder="e.g. Program Name"
-                  defaultValue={current.programName}
-                  onChange={(event) => track("programName")(event.currentTarget.value)}
-                  aria-invalid={errors.programName?.length ? true : undefined}
-                  maxLength={120}
-                  className="h-11 rounded-lg border-neutral-200 bg-white px-3.5 text-sm shadow-xs hover:border-brand-300 focus-visible:border-brand-600 focus-visible:ring-brand-600/15"
-                />
-                {errors.programName?.length ? <FieldError>{errors.programName[0]}</FieldError> : null}
+            {school && (
+              <div className="flex flex-col gap-2">
+                {testsLoading ? (
+                  <p className="text-sm text-neutral-500">Loading tests…</p>
+                ) : tests.length === 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[13px] font-medium text-neutral-800">
+                      Test <span className="text-brand-600">*</span>
+                    </p>
+                    <p className="rounded-lg border border-dashed border-brand-200 bg-brand-50/40 px-3 py-4 text-sm text-brand-700">
+                      No live test
+                    </p>
+                  </div>
+                ) : (
+                  <SelectField
+                    key={current.schoolId}
+                    name="selectedTest"
+                    label="Test"
+                    placeholder="Select a test"
+                    items={tests.map((test) => ({
+                      value: testKey(test),
+                      label: `Test No ${test.testNumber}`,
+                    }))}
+                    defaultValue={selectedTestKey || undefined}
+                    onValueChange={selectTest}
+                    disabled={editing}
+                    errors={errors.testId ?? errors.testNumber}
+                  />
+                )}
               </div>
-            ) : (
-              <SelectField
-                key={`program-${current.schoolId ?? "none"}`}
-                name="program"
-                label="Program"
-                placeholder={school ? "Select a program" : "Select a school first"}
-                items={programItems}
-                defaultValue={current.program}
-                onValueChange={track("program")}
-                disabled={!school || programItems.length === 0}
-                errors={school && programItems.length === 0 ? ["This school has no programs yet."] : errors.program}
-              />
             )}
 
-            <SelectField
-              name="testNumber"
-              label="Test"
-              placeholder="Select a test"
-              items={testItems}
-              defaultValue={values.testNumber}
-              onValueChange={track("testNumber")}
-              errors={errors.testNumber}
-            />
+            {!customized && errors.program?.length ? <FieldError>{errors.program[0]}</FieldError> : null}
+            {customized && errors.programName?.length ? (
+              <FieldError>{errors.programName[0]}</FieldError>
+            ) : null}
           </div>
         </Column>
 
-        {CLASS_GROUPS.map((levels, index) => (
-          <Column
-            key={levels[0]}
-            title={`Classes ${levels[0]} – ${levels.at(-1)}`}
-            description="One Excel (.xlsx) sheet per class."
-            aside={
-              index === 0 && (
-                <span className="shrink-0 rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800 tabular-nums">
-                  {readyCount} of {CLASS_LEVELS.length} ready
-                </span>
-              )
-            }
-          >
-            <ul
-              className={cn(
-                "divide-y divide-brand-100/70 overflow-hidden rounded-xl border border-brand-100",
-                classError && "border-destructive/40",
+        <Column
+          title={activeProgram?.name ?? "Programs & classes"}
+          description="One Excel (.xlsx) sheet per class from the answer key."
+          aside={
+            school && selectedTest ? (
+              <span className="shrink-0 rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800 tabular-nums">
+                {readyCount} of {classLevels.length} ready
+              </span>
+            ) : undefined
+          }
+        >
+          {!school ? (
+            <p className="rounded-xl border border-dashed border-brand-200 bg-brand-50/40 px-4 py-10 text-center text-sm text-brand-700">
+              Select a school to see its tests.
+            </p>
+          ) : !selectedTest ? (
+            <p className="rounded-xl border border-dashed border-brand-200 bg-brand-50/40 px-4 py-10 text-center text-sm text-brand-700">
+              {testsLoading ? "Loading…" : "Select a test to see its programs and classes."}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {programs.length > 1 && (
+                <div
+                  role="tablist"
+                  aria-label="Program"
+                  className="flex flex-wrap gap-2 rounded-2xl border border-brand-100 bg-white p-1.5"
+                >
+                  {programs.map((program) => {
+                    const active = program.code === activeProgram?.code;
+                    return (
+                      <button
+                        key={program.code}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => selectProgram(program.code)}
+                        className={cn(
+                          "rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors",
+                          active ? "bg-brand-900 text-white" : "text-brand-800 hover:bg-brand-50",
+                        )}
+                      >
+                        {program.name}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            >
-              {levels.map((level) => (
-                <ClassFileRow
-                  key={level}
-                  classLevel={level}
-                  saved={savedClasses.get(level)}
-                  removed={removed.has(level)}
-                  onRemovedChange={(on) => setRemoved((prev) => toggle(prev, level, on))}
-                  onFileChange={(on) => setNewFiles((prev) => toggle(prev, level, on))}
-                  errors={errors[classFileField(level)]}
-                />
-              ))}
-            </ul>
-          </Column>
-        ))}
+
+              {classLevels.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-brand-200 bg-brand-50/40 px-4 py-8 text-center text-sm text-brand-700">
+                  No classes on answer keys for this program and test.
+                </p>
+              ) : (
+                <ul
+                  className={cn(
+                    "divide-y divide-brand-100/70 overflow-hidden rounded-xl border border-brand-100",
+                    classError && "border-destructive/40",
+                  )}
+                >
+                  {classLevels.map((level) => (
+                    <ClassFileRow
+                      key={`${activeProgram?.code ?? "custom"}-${level}`}
+                      classLevel={level}
+                      saved={savedClasses.get(level)}
+                      removed={removed.has(level)}
+                      onRemovedChange={(on) => setRemoved((prev) => toggle(prev, level, on))}
+                      onFileChange={(on) => setNewFiles((prev) => toggle(prev, level, on))}
+                      errors={errors[classFileField(level)]}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </Column>
       </div>
     </DocumentFormShell>
   );

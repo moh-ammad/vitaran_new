@@ -27,6 +27,7 @@ export default async function TeacherAnswerKeysPage() {
         documents={answerKeys}
         noun={ANSWER_KEY_NOUN}
         basePath={TEACHER_ANSWER_KEYS_PATH}
+        hideIdBadgeOnMobile
       />
     </>
   );

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { TeacherHeader } from "@/components/layout/teacher-header";
-import { TeacherMobileNav } from "@/components/layout/teacher-mobile-nav";
+import { TeacherPageBack } from "@/components/layout/teacher-page-back";
 import { TeacherSidebar } from "@/components/layout/teacher-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
@@ -32,7 +32,7 @@ export default async function TeacherPanelLayout({
         <SidebarInset className="min-w-0 bg-neutral-50">
           <TeacherHeader />
           <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
-            <TeacherMobileNav />
+            <TeacherPageBack />
             {children}
           </div>
         </SidebarInset>

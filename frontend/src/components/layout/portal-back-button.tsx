@@ -3,23 +3,24 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-/**
- * Goes to the previous in-portal page the user visited (keeps query/step),
- * or the breadcrumb parent when there is no trail (reload / deep link).
- * Hidden on the portal root so nested and root pages never conflict.
- */
+type PortalBackButtonProps = {
+  getParentHref: (pathname: string) => string | null;
+  homeHref: string;
+  homeHrefs?: string[];
+};
+
+/** Plain ← Back — no tooltip, no button background. Same everywhere. */
 export function PortalBackButton({
   getParentHref,
-}: {
-  getParentHref: (pathname: string) => string | null;
-}) {
+  homeHref,
+  homeHrefs,
+}: PortalBackButtonProps) {
   const pathname = usePathname();
   const router = useRouter();
   const visited = useRef<string[]>([]);
   const poppedState = useRef(false);
+  const roots = new Set([homeHref, ...(homeHrefs ?? [])]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -36,8 +37,9 @@ export function PortalBackButton({
     poppedState.current = false;
   }, [pathname]);
 
-  const parentHref = getParentHref(pathname);
-  if (!parentHref) return null;
+  if (roots.has(pathname)) return null;
+
+  const parentHref = getParentHref(pathname) ?? homeHref;
 
   const goBack = () => {
     if (visited.current.length > 1) router.back();
@@ -45,21 +47,13 @@ export function PortalBackButton({
   };
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={goBack}
-            aria-label="Go back"
-            className="text-brand-800"
-          />
-        }
-      >
-        <ArrowLeft />
-      </TooltipTrigger>
-      <TooltipContent>Back</TooltipContent>
-    </Tooltip>
+    <button
+      type="button"
+      onClick={goBack}
+      className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-900 hover:opacity-70 active:opacity-60"
+    >
+      <ArrowLeft className="size-4" strokeWidth={2.25} />
+      Back
+    </button>
   );
 }

@@ -13,7 +13,7 @@ export default async function UploadResultPage({ searchParams }: PageProps<"/adm
     <>
       <PageHeader
         title="Upload results"
-        description="Choose the school, program and test, then upload an Excel sheet for each class."
+        description="Select a school, pick a test from its answer keys, then upload Excel sheets for each class."
       />
       <ResultForm
         schools={schools}

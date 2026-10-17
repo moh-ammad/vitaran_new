@@ -12,7 +12,7 @@ const teacherInclude = {
     select: {
       id: true,
       name: true,
-      serial: true,
+      code: true,
       type: true,
       status: true,
       schoolPrograms: {
