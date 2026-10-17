@@ -50,7 +50,13 @@ function toResultSetDto({ school, sheets, createdAt, updatedAt, publishedAt, pro
 }
 
 /** Regular schools pick one of their programs; customized schools name their own. */
-async function resolveMeta({ schoolId, program, programName, testNumber }: ResultSetFields): Promise<ResultSetMeta> {
+async function resolveMeta({
+  schoolId,
+  program,
+  programName,
+  testId,
+  testNumber,
+}: ResultSetFields): Promise<ResultSetMeta> {
   const school = await schoolRepository.findSchoolById(schoolId);
   if (!school) throw fieldError(400, "schoolId", "Select a school");
 
@@ -61,6 +67,7 @@ async function resolveMeta({ schoolId, program, programName, testNumber }: Resul
       programCode: null,
       programName,
       programKey: `custom:${programName.toLowerCase().replace(/\s+/g, " ")}`,
+      testId,
       testNumber,
     };
   }
@@ -70,7 +77,14 @@ async function resolveMeta({ schoolId, program, programName, testNumber }: Resul
   if (!enrolled) {
     throw fieldError(400, "program", "This school isn't enrolled in that program");
   }
-  return { schoolId, programCode: program, programName: null, programKey: program, testNumber };
+  return {
+    schoolId,
+    programCode: program,
+    programName: null,
+    programKey: program,
+    testId,
+    testNumber,
+  };
 }
 
 /** Parses every uploaded class file, reporting all bad files at once. */

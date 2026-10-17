@@ -70,6 +70,65 @@ export async function listRecentAnswerKeys({ limit, testNumber, type, schoolId }
   return (await answerKeyRepository.findRecentAnswerKeys({ AND: where }, limit)).map(toAnswerKeyDto);
 }
 
+/**
+ * Distinct tests (and their program/class combos) available for a school via answer keys.
+ * Used by the admin results upload flow: school → test → program/class → upload.
+ */
+export async function listSchoolTestsForResults(schoolId: string) {
+  const school = await schoolRepository.findSchoolById(schoolId);
+  if (!school) throw new AppError(404, "School not found");
+
+  const programCodes = school.schoolPrograms.map((row) => row.program.code);
+  const nameByCode = new Map(school.schoolPrograms.map((row) => [row.program.code, row.program.name]));
+
+  const keys = await answerKeyRepository.findAnswerKeys(
+    schoolAccessFilter({ id: school.id, type: school.type, programCodes }),
+  );
+
+  type ProgramBucket = { code: string; name: string; classLevels: Set<number> };
+  type TestBucket = {
+    testId: string;
+    testNumber: number;
+    programs: Map<string, ProgramBucket>;
+  };
+
+  const tests = new Map<string, TestBucket>();
+
+  for (const key of keys) {
+    const testKey = `${key.testId}\0${key.testNumber}`;
+    let test = tests.get(testKey);
+    if (!test) {
+      test = { testId: key.testId, testNumber: key.testNumber, programs: new Map() };
+      tests.set(testKey, test);
+    }
+
+    let program = test.programs.get(key.programCode);
+    if (!program) {
+      program = {
+        code: key.programCode,
+        name: nameByCode.get(key.programCode) ?? key.programCode,
+        classLevels: new Set(),
+      };
+      test.programs.set(key.programCode, program);
+    }
+    program.classLevels.add(key.classLevel);
+  }
+
+  return [...tests.values()]
+    .map(({ testId, testNumber, programs }) => ({
+      testId,
+      testNumber,
+      programs: [...programs.values()]
+        .map(({ code, name, classLevels }) => ({
+          code,
+          name,
+          classLevels: [...classLevels].sort((a, b) => a - b),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => b.testNumber - a.testNumber || a.testId.localeCompare(b.testId));
+}
+
 export async function getAnswerKeyStats() {
   const [total, published] = await Promise.all([
     answerKeyRepository.countAnswerKeys(),

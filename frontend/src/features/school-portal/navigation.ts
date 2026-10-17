@@ -83,6 +83,10 @@ export function getSchoolBreadcrumbs(pathname: string): SchoolBreadcrumb[] {
   return crumbs;
 }
 
+/** Only the dashboard is a root — resources and other sections get Back → Dashboard. */
 export function getSchoolParentHref(pathname: string): string | null {
-  return getSchoolBreadcrumbs(pathname).at(-2)?.href ?? null;
+  const dashboard = "/school";
+  if (pathname === dashboard) return null;
+  if (allItems.some((item) => item.href === pathname)) return dashboard;
+  return getSchoolBreadcrumbs(pathname).at(-2)?.href ?? dashboard;
 }

@@ -41,7 +41,14 @@ const offeringToken = z
     return parsed !== null && SUBJECTS.includes(parsed.subject as Subject);
   }, "Invalid class or subject selection.");
 
+const schoolCodeField = z
+  .string()
+  .trim()
+  .min(1, "Enter the school ID.")
+  .max(64, "Keep the school ID under 64 characters.");
+
 const schoolFields = z.object({
+  code: schoolCodeField,
   name: z
     .string()
     .trim()

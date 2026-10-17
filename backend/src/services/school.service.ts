@@ -58,13 +58,21 @@ export type SchoolDto = {
 
 export type SchoolDetailDto = SchoolDto & { password: string | null };
 
-export const formatSchoolCode = (serial: number) => `VLS-${String(serial).padStart(4, "0")}`;
-
-export const toSchoolRef = ({ id, name, serial }: { id: string; name: string; serial: number }) => ({
+export const toSchoolRef = ({ id, name, code }: { id: string; name: string; code: string }) => ({
   id,
   name,
-  code: formatSchoolCode(serial),
+  code,
 });
+
+async function assertSchoolCodeAvailable(code: string, excludeId?: string) {
+  const taken = await schoolRepository.findSchoolByCode(code, excludeId);
+  if (taken) {
+    throw new AppError(409, "School ID already in use", [
+      { path: ["code"], message: "This school ID is already used" },
+    ]);
+  }
+  return code.trim();
+}
 
 function toSchoolPrograms(school: SchoolWithPrograms): SchoolProgramDto[] {
   return school.schoolPrograms.map((row) => ({
@@ -86,7 +94,7 @@ export function toSchoolDto(school: SchoolWithPrograms): SchoolDto {
   const schoolPrograms = toSchoolPrograms(school);
   return {
     id: school.id,
-    code: formatSchoolCode(school.serial),
+    code: school.code,
     name: school.name,
     board: school.board,
     type: school.type,
@@ -215,27 +223,34 @@ export async function getSchool(id: string): Promise<SchoolDetailDto> {
   };
 }
 
-export async function createSchool({ password, programs, ...input }: CreateSchoolInput) {
+export async function createSchool({ password, programs, code, ...input }: CreateSchoolInput) {
   await assertAccountAvailable(input);
   await assertProgramOfferings(programs);
+  const schoolCode = await assertSchoolCodeAvailable(code);
 
   return toSchoolDto(
     await schoolRepository.createSchool({
       ...input,
+      code: schoolCode,
       programs,
       ...(await sealPassword(password)),
     }),
   );
 }
 
-export async function updateSchool(id: string, { password, programs, ...input }: UpdateSchoolInput) {
+export async function updateSchool(
+  id: string,
+  { password, programs, code, ...input }: UpdateSchoolInput,
+) {
   await assertAccountAvailable(input, id);
   if (programs) await assertProgramOfferings(programs);
 
   const seal = password && (await passwordChanged(id, password));
+  const schoolCode = code !== undefined ? await assertSchoolCodeAvailable(code, id) : undefined;
 
   const school = await schoolRepository.updateSchool(id, {
     ...input,
+    ...(schoolCode !== undefined ? { code: schoolCode } : {}),
     ...(programs ? { programs } : {}),
     ...(seal && password ? await sealPassword(password) : {}),
   });

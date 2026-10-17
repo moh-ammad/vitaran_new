@@ -5,15 +5,23 @@ import {
   ADMIN_SESSION_COOKIE,
   RETURN_TO_COOKIE,
   SCHOOL_BASE_PATH,
+  SCHOOL_HOME_PATH,
   SCHOOL_LOGIN_PATH,
   SCHOOL_SESSION_COOKIE,
   TEACHER_BASE_PATH,
-  TEACHER_LOGIN_PATH,
+  TEACHER_HOME_PATH,
   TEACHER_SESSION_COOKIE,
 } from "@/constants/auth";
 
+/** Shared school + teacher portal login. */
+const PORTAL_LOGIN_PATH = SCHOOL_LOGIN_PATH;
+
 function redirectToLogin(request: NextRequest, loginPath: string) {
   const { pathname, search } = request.nextUrl;
+  if (pathname === loginPath || pathname === "/teacher/login") {
+    return NextResponse.next();
+  }
+
   const response = NextResponse.redirect(new URL(loginPath, request.nextUrl));
   response.cookies.set(RETURN_TO_COOKIE, pathname + search, {
     httpOnly: true,
@@ -25,9 +33,28 @@ function redirectToLogin(request: NextRequest, loginPath: string) {
   return response;
 }
 
+/** Prefer school portal routes when only a school session exists. */
+function schoolPortalPath(pathname: string): string {
+  if (pathname.startsWith("/teacher/resources") || pathname.startsWith("/teachers-resources")) {
+    return "/school/resources";
+  }
+  if (pathname.startsWith("/teacher/answer-keys") || pathname.startsWith("/answer-keys")) {
+    return "/school/answer-keys";
+  }
+  if (pathname.startsWith("/teacher/results") || pathname.startsWith("/results")) {
+    return "/school/results";
+  }
+  if (pathname.startsWith("/teacher")) {
+    return SCHOOL_HOME_PATH;
+  }
+  return SCHOOL_HOME_PATH;
+}
+
 // Optimistic cookie checks only; pages verify the session with the API.
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hasSchool = request.cookies.has(SCHOOL_SESSION_COOKIE);
+  const hasTeacher = request.cookies.has(TEACHER_SESSION_COOKIE);
 
   if (pathname.startsWith(ADMIN_BASE_PATH)) {
     if (pathname === ADMIN_LOGIN_PATH || request.cookies.has(ADMIN_SESSION_COOKIE)) {
@@ -36,26 +63,37 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl));
   }
 
-  if (pathname.startsWith(SCHOOL_BASE_PATH)) {
-    if (pathname === SCHOOL_LOGIN_PATH || request.cookies.has(SCHOOL_SESSION_COOKIE)) {
-      return NextResponse.next();
+  // Already signed in → never show the portal login form.
+  if (pathname === PORTAL_LOGIN_PATH || pathname === "/teacher/login") {
+    if (hasSchool) {
+      return NextResponse.redirect(new URL(SCHOOL_HOME_PATH, request.nextUrl));
     }
-    return redirectToLogin(request, SCHOOL_LOGIN_PATH);
-  }
-
-  if (pathname.startsWith(TEACHER_BASE_PATH)) {
-    if (pathname === TEACHER_LOGIN_PATH || request.cookies.has(TEACHER_SESSION_COOKIE)) {
-      return NextResponse.next();
+    if (hasTeacher) {
+      return NextResponse.redirect(new URL(TEACHER_HOME_PATH, request.nextUrl));
     }
-    return redirectToLogin(request, TEACHER_LOGIN_PATH);
-  }
-
-  // Legacy public content pages: teachers only.
-  if (request.cookies.has(TEACHER_SESSION_COOKIE)) {
     return NextResponse.next();
   }
 
-  return redirectToLogin(request, TEACHER_LOGIN_PATH);
+  if (pathname.startsWith(SCHOOL_BASE_PATH)) {
+    if (hasSchool) return NextResponse.next();
+    return redirectToLogin(request, PORTAL_LOGIN_PATH);
+  }
+
+  if (pathname.startsWith(TEACHER_BASE_PATH)) {
+    if (hasTeacher) return NextResponse.next();
+    // School session: send to the matching school page instead of the login form.
+    if (hasSchool) {
+      return NextResponse.redirect(new URL(schoolPortalPath(pathname), request.nextUrl));
+    }
+    return redirectToLogin(request, PORTAL_LOGIN_PATH);
+  }
+
+  // Legacy public content pages → teacher portal, or school if only school is signed in.
+  if (hasTeacher) return NextResponse.next();
+  if (hasSchool) {
+    return NextResponse.redirect(new URL(schoolPortalPath(pathname), request.nextUrl));
+  }
+  return redirectToLogin(request, PORTAL_LOGIN_PATH);
 }
 
 export const config = {

@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogIn, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/shared/logo";
-import { TEACHER_LOGIN_PATH } from "@/constants/auth";
+import { SCHOOL_LOGIN_PATH } from "@/constants/auth";
+import { portalLogout } from "@/features/auth/portal-logout";
 import { navLinks } from "@/features/home/content";
-import { teacherLogout } from "@/features/teacher-auth/actions";
 import { cn } from "@/lib/utils";
 
 const HEADER_OFFSET = 72;
@@ -34,26 +34,30 @@ const mobileAuthClasses =
 
 const authIconClasses = "size-4";
 
-/** Teacher Log in when signed out, Log out when signed in. */
+type SiteSession = {
+  kind: "school" | "teacher";
+};
+
+/** Log in when signed out; portal + log out when a school/teacher session exists. */
 function AuthControl({
-  signedIn,
+  session,
   className,
   onNavigate,
 }: {
-  signedIn: boolean;
+  session: SiteSession | null;
   className: string;
   onNavigate?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
 
-  if (signedIn) {
+  if (session) {
     return (
       <button
         type="button"
         disabled={pending}
         onClick={() => {
           onNavigate?.();
-          startTransition(() => teacherLogout());
+          startTransition(() => portalLogout());
         }}
         className={className}
       >
@@ -64,24 +68,36 @@ function AuthControl({
   }
 
   return (
-    <Link href={TEACHER_LOGIN_PATH} onClick={onNavigate} className={className}>
+    <Link href={SCHOOL_LOGIN_PATH} onClick={onNavigate} className={className}>
       <LogIn className={authIconClasses} />
       <span>Log in</span>
     </Link>
   );
 }
 
-export function SiteHeader({ signedIn }: { signedIn: boolean }) {
+export function SiteHeader({ session }: { session: SiteSession | null }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const pathname = usePathname();
   const onHome = pathname === "/";
 
-  const resolveHref = (href: string) =>
-    isHash(href) && !onHome ? `/${href}` : href;
+  /** When a school is signed in, content links open the school portal. */
+  const contentHref = (href: string) => {
+    if (!session || session.kind !== "school") return href;
+    if (href === "/teacher/resources") return "/school/resources";
+    if (href === "/teacher/answer-keys") return "/school/answer-keys";
+    if (href === "/teacher/results") return "/school/results";
+    return href;
+  };
+
+  const resolveHref = (href: string) => {
+    if (isHash(href)) return !onHome ? `/${href}` : href;
+    return contentHref(href);
+  };
+
   const isActive = (href: string) =>
-    isHash(href) ? onHome && active === href : pathname === href;
+    isHash(href) ? onHome && active === href : pathname === contentHref(href);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -171,7 +187,7 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
         </nav>
 
         <div className="flex items-center gap-2">
-          <AuthControl signedIn={signedIn} className={authButtonClasses} />
+          <AuthControl session={session} className={authButtonClasses} />
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -216,7 +232,7 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
             })}
             <li className="border-t border-brand-100 pt-2">
               <AuthControl
-                signedIn={signedIn}
+                session={session}
                 className={mobileAuthClasses}
                 onNavigate={() => setOpen(false)}
               />

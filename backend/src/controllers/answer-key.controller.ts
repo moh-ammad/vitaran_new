@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import type {
   ListAnswerKeysQuery,
+  SchoolTestsQuery,
   UpdateAnswerKeyQuery,
   UploadAnswerKeyQuery,
 } from "../schemas/answer-key.schema.js";
@@ -16,6 +17,11 @@ type IdParams = { id: string };
 
 export const listAnswerKeys: RequestHandler = async (req, res) => {
   sendSuccess(res, await answerKeyService.listRecentAnswerKeys(req.query as unknown as ListAnswerKeysQuery));
+};
+
+export const listSchoolTests: RequestHandler = async (req, res) => {
+  const { schoolId } = req.query as unknown as SchoolTestsQuery;
+  sendSuccess(res, await answerKeyService.listSchoolTestsForResults(schoolId));
 };
 
 export const getAnswerKeyStats: RequestHandler = async (_req, res) => {

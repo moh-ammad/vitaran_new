@@ -73,6 +73,10 @@ export function getTeacherBreadcrumbs(pathname: string): TeacherBreadcrumb[] {
   return crumbs;
 }
 
+/** Only the dashboard is a root — resources and other sections get Back → Dashboard. */
 export function getTeacherParentHref(pathname: string): string | null {
-  return getTeacherBreadcrumbs(pathname).at(-2)?.href ?? null;
+  const dashboard = "/teacher";
+  if (pathname === dashboard) return null;
+  if (allItems.some((item) => item.href === pathname)) return dashboard;
+  return getTeacherBreadcrumbs(pathname).at(-2)?.href ?? dashboard;
 }

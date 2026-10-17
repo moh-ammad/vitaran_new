@@ -6,6 +6,7 @@ export const answerKeySummarySelect = {
   id: true,
   programCode: true,
   type: true,
+  testId: true,
   testNumber: true,
   classLevel: true,
   fileName: true,
@@ -14,7 +15,7 @@ export const answerKeySummarySelect = {
   publishedAt: true,
   createdAt: true,
   updatedAt: true,
-  school: { select: { id: true, name: true, serial: true } },
+  school: { select: { id: true, name: true, code: true } },
 } satisfies Prisma.AnswerKeySelect;
 
 export type AnswerKeySummary = Prisma.AnswerKeyGetPayload<{

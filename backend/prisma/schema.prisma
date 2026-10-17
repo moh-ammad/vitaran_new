@@ -73,6 +73,8 @@ enum Subject {
 model School {
   id                String       @id @default(uuid()) @db.Uuid
   serial            Int          @unique @default(autoincrement())
+  /// Freeform school ID shown to admins (no format restriction).
+  code              String       @unique @db.VarChar(64)
   name              String       @db.VarChar(200)
   board             SchoolBoard
   type              SchoolType   @default(REGULAR)
@@ -192,12 +194,16 @@ model ClassTeacher {
 
 /// Regular keys are shared by every school on the program; customized keys belong to one school.
 /// `programCode` matches LearningProgram.code.
+/// `testId` + `testNumber` link keys to results for the same school/program/class.
 model AnswerKey {
   id          String     @id @default(uuid()) @db.Uuid
   programCode String     @map("program_code") @db.VarChar(64)
   type        SchoolType
   schoolId    String?    @map("school_id") @db.Uuid
   school      School?    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  /// Human-facing test ID (freeform), shared with results.
+  testId      String     @map("test_id") @db.VarChar(64)
+  /// Ordinal test number (1–100).
   testNumber  Int        @map("test_number") @db.SmallInt
   classLevel  Int        @map("class_level") @db.SmallInt
   fileName    String     @map("file_name") @db.VarChar(255)
@@ -213,6 +219,7 @@ model AnswerKey {
   @@index([createdAt])
   @@index([schoolId])
   @@index([programCode])
+  @@index([testId, testNumber])
   @@map("answer_keys")
 }
 
@@ -227,6 +234,9 @@ model ResultSet {
   programName String?       @map("program_name") @db.VarChar(120)
   /// `programCode`, or the lowercased custom name; keeps one set per school, program and test.
   programKey  String        @map("program_key") @db.VarChar(130)
+  /// Human-facing test ID (freeform).
+  testId      String        @map("test_id") @db.VarChar(64)
+  /// Ordinal test number (1–100).
   testNumber  Int           @map("test_number") @db.SmallInt
   /// Schools only see published results.
   published   Boolean       @default(false)

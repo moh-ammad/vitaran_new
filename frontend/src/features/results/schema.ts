@@ -24,12 +24,13 @@ export const resultSetSchema = z.object({
   schoolId: z.string().trim().min(1, "Select a school."),
   program: z.union([z.string().trim().min(1).max(64), z.literal("")]).optional(),
   programName: z.string().trim().max(120, "Keep the program name under 120 characters.").optional(),
+  testId: z.string().trim().min(1, "Enter the test ID.").max(64, "Keep the test ID under 64 characters."),
   testNumber: testNumberField,
   removeClasses: z.string().optional(),
   ...classFiles,
 });
 
-export const RESULT_FIELDS = ["schoolId", "program", "programName", "testNumber", "removeClasses"] as const;
+export const RESULT_FIELDS = ["schoolId", "program", "programName", "testId", "testNumber", "removeClasses"] as const;
 export const CLASS_FILE_FIELDS = CLASS_LEVELS.map(classFileField);
 
 export type ClassFileField = ReturnType<typeof classFileField>;

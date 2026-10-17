@@ -47,7 +47,11 @@ const schoolProgramSchema = z.object({
     }),
 });
 
+/** Freeform school ID — any non-empty string. */
+const schoolCode = z.string().trim().min(1, "School ID is required").max(64, "Keep the school ID under 64 characters");
+
 const schoolFields = {
+  code: schoolCode,
   name: requiredText(2, 200),
   board: z.enum(SchoolBoard),
   type: z.enum(SchoolType),

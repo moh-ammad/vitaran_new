@@ -26,15 +26,19 @@ const classTeacherSlotSchema = z.object({
 });
 
 const teacherSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  email: z.email().trim().toLowerCase(),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Enter the teacher's full name.")
+    .max(120, "Keep the name under 120 characters."),
+  email: z.email({ error: "Enter a valid email address." }).trim().toLowerCase(),
   phone: z
     .string()
     .trim()
     .regex(/^\d{10}$/, "Enter a 10-digit phone number."),
-  status: z.enum(["ACTIVE", "INACTIVE"]),
-  password: z.string().max(128),
-  assignments: z.array(assignmentSchema).min(1, "Assign at least one class and subject"),
+  status: z.enum(["ACTIVE", "INACTIVE"], { error: "Select a status." }),
+  password: z.string().max(128, "Keep the password under 128 characters."),
+  assignments: z.array(assignmentSchema).min(1, "Assign at least one class and subject."),
   classTeacherFor: z.array(classTeacherSlotSchema).default([]),
 });
 
@@ -54,6 +58,7 @@ export type TeacherFormState =
       message?: string;
       fieldErrors?: Partial<Record<keyof TeacherFormValues | "assignments", string[]>>;
       values: TeacherFormValues;
+      submittedAt: number;
     }
   | { status: "success"; teacherId: string }
   | undefined;
@@ -127,7 +132,12 @@ async function saveTeacher(
   });
 
   if (!parsed.success) {
-    return { status: "error", values, fieldErrors: fieldErrorsFrom(parsed.error) };
+    return {
+      status: "error",
+      values,
+      fieldErrors: fieldErrorsFrom(parsed.error),
+      submittedAt: Date.now(),
+    };
   }
 
   if (mode === "create" && !parsed.data.password) {
@@ -135,12 +145,18 @@ async function saveTeacher(
       status: "error",
       values,
       fieldErrors: { password: ["Enter a password."] },
+      submittedAt: Date.now(),
     };
   }
 
   const input = toInput(values, mode === "create");
   if (!input) {
-    return { status: "error", values, message: "Check the highlighted fields." };
+    return {
+      status: "error",
+      values,
+      message: "Check the highlighted fields.",
+      submittedAt: Date.now(),
+    };
   }
 
   try {
@@ -150,9 +166,14 @@ async function saveTeacher(
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof ApiError && (error.status === 400 || error.status === 409)) {
-      return { status: "error", values, message: error.message };
+      return { status: "error", values, message: error.message, submittedAt: Date.now() };
     }
-    return { status: "error", values, message: "We couldn't save the teacher. Please try again." };
+    return {
+      status: "error",
+      values,
+      message: "We couldn't save the teacher. Please try again.",
+      submittedAt: Date.now(),
+    };
   }
 }
 

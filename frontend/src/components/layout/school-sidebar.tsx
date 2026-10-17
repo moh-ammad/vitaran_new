@@ -41,25 +41,28 @@ export function SchoolSidebar({ school }: { school: SchoolAccount }) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={<Link href="/school" />}
-              className="hover:bg-transparent active:bg-transparent"
-            >
-              <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-white text-brand-800">
-                <BrandBars className="h-4 w-4" />
-              </span>
-              <span className="grid flex-1 text-left leading-tight">
-                <span className="truncate font-heading font-bold text-white">Vitaran Learning</span>
-                <span className="truncate text-xs text-brand-400">School portal</span>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+      {/* Brand only on desktop — mobile already has logo in the page header. */}
+      {!isMobile && (
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                render={<Link href="/school/resources" />}
+                className="hover:bg-transparent active:bg-transparent"
+              >
+                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-white text-brand-800">
+                  <BrandBars className="h-4 w-4" />
+                </span>
+                <span className="grid flex-1 text-left leading-tight">
+                  <span className="truncate font-heading font-bold text-white">Vitaran Learning</span>
+                  <span className="truncate text-xs text-brand-400">School portal</span>
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+      )}
 
       <SidebarContent>
         {schoolNavGroups.map((group) => (

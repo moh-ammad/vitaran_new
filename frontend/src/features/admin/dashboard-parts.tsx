@@ -8,7 +8,7 @@ const SURFACE = "rounded-2xl border border-neutral-200 bg-white shadow-sm";
 
 type StatCardProps = {
   label: string;
-  value: number;
+  value?: number;
   hint: string;
   icon: LucideIcon;
   href: string;
@@ -26,8 +26,10 @@ export function StatCard({ label, value, hint, icon: Icon, href }: StatCardProps
           <Icon className="size-5" />
         </span>
       </div>
-      <p className="-mt-1 text-3xl font-bold text-neutral-950 tabular-nums">{formatNumber(value)}</p>
-      <p className="mt-1 text-xs text-neutral-500">{hint}</p>
+      {value !== undefined && (
+        <p className="-mt-1 text-3xl font-bold text-neutral-950 tabular-nums">{formatNumber(value)}</p>
+      )}
+      <p className={cn("text-xs text-neutral-500", value === undefined ? "mt-2" : "mt-1")}>{hint}</p>
       <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-900">
         View
         <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />

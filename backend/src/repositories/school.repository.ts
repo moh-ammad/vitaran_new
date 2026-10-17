@@ -7,7 +7,6 @@ import {
 } from "../generated/prisma/enums.js";
 import type { ListSchoolsQuery, SchoolProgramInput } from "../schemas/school.schema.js";
 
-const SCHOOL_CODE_PATTERN = /^VLS-?(\d{1,9})$/i;
 const RECENT_SCHOOLS_LIMIT = 5;
 
 export const schoolProgramInclude = {
@@ -30,16 +29,15 @@ function buildWhere(query: ListSchoolsQuery): Prisma.SchoolWhereInput {
   if (query.type) where.type = query.type;
 
   if (query.search) {
-    const codeMatch = SCHOOL_CODE_PATTERN.exec(query.search);
     const contains = { contains: query.search, mode: "insensitive" } as const;
 
     where.OR = [
       { name: contains },
+      { code: contains },
       { city: contains },
       { state: contains },
       { contactName: contains },
       { contactEmail: contains },
-      ...(codeMatch ? [{ serial: Number(codeMatch[1]) }] : []),
     ];
   }
 
@@ -65,6 +63,16 @@ export async function findSchools(query: ListSchoolsQuery) {
 
 export function findSchoolById(id: string) {
   return prisma.school.findUnique({ where: { id }, include: schoolProgramInclude });
+}
+
+export function findSchoolByCode(code: string, excludeId?: string) {
+  return prisma.school.findFirst({
+    where: {
+      code: { equals: code, mode: "insensitive" },
+      ...(excludeId && { NOT: { id: excludeId } }),
+    },
+    select: { id: true },
+  });
 }
 
 export function findSchoolByAccount(account: { email?: string; phone?: string }) {

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { AdminHeader } from "@/components/layout/admin-header";
+import { AdminPageBack } from "@/components/layout/admin-page-back";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
@@ -27,6 +28,7 @@ export default async function AdminPanelLayout({
         <SidebarInset className="min-w-0 bg-neutral-50">
           <AdminHeader />
           <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
+            <AdminPageBack />
             {children}
           </div>
         </SidebarInset>
