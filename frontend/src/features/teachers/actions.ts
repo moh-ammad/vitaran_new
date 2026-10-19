@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
-import { ADMIN_BASE_PATH, SCHOOL_BASE_PATH } from "@/constants/auth";
+import { ADMIN_BASE_PATH, SCHOOL_BASE_PATH, TEACHER_BASE_PATH } from "@/constants/auth";
 import { ApiError } from "@/services/api-client";
 import * as teacherService from "@/services/teachers";
 import type {
@@ -197,10 +197,18 @@ export async function updateSchoolTeacherAction(
   );
 }
 
+/** Keep status toggles snappy — only the pages that must reflect the change. */
+function revalidateAfterTeacherStatusChange() {
+  revalidatePath(`${SCHOOL_BASE_PATH}/classes`);
+  revalidatePath(`${SCHOOL_BASE_PATH}/teachers`);
+  revalidatePath(`${ADMIN_BASE_PATH}/teachers`);
+  revalidatePath(TEACHER_BASE_PATH);
+}
+
 export async function setSchoolTeacherStatusAction(teacherId: string, status: TeacherStatus) {
   try {
     await teacherService.setSchoolTeacherStatus(teacherId, status);
-    revalidatePath(SCHOOL_BASE_PATH, "layout");
+    revalidateAfterTeacherStatusChange();
     return { ok: true as const };
   } catch {
     return { ok: false as const, message: "Could not update teacher status." };
@@ -210,7 +218,7 @@ export async function setSchoolTeacherStatusAction(teacherId: string, status: Te
 export async function deleteSchoolTeacherAction(teacherId: string) {
   try {
     await teacherService.deleteSchoolTeacher(teacherId);
-    revalidatePath(SCHOOL_BASE_PATH, "layout");
+    revalidateAfterTeacherStatusChange();
     return { ok: true as const };
   } catch {
     return { ok: false as const, message: "Could not delete teacher." };
@@ -247,6 +255,7 @@ export async function setAdminTeacherStatusAction(teacherId: string, status: Tea
   try {
     await teacherService.setAdminTeacherStatus(teacherId, status);
     revalidatePath(ADMIN_BASE_PATH, "layout");
+    revalidateAfterTeacherStatusChange();
     return { ok: true as const };
   } catch {
     return { ok: false as const, message: "Could not update teacher status." };

@@ -299,12 +299,24 @@ export async function setTeacherStatus(
   input: SetTeacherStatusInput,
   schoolId?: string,
 ) {
-  const existing = await teacherRepository.findTeacherById(id);
+  // Light lookup only — status toggle must stay snappy (no full assignment/program graph).
+  const existing = await teacherRepository.findTeacherStatusTarget(id);
   if (!existing) throw new AppError(404, "Teacher not found");
   if (schoolId && existing.schoolId !== schoolId) throw new AppError(404, "Teacher not found");
 
-  const teacher = await teacherRepository.setTeacherStatus(id, input.status);
-  return toTeacherDto(teacher);
+  await teacherRepository.setTeacherStatus(id, input.status);
+  return {
+    id: existing.id,
+    schoolId: existing.schoolId,
+    name: existing.name,
+    email: existing.email,
+    phone: existing.phone,
+    status: input.status,
+    assignments: [] as TeacherAssignmentDto[],
+    school: { ...toSchoolRef(existing.school), type: existing.school.type },
+    createdAt: existing.createdAt.toISOString(),
+    updatedAt: new Date().toISOString(),
+  } satisfies TeacherDto;
 }
 
 export async function deleteTeacher(id: string, schoolId?: string) {
@@ -328,16 +340,18 @@ export async function listSchoolClasses(schoolId: string) {
 
   const classTeachers = await teacherRepository.listClassTeachers(schoolId);
   const bySlot = new Map(
-    classTeachers.map((row) => [
-      `${row.programId}:${row.classLevel}`,
-      {
-        id: row.id,
-        teacherId: row.teacherId,
-        name: row.teacher.name,
-        email: row.teacher.email,
-        status: row.teacher.status,
-      },
-    ]),
+    classTeachers
+      .filter((row) => row.teacher.status === TeacherStatus.ACTIVE)
+      .map((row) => [
+        `${row.programId}:${row.classLevel}`,
+        {
+          id: row.id,
+          teacherId: row.teacherId,
+          name: row.teacher.name,
+          email: row.teacher.email,
+          status: row.teacher.status,
+        },
+      ]),
   );
 
   return school.schoolPrograms.flatMap((program) =>
@@ -355,14 +369,16 @@ export async function listSchoolClasses(schoolId: string) {
 
 export async function listClassTeacherSlots(schoolId: string) {
   const rows = await teacherRepository.listClassTeachers(schoolId);
-  return rows.map((row) => ({
-    programId: row.programId,
-    programCode: row.program.code,
-    programName: row.program.name,
-    classLevel: row.classLevel,
-    teacherId: row.teacherId,
-    teacherName: row.teacher.name,
-  }));
+  return rows
+    .filter((row) => row.teacher.status === TeacherStatus.ACTIVE)
+    .map((row) => ({
+      programId: row.programId,
+      programCode: row.program.code,
+      programName: row.program.name,
+      classLevel: row.classLevel,
+      teacherId: row.teacherId,
+      teacherName: row.teacher.name,
+    }));
 }
 
 export async function listClassTeachersForTeacher(teacherId: string) {

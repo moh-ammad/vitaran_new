@@ -41,11 +41,24 @@ export async function apiClient<T>(
     requestHeaders.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(buildApiUrl(path), {
-    ...init,
-    headers: requestHeaders,
-    body: body === undefined ? undefined : isBinary ? body : JSON.stringify(body),
-  });
+  const url = buildApiUrl(path);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : isBinary ? body : JSON.stringify(body),
+    });
+  } catch (error) {
+    const cause =
+      error instanceof Error && error.cause instanceof Error
+        ? error.cause.message
+        : error instanceof Error
+          ? error.message
+          : "network error";
+    throw new ApiError(`Could not reach the API (${url}): ${cause}`, 503);
+  }
 
   if (response.status === 204) {
     return undefined as T;

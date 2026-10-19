@@ -1,6 +1,6 @@
 import { prisma } from "../config/database.js";
 import type { Prisma, Subject } from "../generated/prisma/client.js";
-import type { TeacherStatus } from "../generated/prisma/enums.js";
+import { TeacherStatus } from "../generated/prisma/enums.js";
 import type { ListTeachersQuery } from "../schemas/teacher.schema.js";
 
 const teacherInclude = {
@@ -139,11 +139,31 @@ export async function updateTeacher(
   });
 }
 
-export function setTeacherStatus(id: string, status: TeacherStatus) {
-  return prisma.teacher.update({
+/** Minimal row for status toggles (skip assignments / program graph). */
+export function findTeacherStatusTarget(id: string) {
+  return prisma.teacher.findUnique({
     where: { id },
-    data: { status },
-    include: teacherInclude,
+    select: {
+      id: true,
+      schoolId: true,
+      name: true,
+      email: true,
+      phone: true,
+      status: true,
+      createdAt: true,
+      school: { select: { id: true, name: true, code: true, type: true } },
+    },
+  });
+}
+
+/** Fast status flip — no heavy include. */
+export async function setTeacherStatus(id: string, status: TeacherStatus) {
+  await prisma.$transaction(async (tx) => {
+    // Disabled teachers must leave class-teacher slots so Classes updates immediately.
+    if (status === TeacherStatus.INACTIVE) {
+      await tx.classTeacher.deleteMany({ where: { teacherId: id } });
+    }
+    await tx.teacher.update({ where: { id }, data: { status } });
   });
 }
 
