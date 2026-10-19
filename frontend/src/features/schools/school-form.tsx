@@ -33,7 +33,6 @@ import {
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
   SCHOOL_TYPES,
-  SUBJECTS,
   type SchoolDetail,
 } from "@/types/school";
 import type { LearningProgram } from "@/types/program";
@@ -48,7 +47,6 @@ import {
   BOARD_LABELS,
   INDIAN_STATES,
   STATUS_LABELS,
-  SUBJECT_LABELS,
   TYPE_LABELS,
 } from "./constants";
 import { schoolProgramsToTokens } from "./offerings";
@@ -87,8 +85,6 @@ const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[va
 const typeItems = SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] }));
 const statusItems = SCHOOL_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }));
 const stateItems = INDIAN_STATES.map((value) => ({ value, label: value }));
-const programOptions = PROGRAMS.map((value) => ({ value, label: PROGRAM_LABELS[value] }));
-const subjectOptions = SUBJECTS.map((value) => ({ value, label: SUBJECT_LABELS[value] }));
 
 const emailInput = { type: "email", getHint: getEmailHint } as const;
 
@@ -314,15 +310,6 @@ function SchoolFormWizard({
     setTimeout(() => {
       saveDraft();
       updateDirty();
-    });
-
-  const saveCheckboxSoon = (field: CheckboxGroupProps["name"]) =>
-    setTimeout(() => {
-      saveDraft();
-      updateDirty();
-      if (errors[field]) {
-        setClientErrors((prev) => ({ ...prev, [field]: validate(readValues())[field] }));
-      }
     });
 
   const scrollToFirstInvalid = () =>
@@ -734,38 +721,6 @@ function SectionHeading({ children }: { children: ReactNode }) {
     >
       {children}
     </h3>
-  );
-}
-
-type CheckboxGroupProps = {
-  name: "programs" | "subjects";
-  options: { value: string; label: string }[];
-  checked?: string[];
-  invalid?: boolean;
-  onChange: (name: CheckboxGroupProps["name"]) => void;
-};
-
-function CheckboxGroup({ name, options, checked = [], invalid, onChange }: CheckboxGroupProps) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {options.map(({ value, label }) => (
-        <FieldLabel key={value} htmlFor={`${name}-${value}`}>
-          <Field orientation="horizontal" data-invalid={invalid} className="py-1">
-            <Checkbox
-              id={`${name}-${value}`}
-              name={name}
-              value={value}
-              defaultChecked={checked.includes(value)}
-              aria-invalid={invalid}
-              onCheckedChange={() => onChange(name)}
-            />
-            <FieldContent>
-              <span className="text-sm font-medium">{label}</span>
-            </FieldContent>
-          </Field>
-        </FieldLabel>
-      ))}
-    </div>
   );
 }
 

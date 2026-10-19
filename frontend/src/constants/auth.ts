@@ -10,7 +10,7 @@ export const SCHOOL_HOME_PATH = "/school/resources";
 
 export const TEACHER_SESSION_COOKIE = "vitaran_teacher_session";
 export const TEACHER_BASE_PATH = "/teacher";
-/** Same portal login as schools (role dropdown). */
+/** Same unified portal login as schools. */
 export const TEACHER_LOGIN_PATH = SCHOOL_LOGIN_PATH;
 /** After teacher login — resources is the landing page. */
 export const TEACHER_HOME_PATH = "/teacher/resources";

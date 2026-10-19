@@ -13,7 +13,7 @@ export const SCHOOL_TYPES = ["REGULAR", "CUSTOMIZED"] as const;
 
 export const SCHOOL_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 
-export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
+// export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
 
 /** @deprecated Prefer LearningProgram.code from the programs catalog. */
 export const PROGRAMS = [
