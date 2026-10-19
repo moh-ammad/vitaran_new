@@ -1,15 +1,25 @@
 import { Router } from "express";
 import { getCurrentAdmin, login } from "../controllers/auth.controller.js";
+import {
+  requestForgotPasswordOtp,
+  verifyForgotPasswordOtp,
+} from "../controllers/forgot-password.controller.js";
 import { getCurrentSchool, schoolLogin } from "../controllers/school-auth.controller.js";
 import { getCurrentTeacher, teacherLogin } from "../controllers/teacher-auth.controller.js";
 import { requireAdmin, requireSchool, requireTeacher } from "../middleware/authenticate.js";
 import {
+  forgotPasswordRateLimit,
   loginRateLimit,
   schoolLoginRateLimit,
   teacherLoginRateLimit,
 } from "../middleware/rate-limit.js";
 import { validate } from "../middleware/validate.js";
-import { loginSchema, schoolLoginSchema } from "../schemas/auth.schema.js";
+import {
+  forgotPasswordRequestSchema,
+  forgotPasswordVerifySchema,
+  loginSchema,
+  schoolLoginSchema,
+} from "../schemas/auth.schema.js";
 
 export const authRouter = Router();
 
@@ -31,3 +41,16 @@ authRouter.post(
   teacherLogin,
 );
 authRouter.get("/teacher/me", requireTeacher, getCurrentTeacher);
+
+authRouter.post(
+  "/forgot-password",
+  validate(forgotPasswordRequestSchema),
+  forgotPasswordRateLimit,
+  requestForgotPasswordOtp,
+);
+authRouter.post(
+  "/forgot-password/verify",
+  validate(forgotPasswordVerifySchema),
+  forgotPasswordRateLimit,
+  verifyForgotPasswordOtp,
+);

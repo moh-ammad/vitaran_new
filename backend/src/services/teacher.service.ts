@@ -13,6 +13,7 @@ import type {
 import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { decryptSecret, encryptSecret } from "../utils/secret-box.js";
+import { sendTeacherCredentialsEmail } from "./mail.service.js";
 import {
   toSchoolRef,
   type SchoolAccountDto,
@@ -251,7 +252,19 @@ export async function createTeacher(schoolId: string, input: CreateTeacherInput)
     await teacherRepository.syncTeacherClassTeacherSlots(schoolId, teacher.id, classTeacherFor);
   }
 
-  return toTeacherDetailDto(teacher);
+  const detail = toTeacherDetailDto(teacher);
+  await sendTeacherCredentialsEmail({
+    to: input.email,
+    teacherName: input.name,
+    schoolName: school?.name ?? detail.school.name,
+    schoolEmail: school?.accountEmail ?? null,
+    loginEmail: input.email,
+    loginPhone: input.phone,
+    password: input.password,
+    reason: "created",
+  });
+
+  return detail;
 }
 
 export async function updateTeacher(id: string, input: UpdateTeacherInput, schoolId?: string) {
@@ -281,10 +294,14 @@ export async function updateTeacher(id: string, input: UpdateTeacherInput, schoo
   }
 
   let sealed: { passwordHash?: string; passwordEncrypted?: string } = {};
+  let passwordReset: string | undefined;
   if (input.password) {
     const unchanged =
       existing.passwordHash && (await verifyPassword(input.password, existing.passwordHash));
-    if (!unchanged) sealed = await sealPassword(input.password);
+    if (!unchanged) {
+      sealed = await sealPassword(input.password);
+      passwordReset = input.password;
+    }
   }
 
   const teacher = await teacherRepository.updateTeacher(id, {
@@ -304,7 +321,76 @@ export async function updateTeacher(id: string, input: UpdateTeacherInput, schoo
     );
   }
 
-  return toTeacherDetailDto(teacher);
+  const detail = toTeacherDetailDto(teacher);
+
+  // School/admin sets a new password → teacher (+ school mailbox) receive it by email.
+  if (passwordReset) {
+    await sendTeacherCredentialsEmail({
+      to: detail.email,
+      teacherName: detail.name,
+      schoolName: detail.school.name,
+      schoolEmail: existing.school.accountEmail,
+      loginEmail: detail.email,
+      loginPhone: detail.phone,
+      password: passwordReset,
+      reason: "password-reset",
+    });
+  }
+
+  return detail;
+}
+
+/** Resend current teacher credentials by email (school or admin). */
+export async function sendTeacherCredentials(id: string, schoolId?: string) {
+  const existing = await teacherRepository.findTeacherById(id);
+  if (!existing) throw new AppError(404, "Teacher not found");
+  if (schoolId && existing.schoolId !== schoolId) throw new AppError(404, "Teacher not found");
+
+  const teacher = await getTeacher(id);
+  if (!teacher.password) {
+    throw new AppError(400, "Set a password before sending credentials");
+  }
+
+  const sent = await sendTeacherCredentialsEmail({
+    to: teacher.email,
+    teacherName: teacher.name,
+    schoolName: teacher.school.name,
+    schoolEmail: existing.school.accountEmail,
+    loginEmail: teacher.email,
+    loginPhone: teacher.phone,
+    password: teacher.password,
+    reason: "resend",
+  });
+  if (!sent) {
+    throw new AppError(502, "Could not send the email. Check SMTP settings and try again.");
+  }
+  return { ok: true as const, to: teacher.email };
+}
+
+/** Set a new teacher password and email it (school/admin reset flow). */
+export async function resetTeacherPassword(id: string, password: string, schoolId?: string) {
+  const existing = await teacherRepository.findTeacherById(id);
+  if (!existing) throw new AppError(404, "Teacher not found");
+  if (schoolId && existing.schoolId !== schoolId) throw new AppError(404, "Teacher not found");
+
+  const sealed = await sealPassword(password);
+  const teacher = await teacherRepository.updateTeacher(id, sealed);
+  const detail = toTeacherDetailDto(teacher);
+
+  const sent = await sendTeacherCredentialsEmail({
+    to: detail.email,
+    teacherName: detail.name,
+    schoolName: detail.school.name,
+    schoolEmail: existing.school.accountEmail,
+    loginEmail: detail.email,
+    loginPhone: detail.phone,
+    password,
+    reason: "password-reset",
+  });
+  if (!sent) {
+    throw new AppError(502, "Password was saved but the email could not be sent. Try Send credentials.");
+  }
+  return { ok: true as const, to: detail.email };
 }
 
 export async function setTeacherStatus(

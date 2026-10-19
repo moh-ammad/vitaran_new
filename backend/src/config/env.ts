@@ -24,6 +24,13 @@ const envSchema = z.object({
   ADMIN_EMAIL: z.email().toLowerCase().optional(),
   ADMIN_PASSWORD: z.string().min(1).optional(),
   CORS_ORIGIN: z.string().min(1).default("http://localhost:3000"),
+  /** Public app URL used in credential emails (defaults to first CORS origin). */
+  APP_URL: z.url().optional(),
+  SMTP_HOST: z.string().trim().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_USER: z.string().trim().min(1).optional(),
+  SMTP_PASS: z.string().min(1).optional(),
+  SMTP_FROM: z.string().trim().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -38,6 +45,12 @@ const parsed = envSchema.safeParse({
   ADMIN_EMAIL: process.env.ADMIN_EMAIL?.trim() || undefined,
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || undefined,
   CORS_ORIGIN: process.env.CORS_ORIGIN?.trim() || undefined,
+  APP_URL: process.env.APP_URL?.trim() || undefined,
+  SMTP_HOST: process.env.SMTP_HOST?.trim() || undefined,
+  SMTP_PORT: process.env.SMTP_PORT?.trim() || undefined,
+  SMTP_USER: process.env.SMTP_USER?.trim() || undefined,
+  SMTP_PASS: process.env.SMTP_PASS || undefined,
+  SMTP_FROM: process.env.SMTP_FROM?.trim() || undefined,
 });
 
 if (!parsed.success) {

@@ -99,6 +99,12 @@ export const schoolIdParamsSchema = z.object({
   id: z.uuid(),
 });
 
+export const resetSchoolPasswordSchema = z.object({
+  password: z.string().min(4, "Use at least 4 characters").max(128),
+});
+
+export type ResetSchoolPasswordInput = z.infer<typeof resetSchoolPasswordSchema>;
+
 export const accountAvailabilityQuerySchema = z.object({
   email,
   excludeId: z.uuid().optional(),

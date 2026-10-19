@@ -62,14 +62,6 @@ model LearningProgram {
   @@map("learning_programs")
 }
 
-enum Subject {
-  MATHEMATICS
-  PHYSICS
-  CHEMISTRY
-  BIOLOGY
-  SCIENCE
-}
-
 model School {
   id                String       @id @default(uuid()) @db.Uuid
   serial            Int          @unique @default(autoincrement())
@@ -284,4 +276,26 @@ model ResultRow {
 
   @@id([sheetId, position])
   @@map("result_rows")
+}
+
+enum PasswordResetRole {
+  SCHOOL
+  TEACHER
+}
+
+/// One-time codes for portal forgot-password (school or teacher).
+model PasswordResetOtp {
+  id         String            @id @default(uuid()) @db.Uuid
+  role       PasswordResetRole
+  accountId  String            @map("account_id") @db.Uuid
+  email      String            @db.VarChar(254)
+  codeHash   String            @map("code_hash") @db.VarChar(128)
+  expiresAt  DateTime          @map("expires_at") @db.Timestamptz(3)
+  attempts   Int               @default(0)
+  consumedAt DateTime?         @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([email, role])
+  @@index([expiresAt])
+  @@map("password_reset_otps")
 }

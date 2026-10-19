@@ -60,3 +60,20 @@ export async function fetchCurrentTeacher(token: string): Promise<TeacherAccount
   });
   return teacher;
 }
+
+export function requestForgotPasswordOtp(email: string) {
+  return apiClient<{ ok: true; message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+  });
+}
+
+export function verifyForgotPasswordOtp(email: string, otp: string) {
+  return apiClient<{ ok: true; role: "school" | "teacher"; message: string }>(
+    "/auth/forgot-password/verify",
+    {
+      method: "POST",
+      body: { email, otp },
+    },
+  );
+}

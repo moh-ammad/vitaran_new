@@ -10,6 +10,8 @@ import {
   listSchoolClasses,
   listSchoolClassTeacherSlots,
   listTeachers,
+  resetTeacherPassword,
+  sendTeacherCredentials,
   setSchoolClassTeacher,
   setTeacherStatus,
   updateTeacher,
@@ -19,6 +21,7 @@ import { validate } from "../middleware/validate.js";
 import {
   createTeacherSchema,
   listTeachersQuerySchema,
+  resetTeacherPasswordSchema,
   setClassTeacherSchema,
   setTeacherStatusSchema,
   teacherIdParamsSchema,
@@ -51,6 +54,13 @@ teacherRouter.patch(
   validate(setTeacherStatusSchema),
   setTeacherStatus,
 );
+teacherRouter.post("/:id/send-credentials", validateTeacherId, sendTeacherCredentials);
+teacherRouter.post(
+  "/:id/reset-password",
+  validateTeacherId,
+  validate(resetTeacherPasswordSchema),
+  resetTeacherPassword,
+);
 teacherRouter.delete("/:id", validateTeacherId, deleteTeacher);
 
 /** School portal: manage only this school's teachers + dashboard. */
@@ -69,5 +79,12 @@ schoolTeacherRouter.patch(
   validateTeacherId,
   validate(setTeacherStatusSchema),
   setTeacherStatus,
+);
+schoolTeacherRouter.post("/:id/send-credentials", validateTeacherId, sendTeacherCredentials);
+schoolTeacherRouter.post(
+  "/:id/reset-password",
+  validateTeacherId,
+  validate(resetTeacherPasswordSchema),
+  resetTeacherPassword,
 );
 schoolTeacherRouter.delete("/:id", validateTeacherId, deleteTeacher);

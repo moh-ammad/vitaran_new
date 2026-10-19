@@ -70,6 +70,12 @@ export const setTeacherStatusSchema = z.object({
   status: z.enum(TeacherStatus),
 });
 
+export const resetTeacherPasswordSchema = z.object({
+  password: z.string().min(4, "Use at least 4 characters").max(128),
+});
+
+export type ResetTeacherPasswordInput = z.infer<typeof resetTeacherPasswordSchema>;
+
 export const teacherIdParamsSchema = z.object({
   id: z.uuid(),
 });

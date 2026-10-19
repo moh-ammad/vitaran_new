@@ -151,3 +151,30 @@ export async function deleteSchoolAction(
     return { ok: false, message: "We couldn't delete the school. Please try again." };
   }
 }
+
+export async function sendSchoolCredentialsAction(schoolId: string) {
+  try {
+    const result = await schoolService.sendSchoolCredentials(schoolId);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not send credentials." };
+  }
+}
+
+export async function resetSchoolPasswordAction(schoolId: string, password: string) {
+  try {
+    const result = await schoolService.resetSchoolPassword(schoolId, password);
+    revalidatePath(`${ADMIN_BASE_PATH}/schools/${schoolId}`);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not reset password." };
+  }
+}

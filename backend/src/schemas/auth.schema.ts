@@ -14,3 +14,15 @@ export const schoolLoginSchema = z.object({
 });
 
 export type SchoolLoginInput = z.infer<typeof schoolLoginSchema>;
+
+export const forgotPasswordRequestSchema = z.object({
+  email: z.email().trim().toLowerCase(),
+});
+
+export const forgotPasswordVerifySchema = z.object({
+  email: z.email().trim().toLowerCase(),
+  otp: z.string().trim().min(4).max(8),
+});
+
+export type ForgotPasswordRequestInput = z.infer<typeof forgotPasswordRequestSchema>;
+export type ForgotPasswordVerifyInput = z.infer<typeof forgotPasswordVerifySchema>;

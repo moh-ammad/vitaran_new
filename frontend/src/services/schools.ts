@@ -104,3 +104,16 @@ export function deleteSchool(id: string) {
     method: "DELETE",
   });
 }
+
+export function sendSchoolCredentials(id: string) {
+  return adminApi<{ ok: true; to: string }>(`/schools/${encodeURIComponent(id)}/send-credentials`, {
+    method: "POST",
+  });
+}
+
+export function resetSchoolPassword(id: string, password: string) {
+  return adminApi<{ ok: true; to: string }>(`/schools/${encodeURIComponent(id)}/reset-password`, {
+    method: "POST",
+    body: { password },
+  });
+}

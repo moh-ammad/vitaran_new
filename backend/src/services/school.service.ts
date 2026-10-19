@@ -13,6 +13,7 @@ import type {
 import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { decryptSecret, encryptSecret } from "../utils/secret-box.js";
+import { sendSchoolCredentialsEmail } from "./mail.service.js";
 
 export type SchoolProgramClassDto = {
   classLevel: number;
@@ -228,7 +229,7 @@ export async function createSchool({ password, programs, code, ...input }: Creat
   await assertProgramOfferings(programs);
   const schoolCode = await assertSchoolCodeAvailable(code);
 
-  return toSchoolDto(
+  const school = toSchoolDto(
     await schoolRepository.createSchool({
       ...input,
       code: schoolCode,
@@ -236,6 +237,19 @@ export async function createSchool({ password, programs, code, ...input }: Creat
       ...(await sealPassword(password)),
     }),
   );
+
+  if (school.accountEmail) {
+    await sendSchoolCredentialsEmail({
+      to: school.accountEmail,
+      schoolName: school.name,
+      loginEmail: school.accountEmail,
+      loginPhone: school.accountPhone,
+      password,
+      reason: "created",
+    });
+  }
+
+  return school;
 }
 
 export async function updateSchool(
@@ -259,11 +273,73 @@ export async function updateSchool(
     await teacherRepository.pruneAssignmentsOutsideSchoolOfferings(id);
   }
 
-  return toSchoolDto(school);
+  const dto = toSchoolDto(school);
+
+  // Admin sets a new password → school receives it by email (forgot-password flow).
+  if (seal && password && dto.accountEmail) {
+    await sendSchoolCredentialsEmail({
+      to: dto.accountEmail,
+      schoolName: dto.name,
+      loginEmail: dto.accountEmail,
+      loginPhone: dto.accountPhone,
+      password,
+      reason: "password-reset",
+    });
+  }
+
+  return dto;
 }
 
 export async function deleteSchool(id: string): Promise<void> {
   await schoolRepository.deleteSchool(id);
+}
+
+/** Admin resends the current login email + password to the school account email. */
+export async function sendSchoolCredentials(id: string) {
+  const school = await getSchool(id);
+  if (!school.accountEmail) {
+    throw new AppError(400, "This school has no login email");
+  }
+  if (!school.password) {
+    throw new AppError(400, "Set a password before sending credentials");
+  }
+
+  const sent = await sendSchoolCredentialsEmail({
+    to: school.accountEmail,
+    schoolName: school.name,
+    loginEmail: school.accountEmail,
+    loginPhone: school.accountPhone,
+    password: school.password,
+    reason: "resend",
+  });
+  if (!sent) {
+    throw new AppError(502, "Could not send the email. Check SMTP settings and try again.");
+  }
+  return { ok: true as const, to: school.accountEmail };
+}
+
+/** Admin sets a new password and emails it to the school (forgot-password flow). */
+export async function resetSchoolPassword(id: string, password: string) {
+  const current = await schoolRepository.findSchoolById(id);
+  if (!current) throw new AppError(404, "School not found");
+  if (!current.accountEmail) {
+    throw new AppError(400, "This school has no login email");
+  }
+
+  await schoolRepository.updateSchool(id, await sealPassword(password));
+
+  const sent = await sendSchoolCredentialsEmail({
+    to: current.accountEmail,
+    schoolName: current.name,
+    loginEmail: current.accountEmail,
+    loginPhone: current.accountPhone,
+    password,
+    reason: "password-reset",
+  });
+  if (!sent) {
+    throw new AppError(502, "Password was saved but the email could not be sent. Try Send credentials.");
+  }
+  return { ok: true as const, to: current.accountEmail };
 }
 
 export async function getSchoolStats() {

@@ -71,6 +71,20 @@ export function deleteAdminTeacher(id: string) {
   return adminApi<void>(`${ADMIN_BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+export function sendAdminTeacherCredentials(id: string) {
+  return adminApi<{ ok: true; to: string }>(
+    `${ADMIN_BASE}/${encodeURIComponent(id)}/send-credentials`,
+    { method: "POST" },
+  );
+}
+
+export function resetAdminTeacherPassword(id: string, password: string) {
+  return adminApi<{ ok: true; to: string }>(
+    `${ADMIN_BASE}/${encodeURIComponent(id)}/reset-password`,
+    { method: "POST", body: { password } },
+  );
+}
+
 export function getSchoolDashboard() {
   return schoolApi<SchoolDashboardStats>(`${SCHOOL_BASE}/dashboard`);
 }
@@ -108,6 +122,20 @@ export function setSchoolTeacherStatus(id: string, status: "ACTIVE" | "INACTIVE"
 
 export function deleteSchoolTeacher(id: string) {
   return schoolApi<void>(`${SCHOOL_BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function sendSchoolTeacherCredentials(id: string) {
+  return schoolApi<{ ok: true; to: string }>(
+    `${SCHOOL_BASE}/${encodeURIComponent(id)}/send-credentials`,
+    { method: "POST" },
+  );
+}
+
+export function resetSchoolTeacherPassword(id: string, password: string) {
+  return schoolApi<{ ok: true; to: string }>(
+    `${SCHOOL_BASE}/${encodeURIComponent(id)}/reset-password`,
+    { method: "POST", body: { password } },
+  );
 }
 
 export function listSchoolClasses() {

@@ -280,3 +280,57 @@ export async function setClassTeacherAction(input: {
     return { ok: false as const, message: "Could not save class teacher." };
   }
 }
+
+export async function sendSchoolTeacherCredentialsAction(teacherId: string) {
+  try {
+    const result = await teacherService.sendSchoolTeacherCredentials(teacherId);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not send credentials." };
+  }
+}
+
+export async function resetSchoolTeacherPasswordAction(teacherId: string, password: string) {
+  try {
+    const result = await teacherService.resetSchoolTeacherPassword(teacherId, password);
+    revalidatePath(`${SCHOOL_BASE_PATH}/teachers/${teacherId}`);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not reset password." };
+  }
+}
+
+export async function sendAdminTeacherCredentialsAction(teacherId: string) {
+  try {
+    const result = await teacherService.sendAdminTeacherCredentials(teacherId);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not send credentials." };
+  }
+}
+
+export async function resetAdminTeacherPasswordAction(teacherId: string, password: string) {
+  try {
+    const result = await teacherService.resetAdminTeacherPassword(teacherId, password);
+    revalidatePath(`${ADMIN_BASE_PATH}/teachers/${teacherId}`);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not reset password." };
+  }
+}

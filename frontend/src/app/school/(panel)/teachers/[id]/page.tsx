@@ -5,8 +5,12 @@ import { notFound } from "next/navigation";
 import { BookOpen, Clock, Contact, Pencil } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CredentialMailBar } from "@/features/auth/credential-mail-bar";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
-import { CopyButton } from "@/features/schools/copy-button";
+import {
+  resetSchoolTeacherPasswordAction,
+  sendSchoolTeacherCredentialsAction,
+} from "@/features/teachers/actions";
 import { TEACHER_STATUS_LABELS } from "@/features/teachers/constants";
 import { getSchoolTeacher } from "@/services/teachers";
 import { formatDateTime } from "@/utils/format";
@@ -121,32 +125,15 @@ export default async function SchoolTeacherDetailsPage({
         </div>
       </div>
 
-      <footer className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm text-neutral-500 shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]">
-        <span>
-          Login email: <span className="font-semibold text-neutral-950">{teacher.email}</span>
-        </span>
-        <span aria-hidden>·</span>
-        <span>
-          Phone: <span className="font-semibold text-neutral-950">{teacher.phone}</span>
-        </span>
-        <span aria-hidden>·</span>
-        <span className="inline-flex items-center gap-1">
-          Password:
-          {teacher.password ? (
-            <>
-              <span className="font-mono font-semibold text-neutral-950">{teacher.password}</span>
-              <CopyButton value={teacher.password} label="Password" />
-            </>
-          ) : (
-            <Link
-              href={`/school/teachers/${teacher.id}/edit`}
-              className="font-semibold text-neutral-950 underline underline-offset-4"
-            >
-              Set password
-            </Link>
-          )}
-        </span>
-      </footer>
+      <CredentialMailBar
+        loginEmail={teacher.email}
+        loginPhone={teacher.phone}
+        password={teacher.password || null}
+        setPasswordHref={`/school/teachers/${teacher.id}/edit`}
+        recipientLabel="teacher"
+        onSend={() => sendSchoolTeacherCredentialsAction(teacher.id)}
+        onReset={(password) => resetSchoolTeacherPasswordAction(teacher.id, password)}
+      />
     </div>
   );
 }

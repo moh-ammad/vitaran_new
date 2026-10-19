@@ -13,8 +13,12 @@ import {
   SUBJECT_LABELS,
   TYPE_LABELS,
 } from "@/features/schools/constants";
+import { CredentialMailBar } from "@/features/auth/credential-mail-bar";
 import { uniqueSubjectsFromOfferings } from "@/features/schools/offerings";
-import { CopyButton } from "@/features/schools/copy-button";
+import {
+  resetSchoolPasswordAction,
+  sendSchoolCredentialsAction,
+} from "@/features/schools/actions";
 import { SchoolDetailActions } from "@/features/schools/school-detail-actions";
 import { listResultSets } from "@/services/results";
 import { getSchool } from "@/services/schools";
@@ -194,32 +198,15 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
         }
       />
 
-      <footer className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm text-neutral-500 shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]">
-        <span>
-          Login email: <span className="font-semibold text-neutral-950">{school.accountEmail ?? EMPTY}</span>
-        </span>
-        <span aria-hidden>·</span>
-        <span>
-          Phone: <span className="font-semibold text-neutral-950">{school.accountPhone ?? EMPTY}</span>
-        </span>
-        <span aria-hidden>·</span>
-        <span className="inline-flex items-center gap-1">
-          Password:
-          {school.password ? (
-            <>
-              <span className="font-mono font-semibold text-neutral-950">{school.password}</span>
-              <CopyButton value={school.password} label="Password" />
-            </>
-          ) : (
-            <Link
-              href={`/admin/schools/${school.id}/edit`}
-              className="font-semibold text-neutral-950 underline underline-offset-4"
-            >
-              Set password
-            </Link>
-          )}
-        </span>
-      </footer>
+      <CredentialMailBar
+        loginEmail={school.accountEmail ?? ""}
+        loginPhone={school.accountPhone}
+        password={school.password}
+        setPasswordHref={`/admin/schools/${school.id}/edit`}
+        recipientLabel="school"
+        onSend={() => sendSchoolCredentialsAction(school.id)}
+        onReset={(password) => resetSchoolPasswordAction(school.id, password)}
+      />
     </div>
   );
 }

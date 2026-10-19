@@ -25,3 +25,17 @@ function createLoginRateLimit(field: "email" | "identifier") {
 export const loginRateLimit = createLoginRateLimit("email");
 export const schoolLoginRateLimit = createLoginRateLimit("identifier");
 export const teacherLoginRateLimit = createLoginRateLimit("identifier");
+
+export const forgotPasswordRateLimit = rateLimit({
+  windowMs: LOGIN_WINDOW_MS,
+  limit: 8,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email: unknown = req.body?.email;
+    return typeof email === "string" ? email.toLowerCase() : "unknown";
+  },
+  handler: (_req, res) => {
+    sendError(res, 429, "Too many password reset attempts. Please try again later.");
+  },
+});
