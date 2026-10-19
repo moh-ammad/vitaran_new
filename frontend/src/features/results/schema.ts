@@ -3,9 +3,13 @@ import { CLASS_LEVELS } from "@/features/documents/constants";
 import { testNumberField, type DocumentFormState } from "@/features/documents/schema";
 import { classFileField, EXCEL_MAX_BYTES } from "./constants";
 
-/** Browsers submit an empty file for class rows left blank. */
+/** Empty or missing class slots are fine — edit forms only render some levels. */
 const optionalExcelFile = z.preprocess(
-  (value) => (value instanceof File && value.size === 0 ? undefined : value),
+  (value) => {
+    if (value == null) return undefined;
+    if (value instanceof File && value.size === 0) return undefined;
+    return value;
+  },
   z
     .instanceof(File)
     .refine((file) => file.name.toLowerCase().endsWith(".xlsx"), "Only Excel (.xlsx) files can be uploaded.")

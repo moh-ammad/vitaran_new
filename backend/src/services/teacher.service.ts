@@ -194,6 +194,19 @@ export async function getTeacher(id: string) {
   return toTeacherDetailDto(teacher);
 }
 
+/** Keep only program+class pairs the school still offers (drops stale slots after offerings change). */
+function classTeacherSlotsInOfferings(
+  slots: { programId: string; classLevel: number }[],
+  school: NonNullable<Awaited<ReturnType<typeof schoolRepository.findSchoolById>>>,
+) {
+  const offered = new Set(
+    school.schoolPrograms.flatMap((row) =>
+      row.classes.map((cls) => `${row.programId}:${cls.classLevel}`),
+    ),
+  );
+  return slots.filter((slot) => offered.has(`${slot.programId}:${slot.classLevel}`));
+}
+
 function assertClassTeacherSlots(
   slots: { programId: string; classLevel: number }[],
   assignments: { programId: string; classLevel: number }[],
@@ -201,27 +214,26 @@ function assertClassTeacherSlots(
 ) {
   if (!school) throw new AppError(404, "School not found");
   const assigned = new Set(assignments.map((item) => `${item.programId}:${item.classLevel}`));
-  const offered = new Set(
-    school.schoolPrograms.flatMap((row) =>
-      row.classes.map((cls) => `${row.programId}:${cls.classLevel}`),
-    ),
-  );
+  const valid = classTeacherSlotsInOfferings(slots, school);
 
-  for (const slot of slots) {
+  for (const slot of valid) {
     const key = `${slot.programId}:${slot.classLevel}`;
-    if (!offered.has(key)) {
-      throw new AppError(400, "Class teacher slot is outside this school's offerings");
-    }
     if (!assigned.has(key)) {
       throw new AppError(400, "Class teacher must be assigned at least one subject in that class");
     }
   }
+
+  return valid;
 }
 
 export async function createTeacher(schoolId: string, input: CreateTeacherInput) {
   const school = await schoolRepository.findSchoolById(schoolId);
   assertAssignmentsAgainstSchool(input.assignments, school);
-  assertClassTeacherSlots(input.classTeacherFor, input.assignments, school);
+  const classTeacherFor = assertClassTeacherSlots(
+    input.classTeacherFor,
+    input.assignments,
+    school,
+  );
   await assertUniqueCredentials(input.email, input.phone);
 
   const sealed = await sealPassword(input.password);
@@ -235,12 +247,8 @@ export async function createTeacher(schoolId: string, input: CreateTeacherInput)
     assignments: input.assignments,
   });
 
-  if (input.classTeacherFor.length > 0) {
-    await teacherRepository.syncTeacherClassTeacherSlots(
-      schoolId,
-      teacher.id,
-      input.classTeacherFor,
-    );
+  if (classTeacherFor.length > 0) {
+    await teacherRepository.syncTeacherClassTeacherSlots(schoolId, teacher.id, classTeacherFor);
   }
 
   return toTeacherDetailDto(teacher);
@@ -251,11 +259,16 @@ export async function updateTeacher(id: string, input: UpdateTeacherInput, schoo
   if (!existing) throw new AppError(404, "Teacher not found");
   if (schoolId && existing.schoolId !== schoolId) throw new AppError(404, "Teacher not found");
 
+  let classTeacherFor = input.classTeacherFor;
   if (input.assignments) {
     const school = await schoolRepository.findSchoolById(existing.schoolId);
     assertAssignmentsAgainstSchool(input.assignments, school);
     if (input.classTeacherFor) {
-      assertClassTeacherSlots(input.classTeacherFor, input.assignments, school);
+      classTeacherFor = assertClassTeacherSlots(
+        input.classTeacherFor,
+        input.assignments,
+        school,
+      );
     }
   }
 
@@ -283,11 +296,11 @@ export async function updateTeacher(id: string, input: UpdateTeacherInput, schoo
     assignments: input.assignments,
   });
 
-  if (input.classTeacherFor) {
+  if (classTeacherFor) {
     await teacherRepository.syncTeacherClassTeacherSlots(
       existing.schoolId,
       id,
-      input.classTeacherFor,
+      classTeacherFor,
     );
   }
 

@@ -43,9 +43,25 @@ function encodeSlot(programId: string, classLevel: number) {
   return `${programId}:${classLevel}`;
 }
 
+/** Drop class-teacher slots for classes the school no longer offers. */
+function slotsInOfferings(
+  slots: { programId: string; classLevel: number }[],
+  schoolPrograms: SchoolProgramOffering[],
+) {
+  const offered = new Set(
+    schoolPrograms.flatMap((row) =>
+      row.classes.map((cls) => encodeSlot(row.programId, cls.classLevel)),
+    ),
+  );
+  return slots
+    .map((slot) => encodeSlot(slot.programId, slot.classLevel))
+    .filter((key) => offered.has(key));
+}
+
 function toValues(
   teacher?: TeacherDetail,
   mySlots: { programId: string; classLevel: number }[] = [],
+  schoolPrograms: SchoolProgramOffering[] = [],
 ): TeacherFormValues {
   return {
     name: teacher?.name ?? "",
@@ -57,7 +73,7 @@ function toValues(
       teacher?.assignments.map((item) =>
         encodeAssignment(item.programId, item.classLevel, item.subject),
       ) ?? [],
-    classTeacherFor: mySlots.map((slot) => encodeSlot(slot.programId, slot.classLevel)),
+    classTeacherFor: slotsInOfferings(mySlots, schoolPrograms),
   };
 }
 
@@ -117,7 +133,10 @@ function TeacherFormFields({
   onSuccess: (teacherId: string) => void;
 }) {
   void successHref;
-  const values = state?.status === "error" ? state.values : toValues(teacher, myClassTeacherSlots);
+  const values =
+    state?.status === "error"
+      ? state.values
+      : toValues(teacher, myClassTeacherSlots, schoolPrograms);
   const [assignments, setAssignments] = useState(values.assignments);
   const [classTeacherFor, setClassTeacherFor] = useState(values.classTeacherFor);
   const [selectedIds, setSelectedIds] = useState(() => {

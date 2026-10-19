@@ -59,6 +59,17 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
       sendError(res, 409, "A record with these details already exists");
       return;
     }
+
+    if (error.code === "P2011") {
+      const column =
+        typeof error.meta?.constraint === "string"
+          ? error.meta.constraint
+          : Array.isArray(error.meta?.constraint)
+            ? error.meta.constraint.join(", ")
+            : "a required field";
+      sendError(res, 400, `Missing required data (${column}). Check the form and try again.`);
+      return;
+    }
   }
 
   if (error instanceof AppError) {

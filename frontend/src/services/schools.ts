@@ -32,10 +32,19 @@ export function listSchools(params: SchoolListParams = {}) {
   return adminApi<SchoolList>(`/schools${suffix}`);
 }
 
-/** Options for pickers that target a single customized school. */
+/** Options for customized answer-key upload — includes enrolled class levels per program. */
 export async function listCustomizedSchoolOptions() {
   const { items } = await listSchools({ type: "CUSTOMIZED", pageSize: 100 });
-  return items.map(({ id, name, code }) => ({ id, name, code }));
+  return items.map(({ id, name, code, schoolPrograms }) => ({
+    id,
+    name,
+    code,
+    offerings: schoolPrograms.map((row) => ({
+      code: row.programCode,
+      name: row.programName,
+      classLevels: row.classes.map((cls) => cls.classLevel).sort((a, b) => a - b),
+    })),
+  }));
 }
 
 /** Options for pickers that target any school, with its type and enrolled programs. */

@@ -14,31 +14,54 @@ export function contentSchool(
   return actor.kind === "school" ? actor.school : actor.teacher.school;
 }
 
-function schoolProgramFilter(
-  school: Pick<SchoolAccountDto, "id" | "type" | "programCodes">,
+function ownershipFilter(
+  school: Pick<SchoolAccountDto, "id" | "type">,
 ): Prisma.AnswerKeyWhereInput {
-  return {
-    programCode: { in: school.programCodes },
-    ...(school.type === SchoolType.CUSTOMIZED
-      ? { schoolId: school.id }
-      : { type: SchoolType.REGULAR }),
-  };
+  return school.type === SchoolType.CUSTOMIZED
+    ? { schoolId: school.id }
+    : { type: SchoolType.REGULAR };
+}
+
+/** One OR branch per enrolled/assigned program+class — avoids cross-program class leaks. */
+function programClassSlots(
+  slots: Array<{ programCode: string; classLevel: number }>,
+): Prisma.AnswerKeyWhereInput[] {
+  const seen = new Set<string>();
+  const branches: Prisma.AnswerKeyWhereInput[] = [];
+  for (const slot of slots) {
+    const key = `${slot.programCode}:${slot.classLevel}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    branches.push({ programCode: slot.programCode, classLevel: slot.classLevel });
+  }
+  return branches;
 }
 
 export function answerKeyAccessFilter(actor: ContentActor): Prisma.AnswerKeyWhereInput {
   const school = contentSchool(actor);
-  const base: Prisma.AnswerKeyWhereInput = {
-    ...schoolProgramFilter(school),
-    published: true,
-  };
+  const ownership = ownershipFilter(school);
 
   if (actor.kind === "teacher") {
-    const classLevels = teacherClassLevels(actor.teacher);
-    if (classLevels.length === 0) return { id: { in: [] } };
-    return { ...base, classLevel: { in: classLevels } };
+    const slots = programClassSlots(
+      actor.teacher.assignments.map((row) => ({
+        programCode: row.programCode,
+        classLevel: row.classLevel,
+      })),
+    );
+    if (slots.length === 0) return { id: { in: [] } };
+    return { published: true, ...ownership, OR: slots };
   }
 
-  return base;
+  const slots = programClassSlots(
+    school.schoolPrograms.flatMap((program) =>
+      program.classes.map((cls) => ({
+        programCode: program.programCode,
+        classLevel: cls.classLevel,
+      })),
+    ),
+  );
+  if (slots.length === 0) return { id: { in: [] } };
+  return { published: true, ...ownership, OR: slots };
 }
 
 export function resultSetAccessFilter(actor: ContentActor): Prisma.ResultSetWhereInput {

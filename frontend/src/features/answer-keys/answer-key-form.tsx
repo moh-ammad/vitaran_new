@@ -1,13 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  classItems,
   documentFileHref,
   hasChanges,
 } from "@/features/documents/constants";
@@ -16,12 +15,17 @@ import { PdfField } from "@/features/documents/pdf-field";
 import { SelectField } from "@/features/documents/select-field";
 import { TYPE_LABELS } from "@/features/schools/constants";
 import type { AnswerKey } from "@/types/answer-key";
-import type { SchoolRef } from "@/types/document";
 import type { LearningProgram } from "@/types/program";
 import { SCHOOL_TYPES } from "@/types/school";
 import { updateAnswerKeyAction, uploadAnswerKeyAction } from "./actions";
 import { ANSWER_KEYS_PATH } from "./constants";
 import type { AnswerKeyFormState, AnswerKeyFormValues } from "./schema";
+import type { AnswerKeySchoolOption } from "./school-options";
+import {
+  classItemsFromLevels,
+  classLevelsFromProgram,
+  testNumberItemsForProgram,
+} from "./test-options";
 
 type FieldErrors = Exclude<AnswerKeyFormState, undefined | { status: "success" }>["fieldErrors"];
 
@@ -40,8 +44,8 @@ function toFormValues(answerKey?: AnswerKey): AnswerKeyFormValues {
 }
 
 type AnswerKeyFormProps = {
-  /** Customized schools, for customized answer keys. */
-  schools: SchoolRef[];
+  /** Customized schools (with offerings) for customized answer keys. */
+  schools: AnswerKeySchoolOption[];
   /** Catalog programs for the program dropdown. */
   programs: LearningProgram[];
   /** Present when editing. */
@@ -63,7 +67,6 @@ export function AnswerKeyForm({ schools, programs, answerKey }: AnswerKeyFormPro
 
   return (
     <form action={formAction} noValidate>
-      {/* Remount after a failed save so the selects show what was submitted. */}
       <FormFields
         key={failed?.submittedAt ?? "initial"}
         schools={schools}
@@ -79,7 +82,7 @@ export function AnswerKeyForm({ schools, programs, answerKey }: AnswerKeyFormPro
 }
 
 type FormFieldsProps = {
-  schools: SchoolRef[];
+  schools: AnswerKeySchoolOption[];
   programs: LearningProgram[];
   answerKey?: AnswerKey;
   values: AnswerKeyFormValues;
@@ -96,8 +99,65 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
   const [current, setCurrent] = useState(values);
   const [hasNewFile, setHasNewFile] = useState(false);
   const customized = current.type === "CUSTOMIZED";
-  const track = (field: keyof AnswerKeyFormValues) => (value: string) =>
-    setCurrent((prev) => ({ ...prev, [field]: value }));
+
+  const selectedProgram = useMemo(
+    () => programs.find((program) => program.code === current.program) ?? null,
+    [programs, current.program],
+  );
+
+  const selectedSchool = useMemo(
+    () => schools.find((school) => school.id === current.schoolId) ?? null,
+    [schools, current.schoolId],
+  );
+
+  const testNumberItems = useMemo(
+    () => testNumberItemsForProgram(current.program),
+    [current.program],
+  );
+
+  const classLevels = useMemo(() => {
+    if (!selectedProgram) return [];
+    if (customized) {
+      if (!selectedSchool) return [];
+      const offering = selectedSchool.offerings.find((row) => row.code === selectedProgram.code);
+      return offering?.classLevels ?? [];
+    }
+    return classLevelsFromProgram(selectedProgram);
+  }, [selectedProgram, customized, selectedSchool]);
+
+  const classItems = useMemo(() => classItemsFromLevels(classLevels), [classLevels]);
+
+  const setField = (field: keyof AnswerKeyFormValues, value: string) => {
+    setCurrent((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "type" && value === "REGULAR") {
+        next.schoolId = undefined;
+      }
+      if (field === "program" || field === "type" || field === "schoolId") {
+        // Drop stale picks when the available tests/classes change.
+        const programCode = field === "program" ? value : next.program;
+        const testMax = testNumberItemsForProgram(programCode).length;
+        const testNo = Number(next.testNumber);
+        if (!testNo || testNo < 1 || testNo > testMax) next.testNumber = undefined;
+
+        let levels: number[] = [];
+        const program = programs.find((row) => row.code === programCode) ?? null;
+        if (program) {
+          if ((field === "type" ? value : next.type) === "CUSTOMIZED") {
+            const schoolId = field === "schoolId" ? value : next.schoolId;
+            const school = schools.find((row) => row.id === schoolId);
+            levels =
+              school?.offerings.find((row) => row.code === program.code)?.classLevels ?? [];
+          } else {
+            levels = classLevelsFromProgram(program);
+          }
+        }
+        const classLevel = Number(next.classLevel);
+        if (!levels.includes(classLevel)) next.classLevel = undefined;
+      }
+      return next;
+    });
+  };
 
   const changed =
     hasNewFile ||
@@ -117,6 +177,16 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
     hint: school.code,
   }));
 
+  const classPlaceholder = !current.program
+    ? "Select a program first"
+    : customized && !current.schoolId
+      ? "Select a school first"
+      : classItems.length === 0
+        ? customized
+          ? "No classes enrolled for this program"
+          : "No classes on this program"
+        : "Select a class";
+
   return (
     <DocumentFormShell
       message={message}
@@ -134,7 +204,7 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
             placeholder="Select a program"
             items={programItems}
             defaultValue={values.program}
-            onValueChange={track("program")}
+            onValueChange={(value) => setField("program", value)}
             errors={errors.program}
           />
           <SelectField
@@ -142,7 +212,7 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
             label="Type"
             items={typeItems}
             defaultValue={values.type || "REGULAR"}
-            onValueChange={track("type")}
+            onValueChange={(value) => setField("type", value)}
             errors={errors.type}
           />
           {customized && (
@@ -152,7 +222,7 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
               placeholder={schools.length > 0 ? "Select a customized school" : "No customized schools yet"}
               items={schoolItems}
               defaultValue={values.schoolId}
-              onValueChange={track("schoolId")}
+              onValueChange={(value) => setField("schoolId", value)}
               disabled={schools.length === 0}
               className="animate-in fade-in-0 duration-200 sm:col-span-2 lg:col-span-1"
               errors={errors.schoolId}
@@ -172,36 +242,33 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
               name="testId"
               placeholder="e.g. T-2026-01"
               defaultValue={values.testId}
-              onChange={(event) => track("testId")(event.currentTarget.value)}
+              onChange={(event) => setField("testId", event.currentTarget.value)}
               aria-invalid={errors.testId?.length ? true : undefined}
               maxLength={64}
               className="h-11 rounded-lg border-neutral-200 bg-white px-3.5 font-mono text-sm shadow-xs hover:border-brand-300 focus-visible:border-brand-600 focus-visible:ring-brand-600/15"
             />
             {errors.testId?.length ? <FieldError>{errors.testId[0]}</FieldError> : null}
           </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="testNumber" className="text-[13px] font-medium text-neutral-800">
-              Test No <span className="text-brand-600">*</span>
-            </label>
-            <Input
-              id="testNumber"
-              name="testNumber"
-              inputMode="numeric"
-              placeholder="e.g. 3"
-              defaultValue={values.testNumber}
-              onChange={(event) => track("testNumber")(event.currentTarget.value)}
-              aria-invalid={errors.testNumber?.length ? true : undefined}
-              className="h-11 rounded-lg border-neutral-200 bg-white px-3.5 text-sm shadow-xs hover:border-brand-300 focus-visible:border-brand-600 focus-visible:ring-brand-600/15"
-            />
-            {errors.testNumber?.length ? <FieldError>{errors.testNumber[0]}</FieldError> : null}
-          </div>
           <SelectField
+            key={`test-${current.program ?? "none"}-${current.testNumber ?? ""}`}
+            name="testNumber"
+            label="Test No"
+            placeholder={current.program ? "Select a test number" : "Select a program first"}
+            items={testNumberItems}
+            defaultValue={current.testNumber}
+            onValueChange={(value) => setField("testNumber", value)}
+            disabled={!current.program}
+            errors={errors.testNumber}
+          />
+          <SelectField
+            key={`class-${current.program ?? "none"}-${current.schoolId ?? "reg"}-${current.classLevel ?? ""}`}
             name="classLevel"
             label="Class"
-            placeholder="Select a class"
+            placeholder={classPlaceholder}
             items={classItems}
-            defaultValue={values.classLevel}
-            onValueChange={track("classLevel")}
+            defaultValue={current.classLevel}
+            onValueChange={(value) => setField("classLevel", value)}
+            disabled={classItems.length === 0}
             errors={errors.classLevel}
           />
         </div>

@@ -2,6 +2,7 @@ import type { Prisma } from "../generated/prisma/client.js";
 import { SchoolType } from "../generated/prisma/enums.js";
 import * as answerKeyRepository from "../repositories/answer-key.repository.js";
 import type { AnswerKeySummary } from "../repositories/answer-key.repository.js";
+import * as programRepository from "../repositories/program.repository.js";
 import * as schoolRepository from "../repositories/school.repository.js";
 import type {
   ListAnswerKeysQuery,
@@ -26,6 +27,53 @@ function toAnswerKeyDto({ school, createdAt, updatedAt, publishedAt, programCode
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
   };
+}
+
+const classLevelIssue = (message: string) =>
+  new AppError(400, message, [{ path: ["classLevel"], message }]);
+
+/**
+ * REGULAR → any class in the catalog program range.
+ * CUSTOMIZED → only classes enrolled for that school + program.
+ */
+async function assertProgramClass(
+  type: SchoolType,
+  programCode: string,
+  classLevel: number,
+  schoolId: string | null,
+) {
+  const program = await programRepository.findProgramByCode(programCode);
+  if (!program) {
+    throw new AppError(400, "Select a program", [
+      { path: ["program"], message: "Select a program" },
+    ]);
+  }
+
+  if (type === SchoolType.REGULAR) {
+    if (classLevel < program.classFrom || classLevel > program.classTo) {
+      throw classLevelIssue(
+        `Class ${classLevel} is outside ${program.name} (${program.classFrom}–${program.classTo})`,
+      );
+    }
+    return;
+  }
+
+  if (!schoolId) {
+    throw new AppError(400, "Select a customized school", [
+      { path: ["schoolId"], message: "Select a customized school" },
+    ]);
+  }
+
+  const school = await schoolRepository.findSchoolById(schoolId);
+  const offering = school?.schoolPrograms.find((row) => row.program.code === programCode);
+  const levels = offering?.classes.map((cls) => cls.classLevel) ?? [];
+  if (!levels.includes(classLevel)) {
+    throw classLevelIssue(
+      levels.length === 0
+        ? `This school is not enrolled in ${program.name}`
+        : `This school only has classes ${levels.sort((a, b) => a - b).join(", ")} for ${program.name}`,
+    );
+  }
 }
 
 /** Customized keys must point at a customized school; regular keys never have one. */
@@ -148,12 +196,17 @@ export async function uploadAnswerKey(
   body: unknown,
 ) {
   const pdf = requirePdf(body);
+  const resolvedSchoolId = await resolveSchoolId(meta.type, schoolId);
+  await assertProgramClass(meta.type, program, meta.classLevel, resolvedSchoolId);
 
   return toAnswerKeyDto(
     await answerKeyRepository.createAnswerKey({
-      ...meta,
+      type: meta.type,
+      testId: meta.testId,
+      testNumber: meta.testNumber,
+      classLevel: meta.classLevel,
       programCode: program,
-      schoolId: await resolveSchoolId(meta.type, schoolId),
+      schoolId: resolvedSchoolId,
       ...toPdfData(pdf, fileName ?? "answer-key.pdf"),
     }),
   );
@@ -165,11 +218,16 @@ export async function updateAnswerKey(
   body: unknown,
 ) {
   const pdf = readPdf(body);
+  const resolvedSchoolId = await resolveSchoolId(meta.type, schoolId);
+  await assertProgramClass(meta.type, program, meta.classLevel, resolvedSchoolId);
 
   const answerKey = await answerKeyRepository.updateAnswerKey(id, {
-    ...meta,
+    type: meta.type,
+    testId: meta.testId,
+    testNumber: meta.testNumber,
+    classLevel: meta.classLevel,
     programCode: program,
-    schoolId: await resolveSchoolId(meta.type, schoolId),
+    schoolId: resolvedSchoolId,
     ...(pdf && toPdfData(pdf, fileName ?? "answer-key.pdf")),
   });
   // The key may have moved to another school, so tell every school.

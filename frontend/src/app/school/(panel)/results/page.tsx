@@ -1,19 +1,14 @@
-import { PageHeader } from "@/features/admin/page-header";
 import { SCHOOL_RESULTS_PATH } from "@/features/results/constants";
-import { SchoolResults } from "@/features/results/school-results";
-import { listSchoolResultSets } from "@/services/results";
+import { PortalResultsBoard } from "@/features/results/portal-results-board";
+import { verifySchoolSession } from "@/features/school-auth/session";
 
 export default async function SchoolResultsPage() {
-  const resultSets = await listSchoolResultSets();
-
+  await verifySchoolSession();
   return (
-    <>
-      <PageHeader
-        title="Results"
-        count={resultSets.length}
-        description="Published results for your school."
-      />
-      <SchoolResults resultSets={resultSets} basePath={SCHOOL_RESULTS_PATH} />
-    </>
+    <PortalResultsBoard
+      role="school"
+      basePath={SCHOOL_RESULTS_PATH}
+      description="Published results for your school."
+    />
   );
 }

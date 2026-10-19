@@ -67,8 +67,13 @@ export function ResultForm({ schools, resultSet, defaultSchoolId, backHref = RES
   useEffect(() => {
     if (state?.status !== "success") return;
     toast.success(resultSet ? "Results updated" : "Results uploaded");
-    router.push(backHref);
-  }, [state, resultSet, router, backHref]);
+    // Upload → list. Edit/replace → stay on this page and refresh the saved sheets.
+    if (resultSet) {
+      router.refresh();
+      return;
+    }
+    router.push(RESULTS_PATH);
+  }, [state, resultSet, router]);
 
   const failed = state?.status === "error" ? state : undefined;
   const defaultSchool = schools.find(({ id }) => id === defaultSchoolId);

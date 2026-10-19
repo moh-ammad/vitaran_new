@@ -19,15 +19,17 @@ import {
   type SchoolFormValues,
 } from "./schema";
 
-/** Program/class checks drive Classes, Resources, and teacher assignments. */
+/** Program/class checks drive Classes, Resources, answer keys, and teacher views. */
 function revalidateSchoolPortalViews() {
   revalidatePath(ADMIN_BASE_PATH, "layout");
   revalidatePath(SCHOOL_BASE_PATH, "layout");
   revalidatePath(`${SCHOOL_BASE_PATH}/classes`);
   revalidatePath(`${SCHOOL_BASE_PATH}/resources`);
+  revalidatePath(`${SCHOOL_BASE_PATH}/answer-keys`);
   revalidatePath(`${SCHOOL_BASE_PATH}/teachers`);
   revalidatePath(TEACHER_BASE_PATH, "layout");
   revalidatePath(`${TEACHER_BASE_PATH}/resources`);
+  revalidatePath(`${TEACHER_BASE_PATH}/answer-keys`);
 }
 
 function fieldErrorsFromApi(details: unknown) {
