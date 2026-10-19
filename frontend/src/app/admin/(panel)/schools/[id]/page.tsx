@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, Contact, MapPin, School, StickyNote, Upload } from "lucide-react";
+import { Clock, Contact, Layers, MapPin, School, StickyNote, Upload } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { resultUploadHrefFor } from "@/features/results/constants";
@@ -17,8 +17,13 @@ import { CredentialMailBar } from "@/features/auth/credential-mail-bar";
 import { uniqueSubjectsFromOfferings } from "@/features/schools/offerings";
 import { SchoolDetailActions } from "@/features/schools/school-detail-actions";
 import { listResultSets } from "@/services/results";
+import {
+  getAdminSchoolSectionStrength,
+  listAdminSchoolSections,
+} from "@/services/sections";
 import { getSchool } from "@/services/schools";
 import { formatDateTime, formatNumber } from "@/utils/format";
+import { capitalizeWords } from "@/features/schools/schema";
 
 export const metadata: Metadata = { title: "School Details" };
 
@@ -60,7 +65,12 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
   const { id } = await params;
   const school = await getSchool(id);
   if (!school) notFound();
-  const resultSets = await listResultSets({ schoolId: school.id });
+  const [resultSets, organization, strength] = await Promise.all([
+    listResultSets({ schoolId: school.id }),
+    listAdminSchoolSections(school.id),
+    getAdminSchoolSectionStrength(school.id),
+  ]);
+  const { wholeClasses, sections } = organization;
   const uploadHref = resultUploadHrefFor(school.id);
 
   return (
@@ -171,6 +181,54 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
           <Panel title="Notes" icon={<StickyNote />}>
             <Field label="Internal notes" span={3}>
               {school.notes && <span className="whitespace-pre-line">{school.notes}</span>}
+            </Field>
+          </Panel>
+
+          <Panel title="Classes & sections" icon={<Layers />}>
+            <Field label="Strength used" span={3}>
+              {strength.studentStrength == null
+                ? `${strength.used} seats (no ceiling)`
+                : `${strength.used} / ${strength.studentStrength}`}
+            </Field>
+            <Field label="Organization" span={3}>
+              {wholeClasses.length === 0 && sections.length === 0 ? null : (
+                <ul className="mt-1 space-y-1.5">
+                  {wholeClasses.map((row) => (
+                    <li
+                      key={row.id}
+                      className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-1.5 text-sm"
+                    >
+                      <span className="font-semibold text-neutral-950">
+                        Class {row.classLevel}
+                      </span>
+                      <span className="text-neutral-400"> · no section · </span>
+                      {capitalizeWords(row.programName)}
+                      <span className="text-neutral-400"> · </span>
+                      {row.studentCount} seats
+                    </li>
+                  ))}
+                  {sections.map((section) => (
+                    <li
+                      key={section.id}
+                      className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-1.5 text-sm"
+                    >
+                      <span className="font-semibold text-neutral-950">
+                        Class {section.classLevel}-{section.name}
+                      </span>
+                      <span className="text-neutral-400"> · </span>
+                      {capitalizeWords(section.programName)}
+                      <span className="text-neutral-400"> · </span>
+                      {section.studentCount} seats
+                      {section.classTeacher ? (
+                        <>
+                          <span className="text-neutral-400"> · </span>
+                          CT {capitalizeWords(section.classTeacher.name)}
+                        </>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Field>
           </Panel>
         </div>

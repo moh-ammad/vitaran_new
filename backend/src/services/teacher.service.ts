@@ -1,6 +1,7 @@
 import type { Subject } from "../generated/prisma/client.js";
 import { TeacherStatus } from "../generated/prisma/enums.js";
 import * as schoolRepository from "../repositories/school.repository.js";
+import * as sectionRepository from "../repositories/section.repository.js";
 import * as teacherRepository from "../repositories/teacher.repository.js";
 import type { TeacherRecord } from "../repositories/teacher.repository.js";
 import type {
@@ -14,6 +15,7 @@ import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { decryptSecret, encryptSecret } from "../utils/secret-box.js";
 import { sendTeacherCredentialsEmail } from "./mail.service.js";
+import * as sectionService from "./section.service.js";
 import {
   toSchoolRef,
   type SchoolAccountDto,
@@ -43,6 +45,16 @@ export type TeacherDto = {
 
 export type TeacherDetailDto = TeacherDto & { password: string };
 
+export type ClassTeacherSectionDto = {
+  kind: "class" | "section";
+  sectionId?: string;
+  sectionName?: string;
+  classLevel: number;
+  programId: string;
+  programCode: string;
+  programName: string;
+};
+
 export type TeacherAccountDto = {
   id: string;
   name: string;
@@ -51,6 +63,7 @@ export type TeacherAccountDto = {
   status: TeacherStatus;
   schoolId: string;
   assignments: TeacherAssignmentDto[];
+  classTeacherSections: ClassTeacherSectionDto[];
   school: {
     id: string;
     name: string;
@@ -116,6 +129,24 @@ export function toTeacherAccountDto(teacher: TeacherRecord): TeacherAccountDto {
     status: teacher.status,
     schoolId: teacher.schoolId,
     assignments: toAssignments(teacher),
+    classTeacherSections: [
+      ...teacher.classTeacherOfClasses.map((row) => ({
+        kind: "class" as const,
+        classLevel: row.classLevel,
+        programId: row.programId,
+        programCode: row.program.code,
+        programName: row.program.name,
+      })),
+      ...teacher.classTeacherOf.map((row) => ({
+        kind: "section" as const,
+        sectionId: row.id,
+        sectionName: row.name,
+        classLevel: row.classLevel,
+        programId: row.programId,
+        programCode: row.program.code,
+        programName: row.program.name,
+      })),
+    ],
     school: {
       id: teacher.school.id,
       name: teacher.school.name,
@@ -195,46 +226,101 @@ export async function getTeacher(id: string) {
   return toTeacherDetailDto(teacher);
 }
 
-/** Keep only program+class pairs the school still offers (drops stale slots after offerings change). */
-function classTeacherSlotsInOfferings(
-  slots: { programId: string; classLevel: number }[],
-  school: NonNullable<Awaited<ReturnType<typeof schoolRepository.findSchoolById>>>,
-) {
-  const offered = new Set(
-    school.schoolPrograms.flatMap((row) =>
-      row.classes.map((cls) => `${row.programId}:${cls.classLevel}`),
-    ),
-  );
-  return slots.filter((slot) => offered.has(`${slot.programId}:${slot.classLevel}`));
-}
+type ClassTeacherSlotPick =
+  | { kind: "class"; programId: string; classLevel: number }
+  | { kind: "section"; sectionId: string };
 
-function assertClassTeacherSlots(
-  slots: { programId: string; classLevel: number }[],
+/** Validate hybrid class/section class-teacher picks. */
+async function assertClassTeacherSlots(
+  schoolId: string,
+  slots: ClassTeacherSlotPick[],
   assignments: { programId: string; classLevel: number }[],
-  school: Awaited<ReturnType<typeof schoolRepository.findSchoolById>>,
+  teacherId?: string,
 ) {
-  if (!school) throw new AppError(404, "School not found");
   const assigned = new Set(assignments.map((item) => `${item.programId}:${item.classLevel}`));
-  const valid = classTeacherSlotsInOfferings(slots, school);
-
-  for (const slot of valid) {
-    const key = `${slot.programId}:${slot.classLevel}`;
-    if (!assigned.has(key)) {
-      throw new AppError(400, "Class teacher must be assigned at least one subject in that class");
-    }
+  const sections = await sectionRepository.listSectionsBySchool(schoolId);
+  const byId = new Map(sections.map((row) => [row.id, row]));
+  const sectionCounts = new Map<string, number>();
+  for (const row of sections) {
+    const key = `${row.programId}:${row.classLevel}`;
+    sectionCounts.set(key, (sectionCounts.get(key) ?? 0) + 1);
   }
 
-  return valid;
+  const classSlots: { programId: string; classLevel: number }[] = [];
+  const sectionIds: string[] = [];
+
+  for (const slot of slots) {
+    if (slot.kind === "class") {
+      const key = `${slot.programId}:${slot.classLevel}`;
+      if (!assigned.has(key)) {
+        throw new AppError(400, "Class teacher must be assigned at least one subject in that class");
+      }
+      if ((sectionCounts.get(key) ?? 0) > 0) {
+        throw new AppError(
+          400,
+          "This class already has sections — pick a section for class teacher instead",
+        );
+      }
+      classSlots.push({ programId: slot.programId, classLevel: slot.classLevel });
+      continue;
+    }
+
+    const section = byId.get(slot.sectionId);
+    if (!section) throw new AppError(400, "Unknown section for class teacher");
+
+    const key = `${section.programId}:${section.classLevel}`;
+    if (!assigned.has(key)) {
+      throw new AppError(
+        400,
+        `Class teacher for ${section.classLevel}-${section.name} needs a subject in that program and class`,
+      );
+    }
+    if (
+      section.classTeacherId &&
+      section.classTeacherId !== teacherId &&
+      section.classTeacher?.status === TeacherStatus.ACTIVE
+    ) {
+      throw new AppError(
+        409,
+        `Section ${section.classLevel}-${section.name} already has a class teacher`,
+      );
+    }
+    sectionIds.push(section.id);
+  }
+
+  return { classSlots, sectionIds };
+}
+
+async function applyClassTeacherSlots(
+  schoolId: string,
+  teacherId: string,
+  slots: ClassTeacherSlotPick[],
+  assignments: { programId: string; classLevel: number }[],
+) {
+  const { classSlots, sectionIds } = await assertClassTeacherSlots(
+    schoolId,
+    slots,
+    assignments,
+    teacherId,
+  );
+  try {
+    await teacherRepository.syncTeacherClassTeacherSlots(
+      schoolId,
+      teacherId,
+      classSlots,
+      sectionIds,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("SECTION_TAKEN:")) {
+      throw new AppError(409, "One of the selected sections already has a class teacher");
+    }
+    throw error;
+  }
 }
 
 export async function createTeacher(schoolId: string, input: CreateTeacherInput) {
   const school = await schoolRepository.findSchoolById(schoolId);
   assertAssignmentsAgainstSchool(input.assignments, school);
-  const classTeacherFor = assertClassTeacherSlots(
-    input.classTeacherFor,
-    input.assignments,
-    school,
-  );
   await assertUniqueCredentials(input.email, input.phone);
 
   const sealed = await sealPassword(input.password);
@@ -248,8 +334,13 @@ export async function createTeacher(schoolId: string, input: CreateTeacherInput)
     assignments: input.assignments,
   });
 
-  if (classTeacherFor.length > 0) {
-    await teacherRepository.syncTeacherClassTeacherSlots(schoolId, teacher.id, classTeacherFor);
+  if (input.classTeacherFor.length > 0) {
+    await applyClassTeacherSlots(
+      schoolId,
+      teacher.id,
+      input.classTeacherFor,
+      input.assignments,
+    );
   }
 
   const detail = toTeacherDetailDto(teacher);
@@ -273,16 +364,11 @@ export async function updateTeacher(id: string, input: UpdateTeacherInput, schoo
   if (schoolId && existing.schoolId !== schoolId) throw new AppError(404, "Teacher not found");
 
   let classTeacherFor = input.classTeacherFor;
+  let assignmentBasis: { programId: string; classLevel: number }[] = existing.assignments;
   if (input.assignments) {
     const school = await schoolRepository.findSchoolById(existing.schoolId);
     assertAssignmentsAgainstSchool(input.assignments, school);
-    if (input.classTeacherFor) {
-      classTeacherFor = assertClassTeacherSlots(
-        input.classTeacherFor,
-        input.assignments,
-        school,
-      );
-    }
+    assignmentBasis = input.assignments;
   }
 
   if (input.email || input.phone) {
@@ -314,11 +400,7 @@ export async function updateTeacher(id: string, input: UpdateTeacherInput, schoo
   });
 
   if (classTeacherFor) {
-    await teacherRepository.syncTeacherClassTeacherSlots(
-      existing.schoolId,
-      id,
-      classTeacherFor,
-    );
+    await applyClassTeacherSlots(existing.schoolId, id, classTeacherFor, assignmentBasis);
   }
 
   const detail = toTeacherDetailDto(teacher);
@@ -434,43 +516,33 @@ export async function getSchoolTeacherStats(schoolId: string) {
 }
 
 export async function listSchoolClasses(schoolId: string) {
-  const school = await schoolRepository.findSchoolById(schoolId);
-  if (!school) throw new AppError(404, "School not found");
-
-  const classTeachers = await teacherRepository.listClassTeachers(schoolId);
-  const bySlot = new Map(
-    classTeachers
-      .filter((row) => row.teacher.status === TeacherStatus.ACTIVE)
-      .map((row) => [
-        `${row.programId}:${row.classLevel}`,
-        {
-          id: row.id,
-          teacherId: row.teacherId,
-          name: row.teacher.name,
-          email: row.teacher.email,
-          status: row.teacher.status,
-        },
-      ]),
-  );
-
-  return school.schoolPrograms.flatMap((program) =>
-    program.classes.map((cls) => ({
-      programId: program.programId,
-      programCode: program.program.code,
-      programName: program.program.name,
-      year: program.program.year,
-      classLevel: cls.classLevel,
-      subjects: cls.subjects,
-      classTeacher: bySlot.get(`${program.programId}:${cls.classLevel}`) ?? null,
-    })),
-  );
+  return sectionService.listSections(schoolId);
 }
 
 export async function listClassTeacherSlots(schoolId: string) {
-  const rows = await teacherRepository.listClassTeachers(schoolId);
-  return rows
+  const [sections, classRows] = await Promise.all([
+    teacherRepository.listSectionsWithClassTeachers(schoolId),
+    teacherRepository.listClassLevelTeachers(schoolId),
+  ]);
+
+  const sectionSlots = sections
+    .filter((row) => row.classTeacher && row.classTeacher.status === TeacherStatus.ACTIVE)
+    .map((row) => ({
+      kind: "section" as const,
+      sectionId: row.id,
+      programId: row.programId,
+      programCode: row.program.code,
+      programName: row.program.name,
+      classLevel: row.classLevel,
+      sectionName: row.name,
+      teacherId: row.classTeacher!.id,
+      teacherName: row.classTeacher!.name,
+    }));
+
+  const classSlots = classRows
     .filter((row) => row.teacher.status === TeacherStatus.ACTIVE)
     .map((row) => ({
+      kind: "class" as const,
       programId: row.programId,
       programCode: row.program.code,
       programName: row.program.name,
@@ -478,19 +550,43 @@ export async function listClassTeacherSlots(schoolId: string) {
       teacherId: row.teacherId,
       teacherName: row.teacher.name,
     }));
+
+  return [...classSlots, ...sectionSlots];
 }
 
 export async function listClassTeachersForTeacher(teacherId: string) {
-  return teacherRepository.listClassTeachersForTeacher(teacherId);
+  const [classRows, sectionRows] = await teacherRepository.listClassTeacherSlotsForTeacher(teacherId);
+  return {
+    classes: classRows,
+    sections: sectionRows,
+  };
 }
 
 export async function setClassTeacher(schoolId: string, input: SetClassTeacherInput) {
+  if (input.kind === "section") {
+    return sectionService.setSectionClassTeacher(
+      schoolId,
+      input.sectionId,
+      input.teacherId,
+      input.applyToClass,
+    );
+  }
+
   const school = await schoolRepository.findSchoolById(schoolId);
   if (!school) throw new AppError(404, "School not found");
 
   const offering = school.schoolPrograms.find((row) => row.programId === input.programId);
   if (!offering?.classes.some((cls) => cls.classLevel === input.classLevel)) {
     throw new AppError(400, "This class is not enabled for the selected program");
+  }
+
+  const sections = await sectionRepository.listSectionsBySchool(schoolId);
+  if (
+    sections.some(
+      (row) => row.programId === input.programId && row.classLevel === input.classLevel,
+    )
+  ) {
+    throw new AppError(400, "This class has sections — assign class teacher per section");
   }
 
   if (input.teacherId) {
@@ -509,7 +605,9 @@ export async function setClassTeacher(schoolId: string, input: SetClassTeacherIn
 
   return row
     ? {
-        id: row.id,
+        kind: "class" as const,
+        programId: input.programId,
+        classLevel: input.classLevel,
         teacherId: row.teacherId,
         name: row.teacher.name,
         email: row.teacher.email,

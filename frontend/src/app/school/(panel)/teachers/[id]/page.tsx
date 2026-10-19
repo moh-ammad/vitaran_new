@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 import { CredentialMailBar } from "@/features/auth/credential-mail-bar";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
 import { TEACHER_STATUS_LABELS } from "@/features/teachers/constants";
-import { getSchoolTeacher } from "@/services/teachers";
+import { getSchoolTeacher, listSchoolClassTeacherSlots } from "@/services/teachers";
 import { formatDateTime } from "@/utils/format";
+import { capitalizeWords } from "@/features/schools/schema";
 
 export const metadata: Metadata = { title: "Teacher Details" };
 
@@ -51,9 +52,13 @@ export default async function SchoolTeacherDetailsPage({
   params,
 }: PageProps<"/school/teachers/[id]">) {
   const { id } = await params;
-  const teacher = await getSchoolTeacher(id);
+  const [teacher, classTeacherSlots] = await Promise.all([
+    getSchoolTeacher(id),
+    listSchoolClassTeacherSlots(),
+  ]);
   if (!teacher) notFound();
 
+  const mySections = classTeacherSlots.filter((slot) => slot.teacherId === teacher.id);
   const programs = [...new Set(teacher.assignments.map((row) => row.programName))];
 
   return (
@@ -107,6 +112,28 @@ export default async function SchoolTeacherDetailsPage({
                       Class {item.classLevel}
                       <span className="text-neutral-400"> · </span>
                       {SUBJECT_LABELS[item.subject]}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Field>
+            <Field label="Class teacher of" span={3}>
+              {mySections.length === 0 ? null : (
+                <ul className="mt-1 space-y-1.5">
+                  {mySections.map((slot) => (
+                    <li
+                      key={
+                        slot.kind === "section"
+                          ? slot.sectionId
+                          : `class:${slot.programId}:${slot.classLevel}`
+                      }
+                      className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-1.5 text-sm"
+                    >
+                      {slot.kind === "section"
+                        ? `Class ${slot.classLevel}-${slot.sectionName}`
+                        : `Class ${slot.classLevel}`}
+                      <span className="text-neutral-400"> · </span>
+                      {capitalizeWords(slot.programName)}
                     </li>
                   ))}
                 </ul>

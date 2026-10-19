@@ -55,7 +55,9 @@ model LearningProgram {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   schoolPrograms     SchoolProgram[]
   teacherAssignments TeacherAssignment[]
+  sections           SchoolSection[]
   classTeachers      ClassTeacher[]
+  schoolClasses      SchoolClass[]
 
   @@index([year])
   @@index([createdAt])
@@ -92,7 +94,9 @@ model School {
   resultSets        ResultSet[]
   teachers          Teacher[]
   schoolPrograms    SchoolProgram[]
+  sections          SchoolSection[]
   classTeachers     ClassTeacher[]
+  schoolClasses     SchoolClass[]
 
   @@index([status])
   @@index([board])
@@ -141,8 +145,9 @@ model Teacher {
   passwordEncrypted String              @map("password_encrypted") @db.VarChar(512)
   createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  assignments       TeacherAssignment[]
-  classTeacherOf    ClassTeacher[]
+  assignments            TeacherAssignment[]
+  classTeacherOf         SchoolSection[]
+  classTeacherOfClasses  ClassTeacher[]
 
   @@index([schoolId])
   @@index([status])
@@ -166,7 +171,24 @@ model TeacherAssignment {
   @@map("teacher_assignments")
 }
 
-/// Teachers marked as class teacher for a school + program + class.
+/// Whole class (no sections): program + seats for an admin-enabled class level.
+model SchoolClass {
+  id           String          @id @default(uuid()) @db.Uuid
+  schoolId     String          @map("school_id") @db.Uuid
+  classLevel   Int             @map("class_level") @db.SmallInt
+  programId    String          @map("program_id") @db.Uuid
+  studentCount Int             @map("student_count") @db.SmallInt
+  school       School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  program      LearningProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([schoolId, classLevel])
+  @@index([programId])
+  @@map("school_classes")
+}
+
+/// Class-level class teacher when the school has not created sections for that program+class.
 model ClassTeacher {
   id         String          @id @default(uuid()) @db.Uuid
   schoolId   String          @map("school_id") @db.Uuid
@@ -178,10 +200,31 @@ model ClassTeacher {
   teacher    Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  @@unique([schoolId, programId, classLevel, teacherId])
-  @@index([schoolId, programId, classLevel])
+  @@unique([schoolId, programId, classLevel])
   @@index([teacherId])
   @@map("class_teachers")
+}
+
+/// School-defined section (e.g. Class 6-A) with program, strength, and optional class teacher.
+model SchoolSection {
+  id             String          @id @default(uuid()) @db.Uuid
+  schoolId       String          @map("school_id") @db.Uuid
+  classLevel     Int             @map("class_level") @db.SmallInt
+  name           String          @db.VarChar(32)
+  programId      String          @map("program_id") @db.Uuid
+  studentCount   Int             @map("student_count") @db.SmallInt
+  classTeacherId String?         @map("class_teacher_id") @db.Uuid
+  school         School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  program        LearningProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
+  classTeacher   Teacher?        @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([schoolId, classLevel, name])
+  @@index([schoolId, classLevel])
+  @@index([programId])
+  @@index([classTeacherId])
+  @@map("school_sections")
 }
 
 /// Regular keys are shared by every school on the program; customized keys belong to one school.

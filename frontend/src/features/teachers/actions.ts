@@ -20,10 +20,17 @@ const assignmentSchema = z.object({
   subject: z.enum(SUBJECTS),
 });
 
-const classTeacherSlotSchema = z.object({
-  programId: z.uuid(),
-  classLevel: z.coerce.number().int().min(1).max(12),
-});
+const classTeacherSlotSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("class"),
+    programId: z.uuid(),
+    classLevel: z.coerce.number().int().min(1).max(12),
+  }),
+  z.object({
+    kind: z.literal("section"),
+    sectionId: z.uuid(),
+  }),
+]);
 
 const teacherSchema = z.object({
   name: z
@@ -88,13 +95,26 @@ function parseAssignments(raw: string[]): TeacherAssignmentInput[] {
     .filter((item) => item.programId && item.classLevel && item.subject);
 }
 
+/** Tokens: `class:programId:classLevel` or `section:sectionId`. */
 function parseClassTeacherSlots(raw: string[]): ClassTeacherSlotInput[] {
-  return raw
-    .map((value) => {
-      const [programId, classLevel] = value.split(":");
-      return { programId, classLevel: Number(classLevel) };
-    })
-    .filter((item) => item.programId && item.classLevel);
+  const slots: ClassTeacherSlotInput[] = [];
+  for (const value of raw.map((item) => item.trim()).filter(Boolean)) {
+    if (value.startsWith("section:")) {
+      const sectionId = value.slice("section:".length);
+      if (sectionId) slots.push({ kind: "section", sectionId });
+      continue;
+    }
+    if (value.startsWith("class:")) {
+      const [, programId, classLevel] = value.split(":");
+      if (programId && classLevel) {
+        slots.push({ kind: "class", programId, classLevel: Number(classLevel) });
+      }
+      continue;
+    }
+    // Legacy bare section id
+    slots.push({ kind: "section", sectionId: value });
+  }
+  return slots;
 }
 
 function toInput(values: TeacherFormValues, requirePassword: boolean): TeacherInput | null {
@@ -262,11 +282,16 @@ export async function setAdminTeacherStatusAction(teacherId: string, status: Tea
   }
 }
 
-export async function setClassTeacherAction(input: {
-  programId: string;
-  classLevel: number;
-  teacherId: string | null;
-}) {
+export async function setClassTeacherAction(
+  input:
+    | { kind: "class"; programId: string; classLevel: number; teacherId: string | null }
+    | {
+        kind: "section";
+        sectionId: string;
+        teacherId: string | null;
+        applyToClass?: boolean;
+      },
+) {
   try {
     await teacherService.setSchoolClassTeacher(input);
     revalidatePath(`${SCHOOL_BASE_PATH}/classes`, "layout");

@@ -2,10 +2,9 @@ import "server-only";
 import { ApiError } from "@/services/api-client";
 import { adminApi } from "@/services/admin-api";
 import { schoolApi } from "@/services/school-api";
+import type { SchoolSection } from "@/types/section";
 import type {
-  ClassTeacherRow,
   ClassTeacherSlot,
-  SchoolClassRow,
   SchoolDashboardStats,
   Teacher,
   TeacherDetail,
@@ -139,7 +138,7 @@ export function resetSchoolTeacherPassword(id: string, password: string) {
 }
 
 export function listSchoolClasses() {
-  return schoolApi<SchoolClassRow[]>(`${SCHOOL_BASE}/classes`);
+  return schoolApi<SchoolSection[]>(`${SCHOOL_BASE}/classes`);
 }
 
 export function listSchoolClassTeacherSlots() {
@@ -152,12 +151,17 @@ export function listAdminClassTeacherSlots(schoolId: string) {
   );
 }
 
-export function setSchoolClassTeacher(input: {
-  programId: string;
-  classLevel: number;
-  teacherId: string | null;
-}) {
-  return schoolApi<ClassTeacherRow | null>(`${SCHOOL_BASE}/class-teacher`, {
+export function setSchoolClassTeacher(
+  input:
+    | { kind: "class"; programId: string; classLevel: number; teacherId: string | null }
+    | {
+        kind: "section";
+        sectionId: string;
+        teacherId: string | null;
+        applyToClass?: boolean;
+      },
+) {
+  return schoolApi<unknown>(`${SCHOOL_BASE}/class-teacher`, {
     method: "PUT",
     body: input,
   });

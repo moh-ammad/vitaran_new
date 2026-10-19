@@ -1,8 +1,12 @@
 "use server";
 
-import { listSchoolClasses } from "@/services/teachers";
-import type { SchoolClassRow } from "@/types/teacher";
+import { listSchoolSections } from "@/services/sections";
+import type { SchoolSection } from "@/types/section";
 
-export async function loadSchoolClassesAction(): Promise<SchoolClassRow[]> {
-  return listSchoolClasses();
+export async function loadSchoolClassesAction(): Promise<SchoolSection[]> {
+  try {
+    return await listSchoolSections();
+  } catch {
+    return [];
+  }
 }

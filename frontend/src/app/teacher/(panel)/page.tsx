@@ -13,6 +13,11 @@ export default async function TeacherDashboardPage() {
   const classLevels = [...new Set(teacher.assignments.map((row) => row.classLevel))].sort(
     (a, b) => a - b,
   );
+  const classTeacherLabels = (teacher.classTeacherSections ?? []).map((row) =>
+    row.kind === "section"
+      ? `Class ${row.classLevel}-${row.sectionName} (${row.programName})`
+      : `Class ${row.classLevel} (${row.programName})`,
+  );
 
   const links = [
     {
@@ -49,7 +54,7 @@ export default async function TeacherDashboardPage() {
       />
 
       <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <ChipRow
             title="Classes"
             items={classLevels.map((level) => `Class ${level}`)}
@@ -59,6 +64,11 @@ export default async function TeacherDashboardPage() {
             title="Subjects"
             items={subjectIds.map((subject) => SUBJECT_LABELS[subject])}
             empty="No subjects assigned yet."
+          />
+          <ChipRow
+            title="Class teacher of"
+            items={classTeacherLabels}
+            empty="Not a class teacher for any section."
           />
         </div>
       </section>

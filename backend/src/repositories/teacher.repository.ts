@@ -8,6 +8,14 @@ const teacherInclude = {
     include: { program: true },
     orderBy: [{ program: { name: "asc" } }, { classLevel: "asc" }, { subject: "asc" }],
   },
+  classTeacherOf: {
+    include: { program: { select: { id: true, code: true, name: true } } },
+    orderBy: [{ classLevel: "asc" as const }, { name: "asc" as const }],
+  },
+  classTeacherOfClasses: {
+    include: { program: { select: { id: true, code: true, name: true } } },
+    orderBy: [{ classLevel: "asc" as const }],
+  },
   school: {
     select: {
       id: true,
@@ -162,6 +170,10 @@ export async function setTeacherStatus(id: string, status: TeacherStatus) {
   await prisma.$transaction(async (tx) => {
     // Disabled teachers must leave class-teacher slots so Classes updates immediately.
     if (status === TeacherStatus.INACTIVE) {
+      await tx.schoolSection.updateMany({
+        where: { classTeacherId: id },
+        data: { classTeacherId: null },
+      });
       await tx.classTeacher.deleteMany({ where: { teacherId: id } });
     }
     await tx.teacher.update({ where: { id }, data: { status } });
@@ -200,29 +212,52 @@ export async function pruneAssignmentsOutsideSchoolOfferings(schoolId: string) {
   return prisma.teacherAssignment.deleteMany({ where: { id: { in: staleIds } } });
 }
 
-export function listClassTeachers(schoolId: string, programId?: string, classLevel?: number) {
-  return prisma.classTeacher.findMany({
-    where: {
-      schoolId,
-      ...(programId ? { programId } : {}),
-      ...(classLevel !== undefined ? { classLevel } : {}),
+export function listSectionsWithClassTeachers(schoolId: string) {
+  return prisma.schoolSection.findMany({
+    where: { schoolId },
+    include: {
+      program: { select: { id: true, code: true, name: true, year: true } },
+      classTeacher: { select: { id: true, name: true, email: true, status: true } },
     },
+    orderBy: [{ classLevel: "asc" }, { name: "asc" }],
+  });
+}
+
+export function listClassLevelTeachers(schoolId: string) {
+  return prisma.classTeacher.findMany({
+    where: { schoolId },
     include: {
       teacher: { select: { id: true, name: true, email: true, status: true } },
       program: { select: { id: true, code: true, name: true } },
     },
-    orderBy: [{ program: { name: "asc" } }, { classLevel: "asc" }, { teacher: { name: "asc" } }],
+    orderBy: [{ classLevel: "asc" }, { program: { name: "asc" } }],
   });
 }
 
-export function listClassTeachersForTeacher(teacherId: string) {
-  return prisma.classTeacher.findMany({
-    where: { teacherId },
-    select: { programId: true, classLevel: true },
-  });
+export function listClassTeacherSlotsForTeacher(teacherId: string) {
+  return Promise.all([
+    prisma.classTeacher.findMany({
+      where: { teacherId },
+      select: {
+        programId: true,
+        classLevel: true,
+        program: { select: { code: true, name: true } },
+      },
+    }),
+    prisma.schoolSection.findMany({
+      where: { classTeacherId: teacherId },
+      select: {
+        id: true,
+        classLevel: true,
+        name: true,
+        programId: true,
+        program: { select: { code: true, name: true } },
+      },
+      orderBy: [{ classLevel: "asc" }, { name: "asc" }],
+    }),
+  ]);
 }
 
-/** Replace every class teacher for this slot with zero or one teacher. */
 export async function setSoleClassTeacher(
   schoolId: string,
   programId: string,
@@ -241,21 +276,33 @@ export async function setSoleClassTeacher(
   });
 }
 
-/** Apply class-teacher toggles for one teacher after create/update. */
+/** Clear class-level CT when the school starts creating sections for that class. */
+export function clearClassLevelTeacher(
+  schoolId: string,
+  programId: string,
+  classLevel: number,
+) {
+  return prisma.classTeacher.deleteMany({ where: { schoolId, programId, classLevel } });
+}
+
+/** Sync both class-level and section-level class-teacher picks for one teacher. */
 export async function syncTeacherClassTeacherSlots(
   schoolId: string,
   teacherId: string,
-  slots: { programId: string; classLevel: number }[],
+  classSlots: { programId: string; classLevel: number }[],
+  sectionIds: string[],
 ) {
-  const wanted = new Set(slots.map((slot) => `${slot.programId}:${slot.classLevel}`));
-  const existing = await prisma.classTeacher.findMany({
+  const wantedClasses = new Set(
+    classSlots.map((slot) => `${slot.programId}:${slot.classLevel}`),
+  );
+  const existingClasses = await prisma.classTeacher.findMany({
     where: { schoolId, teacherId },
     select: { programId: true, classLevel: true },
   });
 
-  for (const row of existing) {
+  for (const row of existingClasses) {
     const key = `${row.programId}:${row.classLevel}`;
-    if (!wanted.has(key)) {
+    if (!wantedClasses.has(key)) {
       await prisma.classTeacher.deleteMany({
         where: {
           schoolId,
@@ -267,7 +314,39 @@ export async function syncTeacherClassTeacherSlots(
     }
   }
 
-  for (const slot of slots) {
+  for (const slot of classSlots) {
     await setSoleClassTeacher(schoolId, slot.programId, slot.classLevel, teacherId);
   }
+
+  const wantedSections = new Set(sectionIds);
+  const ownedSections = await prisma.schoolSection.findMany({
+    where: { schoolId, classTeacherId: teacherId },
+    select: { id: true },
+  });
+
+  const releaseIds = ownedSections.map((row) => row.id).filter((id) => !wantedSections.has(id));
+  if (releaseIds.length > 0) {
+    await prisma.schoolSection.updateMany({
+      where: { id: { in: releaseIds } },
+      data: { classTeacherId: null },
+    });
+  }
+
+  if (sectionIds.length === 0) return;
+
+  const targets = await prisma.schoolSection.findMany({
+    where: { schoolId, id: { in: sectionIds } },
+    select: { id: true, classTeacherId: true },
+  });
+
+  for (const row of targets) {
+    if (row.classTeacherId && row.classTeacherId !== teacherId) {
+      throw new Error(`SECTION_TAKEN:${row.id}`);
+    }
+  }
+
+  await prisma.schoolSection.updateMany({
+    where: { schoolId, id: { in: sectionIds } },
+    data: { classTeacherId: teacherId },
+  });
 }
