@@ -7,10 +7,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CredentialMailBar } from "@/features/auth/credential-mail-bar";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
-import {
-  resetAdminTeacherPasswordAction,
-  sendAdminTeacherCredentialsAction,
-} from "@/features/teachers/actions";
 import { TEACHER_STATUS_LABELS } from "@/features/teachers/constants";
 import { getAdminTeacher } from "@/services/teachers";
 import { formatDateTime } from "@/utils/format";
@@ -147,8 +143,7 @@ export default async function AdminTeacherDetailsPage({
         password={teacher.password || null}
         setPasswordHref={`/admin/teachers/${teacher.id}/edit`}
         recipientLabel="teacher"
-        onSend={() => sendAdminTeacherCredentialsAction(teacher.id)}
-        onReset={(password) => resetAdminTeacherPasswordAction(teacher.id, password)}
+        target={{ kind: "admin-teacher", id: teacher.id }}
       />
     </div>
   );

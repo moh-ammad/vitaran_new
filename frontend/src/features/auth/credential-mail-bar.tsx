@@ -17,9 +17,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  resetSchoolPasswordAction,
+  sendSchoolCredentialsAction,
+} from "@/features/schools/actions";
 import { CopyButton } from "@/features/schools/copy-button";
+import {
+  resetAdminTeacherPasswordAction,
+  resetSchoolTeacherPasswordAction,
+  sendAdminTeacherCredentialsAction,
+  sendSchoolTeacherCredentialsAction,
+} from "@/features/teachers/actions";
 
 type MailResult = { ok: true; to: string } | { ok: false; message: string };
+
+type CredentialTarget =
+  | { kind: "school"; id: string }
+  | { kind: "admin-teacher"; id: string }
+  | { kind: "school-teacher"; id: string };
 
 type CredentialMailBarProps = {
   loginEmail: string;
@@ -28,14 +43,25 @@ type CredentialMailBarProps = {
   setPasswordHref: string;
   /** Who receives the mail (shown in copy). */
   recipientLabel: string;
-  onSend: () => Promise<MailResult>;
-  onReset: (password: string) => Promise<MailResult>;
+  target: CredentialTarget;
 };
 
 function suggestPassword() {
   const chunk = Math.random().toString(36).slice(2, 6);
   const digits = String(Math.floor(1000 + Math.random() * 9000));
   return `${chunk}${digits}`;
+}
+
+async function sendCredentials(target: CredentialTarget): Promise<MailResult> {
+  if (target.kind === "school") return sendSchoolCredentialsAction(target.id);
+  if (target.kind === "admin-teacher") return sendAdminTeacherCredentialsAction(target.id);
+  return sendSchoolTeacherCredentialsAction(target.id);
+}
+
+async function resetPassword(target: CredentialTarget, password: string): Promise<MailResult> {
+  if (target.kind === "school") return resetSchoolPasswordAction(target.id, password);
+  if (target.kind === "admin-teacher") return resetAdminTeacherPasswordAction(target.id, password);
+  return resetSchoolTeacherPasswordAction(target.id, password);
 }
 
 /** Footer with visible credentials plus Send / Reset password actions. */
@@ -45,8 +71,7 @@ export function CredentialMailBar({
   password,
   setPasswordHref,
   recipientLabel,
-  onSend,
-  onReset,
+  target,
 }: CredentialMailBarProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -55,7 +80,7 @@ export function CredentialMailBar({
 
   const send = () =>
     startTransition(async () => {
-      const result = await onSend();
+      const result = await sendCredentials(target);
       if (result.ok) toast.success(`Credentials emailed to ${result.to}`);
       else toast.error(result.message);
     });
@@ -72,7 +97,7 @@ export function CredentialMailBar({
       return;
     }
     startTransition(async () => {
-      const result = await onReset(next);
+      const result = await resetPassword(target, next);
       if (result.ok) {
         toast.success(`New password emailed to ${result.to}`);
         setResetOpen(false);

@@ -15,10 +15,6 @@ import {
 } from "@/features/schools/constants";
 import { CredentialMailBar } from "@/features/auth/credential-mail-bar";
 import { uniqueSubjectsFromOfferings } from "@/features/schools/offerings";
-import {
-  resetSchoolPasswordAction,
-  sendSchoolCredentialsAction,
-} from "@/features/schools/actions";
 import { SchoolDetailActions } from "@/features/schools/school-detail-actions";
 import { listResultSets } from "@/services/results";
 import { getSchool } from "@/services/schools";
@@ -204,8 +200,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
         password={school.password}
         setPasswordHref={`/admin/schools/${school.id}/edit`}
         recipientLabel="school"
-        onSend={() => sendSchoolCredentialsAction(school.id)}
-        onReset={(password) => resetSchoolPasswordAction(school.id, password)}
+        target={{ kind: "school", id: school.id }}
       />
     </div>
   );
