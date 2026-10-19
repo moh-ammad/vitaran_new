@@ -1,14 +1,9 @@
-import { PageHeader } from "@/features/admin/page-header";
-import { ANSWER_KEY_NOUN, TEACHER_ANSWER_KEYS_PATH } from "@/features/answer-keys/constants";
-import { SchoolDocuments } from "@/features/documents/school-documents";
+import { TEACHER_ANSWER_KEYS_PATH } from "@/features/answer-keys/constants";
+import { PortalAnswerKeysBoard } from "@/features/answer-keys/portal-answer-keys-board";
 import { verifyTeacherSession } from "@/features/teacher-auth/session";
-import { listTeacherAnswerKeys } from "@/services/answer-keys";
 
 export default async function TeacherAnswerKeysPage() {
-  const [teacher, answerKeys] = await Promise.all([
-    verifyTeacherSession(),
-    listTeacherAnswerKeys(),
-  ]);
+  const teacher = await verifyTeacherSession();
 
   const programCodes =
     teacher.assignments.length > 0
@@ -16,19 +11,12 @@ export default async function TeacherAnswerKeysPage() {
       : teacher.school.programCodes;
 
   return (
-    <>
-      <PageHeader
-        title="Answer keys"
-        count={answerKeys.length}
-        description="Published answer keys for your assigned classes."
-      />
-      <SchoolDocuments
-        programIds={programCodes}
-        documents={answerKeys}
-        noun={ANSWER_KEY_NOUN}
-        basePath={TEACHER_ANSWER_KEYS_PATH}
-        hideIdBadgeOnMobile
-      />
-    </>
+    <PortalAnswerKeysBoard
+      role="teacher"
+      basePath={TEACHER_ANSWER_KEYS_PATH}
+      programIds={programCodes}
+      description="Published answer keys for your assigned classes."
+      hideIdBadgeOnMobile
+    />
   );
 }

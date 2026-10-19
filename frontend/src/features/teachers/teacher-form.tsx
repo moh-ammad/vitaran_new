@@ -240,6 +240,9 @@ function TeacherFormFields({
                 label,
               }))}
               defaultValue={values.status}
+              onValueChange={() => {
+                if (isEdit) setProfileDirty(true);
+              }}
             >
               <SelectTrigger id="status" className="w-full">
                 <SelectValue />
@@ -379,10 +382,12 @@ function TeacherFormFields({
           >
             Cancel
           </Link>
-          <Button type="submit" disabled={pending}>
-            {pending ? <Loader2 className="animate-spin" /> : <Save />}
-            {isEdit ? "Save changes" : "Create teacher"}
-          </Button>
+          {(!isEdit || dirty) && (
+            <Button type="submit" disabled={pending}>
+              {pending ? <Loader2 className="animate-spin" /> : <Save />}
+              {isEdit ? "Save changes" : "Create teacher"}
+            </Button>
+          )}
         </footer>
       </form>
       {dialog}

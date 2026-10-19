@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { PageHeader } from "@/features/admin/page-header";
 import { SchoolDocuments } from "@/features/documents/school-documents";
+import { useLiveContent } from "@/features/live/use-live-content";
 import { cn } from "@/lib/utils";
 import type { PdfDocument } from "@/types/document";
 import { ANSWER_KEY_NOUN } from "./constants";
@@ -19,7 +20,7 @@ type PortalAnswerKeysBoardProps = {
   hideIdBadgeOnMobile?: boolean;
 };
 
-/** Reloads answer keys from the API so admin publish/hide shows without a hard refresh. */
+/** Reloads when admin publishes/hides keys — live stream + focus/visibility. */
 export function PortalAnswerKeysBoard({
   role,
   basePath,
@@ -39,6 +40,8 @@ export function PortalAnswerKeysBoard({
       setDocuments(next);
     });
   }, [role]);
+
+  useLiveContent("answer-keys", reload);
 
   useEffect(() => {
     reload();

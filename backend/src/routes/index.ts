@@ -6,7 +6,7 @@ import {
 } from "./answer-key.routes.js";
 import { authRouter } from "./auth.routes.js";
 import { healthRouter } from "./health.routes.js";
-import { schoolEventsRouter } from "./live.routes.js";
+import { schoolEventsRouter, teacherEventsRouter } from "./live.routes.js";
 import {
   resultRouter,
   schoolResultRouter,
@@ -30,5 +30,6 @@ apiRouter.use("/school/teachers", schoolTeacherRouter);
 apiRouter.use("/school/answer-keys", schoolAnswerKeyRouter);
 apiRouter.use("/school/results", schoolResultRouter);
 apiRouter.use("/school/events", schoolEventsRouter);
+apiRouter.use("/teacher/events", teacherEventsRouter);
 apiRouter.use("/teacher/answer-keys", teacherAnswerKeyRouter);
 apiRouter.use("/teacher/results", teacherResultRouter);
