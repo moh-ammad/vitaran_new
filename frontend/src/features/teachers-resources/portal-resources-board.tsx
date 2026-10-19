@@ -8,11 +8,12 @@ import {
   loadTeacherPortalResourcesAction,
   type PortalResourcesPayload,
 } from "./portal-resources-action";
+import { loadStudentPortalResourcesAction } from "./student-resources-action";
 import { ResourcePage } from "./resource-page";
 import { solutionBooks } from "./solution-books";
 
 type PortalResourcesBoardProps = {
-  role: "school" | "teacher";
+  role: "school" | "teacher" | "student";
   description: string;
 };
 
@@ -26,7 +27,9 @@ export function PortalResourcesBoard({ role, description }: PortalResourcesBoard
       const next =
         role === "school"
           ? await loadSchoolPortalResourcesAction()
-          : await loadTeacherPortalResourcesAction();
+          : role === "student"
+            ? await loadStudentPortalResourcesAction()
+            : await loadTeacherPortalResourcesAction();
       setPayload(next);
     });
   }, [role]);

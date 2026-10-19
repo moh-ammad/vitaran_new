@@ -41,6 +41,11 @@ enum TeacherStatus {
   INACTIVE
 }
 
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
 /// Admin-managed catalog: name, year, class range and subjects. Fully dynamic.
 model LearningProgram {
   id        String    @id @default(uuid()) @db.Uuid
@@ -58,6 +63,7 @@ model LearningProgram {
   sections           SchoolSection[]
   classTeachers      ClassTeacher[]
   schoolClasses      SchoolClass[]
+  students           Student[]
 
   @@index([year])
   @@index([createdAt])
@@ -97,6 +103,7 @@ model School {
   sections          SchoolSection[]
   classTeachers     ClassTeacher[]
   schoolClasses     SchoolClass[]
+  students          Student[]
 
   @@index([status])
   @@index([board])
@@ -224,7 +231,38 @@ model SchoolSection {
   @@index([schoolId, classLevel])
   @@index([programId])
   @@index([classTeacherId])
+  students       Student[]
   @@map("school_sections")
+}
+
+/// Student roster: roll no + password login; optional email for password reset.
+model Student {
+  id                String        @id @default(uuid()) @db.Uuid
+  schoolId          String        @map("school_id") @db.Uuid
+  school            School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name              String        @db.VarChar(120)
+  /// Unique within the school — used with school code to sign in.
+  rollNo            String        @map("roll_no") @db.VarChar(64)
+  email             String?       @db.VarChar(254)
+  programId         String        @map("program_id") @db.Uuid
+  program           LearningProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
+  classLevel        Int           @map("class_level") @db.SmallInt
+  /// Null = whole class (no section).
+  sectionId         String?       @map("section_id") @db.Uuid
+  section           SchoolSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  status            StudentStatus @default(ACTIVE)
+  passwordHash      String        @map("password_hash") @db.VarChar(255)
+  passwordEncrypted String        @map("password_encrypted") @db.VarChar(512)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([schoolId, rollNo])
+  @@index([schoolId, classLevel])
+  @@index([programId])
+  @@index([sectionId])
+  @@index([email])
+  @@index([status])
+  @@map("students")
 }
 
 /// Regular keys are shared by every school on the program; customized keys belong to one school.
@@ -324,6 +362,7 @@ model ResultRow {
 enum PasswordResetRole {
   SCHOOL
   TEACHER
+  STUDENT
 }
 
 /// One-time codes for portal forgot-password (school or teacher).

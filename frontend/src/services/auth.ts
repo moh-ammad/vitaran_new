@@ -4,9 +4,11 @@ import type {
   AdminLoginResult,
   AdminProfile,
   SchoolLoginResult,
+  StudentLoginResult,
   TeacherLoginResult,
 } from "@/types/auth";
 import type { SchoolAccount } from "@/types/school";
+import type { StudentAccount } from "@/types/student";
 import type { TeacherAccount } from "@/types/teacher";
 
 const authHeader = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -61,6 +63,23 @@ export async function fetchCurrentTeacher(token: string): Promise<TeacherAccount
   return teacher;
 }
 
+/** `identifier` is the student's roll number or parent/guardian email. */
+export function loginStudent(credentials: { identifier: string; password: string }) {
+  return apiClient<StudentLoginResult>("/auth/student/login", {
+    method: "POST",
+    body: credentials,
+    cache: "no-store",
+  });
+}
+
+export async function fetchCurrentStudent(token: string): Promise<StudentAccount> {
+  const { student } = await apiClient<{ student: StudentAccount }>("/auth/student/me", {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return student;
+}
+
 export function requestForgotPasswordOtp(email: string) {
   return apiClient<{ ok: true; message: string }>("/auth/forgot-password", {
     method: "POST",
@@ -69,7 +88,7 @@ export function requestForgotPasswordOtp(email: string) {
 }
 
 export function verifyForgotPasswordOtp(email: string, otp: string) {
-  return apiClient<{ ok: true; role: "school" | "teacher"; message: string }>(
+  return apiClient<{ ok: true; role: "school" | "teacher" | "student"; message: string }>(
     "/auth/forgot-password/verify",
     {
       method: "POST",

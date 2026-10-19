@@ -2,6 +2,7 @@ import { createHash, randomInt } from "node:crypto";
 import { PasswordResetRole } from "../generated/prisma/enums.js";
 import { prisma } from "../config/database.js";
 import * as schoolRepository from "../repositories/school.repository.js";
+import * as studentRepository from "../repositories/student.repository.js";
 import * as teacherRepository from "../repositories/teacher.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { hashPassword } from "../utils/password.js";
@@ -9,6 +10,7 @@ import { encryptSecret } from "../utils/secret-box.js";
 import {
   sendPasswordResetOtpEmail,
   sendSchoolCredentialsEmail,
+  sendStudentCredentialsEmail,
   sendTeacherCredentialsEmail,
 } from "./mail.service.js";
 
@@ -58,6 +60,17 @@ type AccountTarget =
       brand: string;
       schoolName: string;
       schoolEmail: string | null;
+    }
+  | {
+      role: typeof PasswordResetRole.STUDENT;
+      id: string;
+      email: string;
+      name: string;
+      brand: string;
+      schoolName: string;
+      schoolEmail: string | null;
+      schoolCode: string;
+      rollNo: string;
     };
 
 async function resolveAccount(email: string): Promise<AccountTarget | null> {
@@ -85,6 +98,21 @@ async function resolveAccount(email: string): Promise<AccountTarget | null> {
       brand: teacher.school.name,
       schoolName: teacher.school.name,
       schoolEmail: teacher.school.accountEmail,
+    };
+  }
+
+  const student = await studentRepository.findStudentByEmail(normalized);
+  if (student?.passwordHash && student.email) {
+    return {
+      role: PasswordResetRole.STUDENT,
+      id: student.id,
+      email: student.email,
+      name: student.name,
+      brand: student.school.name,
+      schoolName: student.school.name,
+      schoolEmail: student.school.accountEmail,
+      schoolCode: student.school.code,
+      rollNo: student.rollNo,
     };
   }
 
@@ -122,7 +150,10 @@ export async function requestPasswordResetOtp(email: string) {
     to: account.email,
     brand: account.brand,
     fromName: account.brand,
-    replyTo: account.role === PasswordResetRole.TEACHER ? account.schoolEmail : null,
+    replyTo:
+      account.role === PasswordResetRole.TEACHER || account.role === PasswordResetRole.STUDENT
+        ? account.schoolEmail
+        : null,
     otp,
     minutes: 10,
   });
@@ -214,6 +245,37 @@ export async function verifyPasswordResetOtp(email: string, otp: string) {
       ok: true as const,
       role: "school" as const,
       message: "Password updated. Check your email for the new password.",
+    };
+  }
+
+  if (row.role === PasswordResetRole.STUDENT) {
+    const student = await studentRepository.findStudentById(row.accountId);
+    if (!student?.email) throw new AppError(404, "Student not found");
+
+    await studentRepository.updateStudent(row.accountId, sealed);
+
+    const sent = await sendStudentCredentialsEmail({
+      to: student.email,
+      studentName: student.name,
+      schoolName: student.school.name,
+      schoolEmail: student.school.accountEmail,
+      schoolCode: student.school.code,
+      rollNo: student.rollNo,
+      password,
+      reason: "password-reset",
+    });
+    if (!sent) {
+      throw new AppError(
+        502,
+        "Password was reset but we could not email it. Ask your school for help.",
+      );
+    }
+
+    return {
+      ok: true as const,
+      role: "student" as const,
+      message:
+        "Password updated. Check your email for the new password and your roll number.",
     };
   }
 

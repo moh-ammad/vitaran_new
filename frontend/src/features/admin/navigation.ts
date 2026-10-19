@@ -1,6 +1,7 @@
 import {
   BookMarked,
   CirclePlus,
+  GraduationCap,
   KeyRound,
   LayoutDashboard,
   School,
@@ -30,6 +31,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       { title: "Register School", href: "/admin/schools/new", icon: CirclePlus },
       { title: "Schools", href: "/admin/schools", icon: School },
+      { title: "Students", href: "/admin/schools/students", icon: GraduationCap },
       { title: "Teachers", href: "/admin/teachers", icon: Users },
       { title: "Programs", href: "/admin/programs", icon: BookMarked },
     ],
@@ -45,9 +47,28 @@ export const adminNavGroups: AdminNavGroup[] = [
 
 const allItems = adminNavGroups.flatMap((group) => group.items);
 
+function isStudentAdminPath(pathname: string) {
+  return (
+    pathname === "/admin/schools/students" ||
+    pathname.startsWith("/admin/schools/students/") ||
+    /^\/admin\/schools\/[^/]+\/students(\/|$)/.test(pathname)
+  );
+}
+
 export function isNavItemActive(href: string, pathname: string): boolean {
   if (pathname === href) return true;
   if (href === "/admin") return false;
+
+  // Only Students should highlight on student pages (not Schools).
+  if (href === "/admin/schools/students") {
+    return isStudentAdminPath(pathname);
+  }
+  if (href === "/admin/schools") {
+    if (isStudentAdminPath(pathname)) return false;
+    if (pathname === "/admin/schools/new" || pathname.startsWith("/admin/schools/new/")) {
+      return false;
+    }
+  }
 
   const longerMatch = allItems.some(
     (item) =>
@@ -69,6 +90,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   upload: "Upload",
   results: "Results",
   classes: "Classes",
+  students: "Students",
 };
 
 export type AdminBreadcrumb = { label: string; href: string };

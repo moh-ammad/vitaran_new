@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -44,10 +44,19 @@ import type {
 } from "@/types/section";
 import type { ClassTeacherSlot, Teacher } from "@/types/teacher";
 
+type RosterTarget =
+  | { kind: "section"; row: SchoolSection }
+  | { kind: "whole"; row: WholeClass };
+
 type SchoolClassesBoardProps = {
   schoolPrograms: SchoolProgramOffering[];
   teachers: Teacher[];
   classTeacherSlots: ClassTeacherSlot[];
+  /** sectionId → enrolled student count */
+  enrolledBySection?: Record<string, number>;
+  /** whole-class id → enrolled student count */
+  enrolledByWhole?: Record<string, number>;
+  onOpenStudents?: (target: RosterTarget) => void;
 };
 
 const NONE = "__none__";
@@ -61,16 +70,6 @@ const iconBtn =
 type EditTarget =
   | { kind: "section"; row: SchoolSection }
   | { kind: "class"; row: WholeClass };
-
-function groupSections(sections: SchoolSection[]) {
-  const map = new Map<number, SchoolSection[]>();
-  for (const section of sections) {
-    const list = map.get(section.classLevel) ?? [];
-    list.push(section);
-    map.set(section.classLevel, list);
-  }
-  return [...map.entries()].sort((a, b) => a[0] - b[0]);
-}
 
 function teachersForSlot(
   teachers: Teacher[],
@@ -93,6 +92,9 @@ export function SchoolClassesBoard({
   schoolPrograms,
   teachers,
   classTeacherSlots: initialSlots,
+  enrolledBySection = {},
+  enrolledByWhole = {},
+  onOpenStudents,
 }: SchoolClassesBoardProps) {
   const [organization, setOrganization] = useState<ClassOrganization | null>(null);
   const [strength, setStrength] = useState<SectionStrength | null>(null);
@@ -103,12 +105,24 @@ export function SchoolClassesBoard({
   const [name, setName] = useState("");
   const [programId, setProgramId] = useState("");
   const [studentCount, setStudentCount] = useState("30");
+  const [createErrors, setCreateErrors] = useState<
+    Partial<Record<"classLevel" | "programId" | "studentCount" | "name", string>>
+  >({});
 
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [editName, setEditName] = useState("");
   const [editProgramId, setEditProgramId] = useState("");
   const [editSeats, setEditSeats] = useState("");
   const [editTeacherId, setEditTeacherId] = useState(NONE);
+  const [editBaseline, setEditBaseline] = useState<{
+    name: string;
+    programId: string;
+    seats: string;
+    teacherId: string;
+  } | null>(null);
+  const [editErrors, setEditErrors] = useState<
+    Partial<Record<"name" | "programId" | "studentCount", string>>
+  >({});
 
   const reload = useCallback(() => {
     startTransition(async () => {
@@ -175,35 +189,71 @@ export function SchoolClassesBoard({
   }, [programsForClass, programId]);
 
   const openEdit = (target: EditTarget) => {
-    setEditing(target);
-    setEditName(target.kind === "section" ? target.row.name : "");
-    setEditProgramId(target.row.programId);
-    setEditSeats(String(target.row.studentCount));
-
+    const nextName = target.kind === "section" ? target.row.name : "";
+    const nextProgramId = target.row.programId;
+    const nextSeats = String(target.row.studentCount);
+    let nextTeacher = NONE;
     if (target.kind === "section") {
-      setEditTeacherId(target.row.classTeacher?.teacherId ?? NONE);
+      nextTeacher = target.row.classTeacher?.teacherId ?? NONE;
     } else {
       const slot = classCtByKey.get(`${target.row.programId}:${target.row.classLevel}`);
-      setEditTeacherId(slot?.teacherId ?? NONE);
+      nextTeacher = slot?.teacherId ?? NONE;
     }
+    setEditing(target);
+    setEditName(nextName);
+    setEditProgramId(nextProgramId);
+    setEditSeats(nextSeats);
+    setEditTeacherId(nextTeacher);
+    setEditBaseline({
+      name: nextName,
+      programId: nextProgramId,
+      seats: nextSeats,
+      teacherId: nextTeacher,
+    });
+    setEditErrors({});
   };
+
+  const editDirty =
+    !!editing &&
+    !!editBaseline &&
+    (editName !== editBaseline.name ||
+      editProgramId !== editBaseline.programId ||
+      editSeats !== editBaseline.seats ||
+      editTeacherId !== editBaseline.teacherId);
 
   const create = () => {
     const level = Number(classLevel);
     const count = Number(studentCount);
     const sectionName = name.trim();
-    if (!classOptions.includes(level)) {
-      toast.error("That class is not enabled by admin for this school.");
+    const nextErrors: typeof createErrors = {};
+
+    if (!classLevel || !level) {
+      nextErrors.classLevel = "Select a class";
+    } else if (!classOptions.includes(level)) {
+      nextErrors.classLevel = "That class is not enabled for this school";
+    }
+
+    if (!programId) {
+      nextErrors.programId = "Select a program";
+    } else if (
+      level &&
+      !programsForClass.some((row) => row.programId === programId)
+    ) {
+      nextErrors.programId = "That program is not enabled for the selected class";
+    }
+
+    if (!studentCount.trim()) {
+      nextErrors.studentCount = "Enter seats";
+    } else if (!Number.isInteger(count) || count < 1) {
+      nextErrors.studentCount = "Enter a valid seat count (1 or more)";
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setCreateErrors(nextErrors);
       return;
     }
-    if (!level || !programId || !count) {
-      toast.error("Fill class, program, and seats. Section is optional.");
-      return;
-    }
-    if (!programsForClass.some((row) => row.programId === programId)) {
-      toast.error("That program is not enabled for the selected class.");
-      return;
-    }
+    setCreateErrors({});
+
     startTransition(async () => {
       const result = await createSectionAction({
         classLevel: level,
@@ -212,7 +262,7 @@ export function SchoolClassesBoard({
         studentCount: count,
       });
       if (!result.ok) {
-        toast.error(result.message);
+        setCreateErrors({ studentCount: result.message });
         return;
       }
       if (result.result.kind === "class") {
@@ -224,21 +274,31 @@ export function SchoolClassesBoard({
       }
       setName("");
       setStudentCount("30");
+      setCreateErrors({});
       reload();
     });
   };
 
   const saveEdit = () => {
-    if (!editing) return;
+    if (!editing || !editDirty) return;
     const count = Number(editSeats);
-    if (!editProgramId || !count) {
-      toast.error("Fill program and seats.");
-      return;
+    const nextErrors: typeof editErrors = {};
+
+    if (!editProgramId) nextErrors.programId = "Select a program";
+    if (!editSeats.trim()) {
+      nextErrors.studentCount = "Enter seats";
+    } else if (!Number.isInteger(count) || count < 1) {
+      nextErrors.studentCount = "Enter a valid seat count (1 or more)";
     }
     if (editing.kind === "section" && !editName.trim()) {
-      toast.error("Section name is required.");
+      nextErrors.name = "Section name is required";
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setEditErrors(nextErrors);
       return;
     }
+    setEditErrors({});
 
     const teacherId = editTeacherId === NONE ? null : editTeacherId;
 
@@ -250,7 +310,7 @@ export function SchoolClassesBoard({
           studentCount: count,
         });
         if (!result.ok) {
-          toast.error(result.message);
+          setEditErrors({ studentCount: result.message });
           return;
         }
         const ct = await setClassTeacherAction({
@@ -259,7 +319,7 @@ export function SchoolClassesBoard({
           teacherId,
         });
         if (!ct.ok) {
-          toast.error(ct.message);
+          setEditErrors({ name: ct.message });
           return;
         }
         toast.success("Section updated");
@@ -269,10 +329,9 @@ export function SchoolClassesBoard({
           studentCount: count,
         });
         if (!result.ok) {
-          toast.error(result.message);
+          setEditErrors({ studentCount: result.message });
           return;
         }
-        // Clear old program CT if program changed
         if (editProgramId !== editing.row.programId) {
           await setClassTeacherAction({
             kind: "class",
@@ -288,12 +347,13 @@ export function SchoolClassesBoard({
           teacherId,
         });
         if (!ct.ok) {
-          toast.error(ct.message);
+          setEditErrors({ programId: ct.message });
           return;
         }
         toast.success("Class updated");
       }
       setEditing(null);
+      setEditBaseline(null);
       reload();
     });
   };
@@ -327,7 +387,10 @@ export function SchoolClassesBoard({
   if (organization === null || strength === null) {
     return (
       <>
-        <PageHeader title="Classes" description="Create a whole class or add sections." />
+        <PageHeader
+          title="Classes"
+          description="Add classes and sections, then open Students to enrol. Seat limits are enforced."
+        />
         <div className="rounded-2xl border border-dashed border-brand-200 bg-white p-10 text-center text-sm text-neutral-500 shadow-[0_4px_16px_-8px_rgb(25_28_95/0.12)]">
           Loading classes…
         </div>
@@ -335,7 +398,6 @@ export function SchoolClassesBoard({
     );
   }
 
-  const sectionGroups = groupSections(organization.sections);
   const totalCount = organization.wholeClasses.length + organization.sections.length;
   const ceiling = strength.studentStrength;
   const usedPct =
@@ -354,7 +416,7 @@ export function SchoolClassesBoard({
       <PageHeader
         title="Classes"
         count={totalCount}
-        description="Leave section blank for a whole class. Fill section (A/B/C) when you need splits. Only admin-enabled classes appear."
+        description="1) Create a class below · 2) Click Students on a row to add students (limited by seats)."
       />
 
       <div className="space-y-6">
@@ -396,13 +458,20 @@ export function SchoolClassesBoard({
           </div>
         </div>
 
-        <div className={cn(cardShell, "p-5")}>
-          <div className="mb-4">
-            <h3 className="text-sm font-bold text-neutral-950">Add class / section</h3>
-            <p className="mt-1 text-xs text-neutral-500">
-              Class + program + seats. Section is optional — leave empty for whole class, or enter A/B/C
-              for a section.
-            </p>
+        <div className={cn(cardShell, "p-4 sm:p-5")}>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-neutral-950">Create class</h3>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Pick class + program + how many seats. Section is optional (A / B / C).
+              </p>
+            </div>
+            {classOptions.length > 0 ? (
+              <Button type="button" disabled={pending} onClick={create} className="gap-1.5">
+                {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                Create class
+              </Button>
+            ) : null}
           </div>
 
           {classOptions.length === 0 ? (
@@ -410,18 +479,21 @@ export function SchoolClassesBoard({
               Ask admin to enrol programs and classes for this school first.
             </p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.4fr_0.8fr_auto]">
-              <Field>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field data-invalid={createErrors.classLevel ? true : undefined}>
                 <FieldLabel>Class *</FieldLabel>
                 <Select
                   value={classLevel || null}
-                  onValueChange={(value) => setClassLevel(value ?? "")}
+                  onValueChange={(value) => {
+                    setClassLevel(value ?? "");
+                    setCreateErrors((prev) => ({ ...prev, classLevel: undefined }));
+                  }}
                   items={classOptions.map((level) => ({
                     value: String(level),
                     label: `Class ${level}`,
                   }))}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="Select class" />
                   </SelectTrigger>
                   <SelectContent>
@@ -432,30 +504,36 @@ export function SchoolClassesBoard({
                     ))}
                   </SelectContent>
                 </Select>
+                {createErrors.classLevel ? <FieldError>{createErrors.classLevel}</FieldError> : null}
               </Field>
 
-              <Field>
+              <Field data-invalid={createErrors.name ? true : undefined}>
                 <FieldLabel>Section (optional)</FieldLabel>
                 <Input
                   value={name}
+                  className="h-9"
                   onChange={(event) => setName(event.currentTarget.value.toUpperCase())}
-                  placeholder="Leave blank = whole class"
+                  placeholder="e.g. A — blank = whole class"
                   maxLength={32}
                 />
+                {createErrors.name ? <FieldError>{createErrors.name}</FieldError> : null}
               </Field>
 
-              <Field>
+              <Field data-invalid={createErrors.programId ? true : undefined}>
                 <FieldLabel>Program *</FieldLabel>
                 <Select
                   value={programId || null}
-                  onValueChange={(value) => setProgramId(value ?? "")}
+                  onValueChange={(value) => {
+                    setProgramId(value ?? "");
+                    setCreateErrors((prev) => ({ ...prev, programId: undefined }));
+                  }}
                   disabled={!classLevel}
                   items={programsForClass.map((row) => ({
                     value: row.programId,
                     label: row.programName,
                   }))}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder={classLevel ? "Select program" : "Pick class first"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -466,192 +544,214 @@ export function SchoolClassesBoard({
                     ))}
                   </SelectContent>
                 </Select>
+                {createErrors.programId ? <FieldError>{createErrors.programId}</FieldError> : null}
               </Field>
 
-              <Field>
+              <Field data-invalid={createErrors.studentCount ? true : undefined}>
                 <FieldLabel>Seats *</FieldLabel>
                 <Input
                   type="number"
                   min={1}
                   max={5000}
+                  className="h-9"
                   value={studentCount}
-                  onChange={(event) => setStudentCount(event.currentTarget.value)}
+                  onChange={(event) => {
+                    setStudentCount(event.currentTarget.value);
+                    setCreateErrors((prev) => ({ ...prev, studentCount: undefined }));
+                  }}
                 />
+                {createErrors.studentCount ? (
+                  <FieldError>{createErrors.studentCount}</FieldError>
+                ) : null}
               </Field>
-
-              <div className="flex items-end">
-                <Button type="button" className="w-full xl:w-auto" disabled={pending} onClick={create}>
-                  {pending ? <Loader2 className="animate-spin" /> : <Plus />}
-                  Create
-                </Button>
-              </div>
             </div>
           )}
         </div>
 
         {totalCount === 0 ? (
-          <div className="rounded-2xl border border-dashed border-brand-200 bg-white px-6 py-12 text-center text-sm text-neutral-500 shadow-[0_4px_16px_-8px_rgb(25_28_95/0.12)]">
-            Nothing yet. Create a whole class (leave section blank) or add sections.
+          <div className="rounded-2xl border border-dashed border-brand-200 bg-white px-6 py-10 text-center text-sm text-neutral-500">
+            No classes yet. Fill the form above and click <strong>Create class</strong>.
           </div>
         ) : (
-          <div className={cn("space-y-4", pending && "opacity-70 transition-opacity")}>
-            {organization.wholeClasses.length > 0 ? (
-              <section className={cardShell}>
-                <header className="border-b border-brand-100 bg-brand-50/60 px-4 py-3">
-                  <h3 className="text-sm font-bold tracking-tight text-brand-950">
-                    Whole classes (no section)
-                  </h3>
-                  <p className="mt-0.5 text-xs text-neutral-500">
-                    Teachers get class-level subjects and class teacher for these.
-                  </p>
-                </header>
-                <ul className="divide-y divide-brand-50">
-                  {organization.wholeClasses.map((row) => {
-                    const ct = classCtByKey.get(`${row.programId}:${row.classLevel}`);
-                    return (
-                      <li key={row.id} className="flex items-start gap-3 px-4 py-3.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-neutral-950">
-                            Class {row.classLevel}
-                          </p>
-                          <p className="mt-0.5 truncate text-xs text-neutral-500">
-                            {capitalizeWords(row.programName)}
-                          </p>
-                          <p className="mt-1.5 text-xs text-neutral-600">
-                            <span className="font-medium text-neutral-800">
-                              {row.studentCount} seats
+          <div
+            className={cn(
+              "overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]",
+              pending && "opacity-70 transition-opacity",
+            )}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-brand-100 bg-brand-50/70 text-[11px] font-semibold tracking-wider text-neutral-500 uppercase">
+                  <tr>
+                    <th className="px-4 py-2.5">Program</th>
+                    <th className="px-4 py-2.5">Class</th>
+                    <th className="px-4 py-2.5">Section</th>
+                    <th className="px-4 py-2.5">Students</th>
+                    <th className="hidden px-4 py-2.5 md:table-cell">Class teacher</th>
+                    <th className="px-4 py-2.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ...organization.wholeClasses.map((row) => ({
+                      key: `w-${row.id}`,
+                      kind: "class" as const,
+                      row,
+                      programName: row.programName,
+                      classLevel: row.classLevel,
+                      sectionLabel: "—",
+                      enrolled: enrolledByWhole[row.id] ?? 0,
+                      seats: row.studentCount,
+                      teacherName: classCtByKey.get(`${row.programId}:${row.classLevel}`)?.teacherName,
+                      open: () => onOpenStudents?.({ kind: "whole", row }),
+                    })),
+                    ...organization.sections.map((section) => ({
+                      key: `s-${section.id}`,
+                      kind: "section" as const,
+                      row: section,
+                      programName: section.programName,
+                      classLevel: section.classLevel,
+                      sectionLabel: section.name,
+                      enrolled: enrolledBySection[section.id] ?? 0,
+                      seats: section.studentCount,
+                      teacherName: section.classTeacher?.name,
+                      open: () => onOpenStudents?.({ kind: "section", row: section }),
+                    })),
+                  ]
+                    .sort(
+                      (a, b) =>
+                        a.classLevel - b.classLevel ||
+                        a.programName.localeCompare(b.programName) ||
+                        a.sectionLabel.localeCompare(b.sectionLabel),
+                    )
+                    .map((item) => (
+                      <tr
+                        key={item.key}
+                        className="border-b border-neutral-100 last:border-0 hover:bg-brand-50/40"
+                      >
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={item.open}
+                            className="font-medium text-brand-900 hover:underline"
+                          >
+                            {capitalizeWords(item.programName)}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button type="button" onClick={item.open} className="hover:underline">
+                            Class {item.classLevel}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-neutral-700">
+                          <button type="button" onClick={item.open} className="hover:underline">
+                            {item.sectionLabel}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 tabular-nums">
+                          <button type="button" onClick={item.open} className="hover:underline">
+                            <span
+                              className={cn(
+                                "font-medium",
+                                item.enrolled >= item.seats
+                                  ? "text-amber-700"
+                                  : "text-neutral-900",
+                              )}
+                            >
+                              {item.enrolled}/{item.seats}
                             </span>
-                            <span className="text-neutral-300"> · </span>
-                            {ct ? (
-                              <span className="font-medium text-brand-800">
-                                CT {capitalizeWords(ct.teacherName)}
-                              </span>
-                            ) : (
-                              <span className="text-neutral-400">No class teacher</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-0.5">
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <button
-                                  type="button"
-                                  disabled={pending}
-                                  aria-label={`Edit class ${row.classLevel}`}
-                                  onClick={() => openEdit({ kind: "class", row })}
-                                  className={iconBtn}
-                                />
-                              }
-                            >
-                              <Pencil className="size-3.5" strokeWidth={2} />
-                            </TooltipTrigger>
-                            <TooltipContent side="top">Edit</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <button
-                                  type="button"
-                                  disabled={pending}
-                                  aria-label={`Delete class ${row.classLevel}`}
-                                  onClick={() => removeWholeClass(row)}
-                                  className={cn(iconBtn, "text-red-600")}
-                                />
-                              }
-                            >
-                              <Trash2 className="size-3.5" strokeWidth={2} />
-                            </TooltipTrigger>
-                            <TooltipContent side="top">Delete</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              {sectionGroups.map(([level, rows]) => (
-                <section key={level} className={cardShell}>
-                  <header className="flex items-center justify-between border-b border-brand-100 bg-brand-50/60 px-4 py-3">
-                    <h3 className="text-sm font-bold tracking-tight text-brand-950">
-                      Class {level}
-                    </h3>
-                    <span className="rounded-md border border-brand-200 bg-white px-2 py-0.5 text-xs font-medium text-brand-800">
-                      {rows.length} section{rows.length === 1 ? "" : "s"}
-                    </span>
-                  </header>
-                  <ul className="divide-y divide-brand-50">
-                    {rows.map((section) => (
-                      <li key={section.id} className="flex items-start gap-3 px-4 py-3.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-neutral-950">
-                            Section {section.name}
-                          </p>
-                          <p className="mt-0.5 truncate text-xs text-neutral-500">
-                            {capitalizeWords(section.programName)}
-                          </p>
-                          <p className="mt-1.5 text-xs text-neutral-600">
-                            <span className="font-medium text-neutral-800">
-                              {section.studentCount} seats
-                            </span>
-                            <span className="text-neutral-300"> · </span>
-                            {section.classTeacher ? (
-                              <span className="font-medium text-brand-800">
-                                CT {capitalizeWords(section.classTeacher.name)}
-                              </span>
-                            ) : (
-                              <span className="text-neutral-400">No class teacher</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-0.5">
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <button
-                                  type="button"
-                                  disabled={pending}
-                                  aria-label={`Edit section ${section.name}`}
-                                  onClick={() => openEdit({ kind: "section", row: section })}
-                                  className={iconBtn}
-                                />
-                              }
-                            >
-                              <Pencil className="size-3.5" strokeWidth={2} />
-                            </TooltipTrigger>
-                            <TooltipContent side="top">Edit</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <button
-                                  type="button"
-                                  disabled={pending}
-                                  aria-label={`Delete section ${section.name}`}
-                                  onClick={() => removeSection(section)}
-                                  className={cn(iconBtn, "text-red-600")}
-                                />
-                              }
-                            >
-                              <Trash2 className="size-3.5" strokeWidth={2} />
-                            </TooltipTrigger>
-                            <TooltipContent side="top">Delete</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </li>
+                          </button>
+                        </td>
+                        <td className="hidden px-4 py-3 text-neutral-600 md:table-cell">
+                          {item.teacherName ? capitalizeWords(item.teacherName) : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-0.5">
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <button
+                                    type="button"
+                                    onClick={item.open}
+                                    aria-label="Open students"
+                                    className={cn(
+                                      iconBtn,
+                                      "w-auto gap-1 px-2 text-brand-800 hover:bg-brand-50",
+                                    )}
+                                  />
+                                }
+                              >
+                                <Users className="size-3.5" strokeWidth={2} />
+                                <span className="hidden text-xs font-semibold sm:inline">
+                                  Students
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                Open students / add student
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    aria-label="Edit"
+                                    onClick={() => {
+                                      if (item.kind === "class") {
+                                        openEdit({ kind: "class", row: item.row });
+                                      } else {
+                                        openEdit({ kind: "section", row: item.row });
+                                      }
+                                    }}
+                                    className={iconBtn}
+                                  />
+                                }
+                              >
+                                <Pencil className="size-3.5" strokeWidth={2} />
+                              </TooltipTrigger>
+                              <TooltipContent side="top">Edit</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    aria-label="Delete"
+                                    onClick={() => {
+                                      if (item.kind === "class") removeWholeClass(item.row);
+                                      else removeSection(item.row);
+                                    }}
+                                    className={cn(iconBtn, "text-red-600")}
+                                  />
+                                }
+                              >
+                                <Trash2 className="size-3.5" strokeWidth={2} />
+                              </TooltipTrigger>
+                              <TooltipContent side="top">Delete</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </td>
+                      </tr>
                     ))}
-                  </ul>
-                </section>
-              ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
       </div>
 
-      <AlertDialog open={!!editing} onOpenChange={(open) => !open && !pending && setEditing(null)}>
+      <AlertDialog
+        open={!!editing}
+        onOpenChange={(open) => {
+          if (!open && !pending) {
+            setEditing(null);
+            setEditBaseline(null);
+            setEditErrors({});
+          }
+        }}
+      >
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -666,22 +766,27 @@ export function SchoolClassesBoard({
 
           <div className="grid gap-3 py-1">
             {editing?.kind === "section" ? (
-              <Field>
+              <Field data-invalid={editErrors.name ? true : undefined}>
                 <FieldLabel>Section *</FieldLabel>
                 <Input
                   value={editName}
-                  onChange={(event) => setEditName(event.currentTarget.value.toUpperCase())}
+                  onChange={(event) => {
+                    setEditName(event.currentTarget.value.toUpperCase());
+                    setEditErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
                   maxLength={32}
                 />
+                {editErrors.name ? <FieldError>{editErrors.name}</FieldError> : null}
               </Field>
             ) : null}
-            <Field>
+            <Field data-invalid={editErrors.programId ? true : undefined}>
               <FieldLabel>Program *</FieldLabel>
               <Select
                 value={editProgramId || null}
                 onValueChange={(value) => {
                   setEditProgramId(value ?? "");
                   setEditTeacherId(NONE);
+                  setEditErrors((prev) => ({ ...prev, programId: undefined }));
                 }}
                 items={programsForEdit.map((row) => ({
                   value: row.programId,
@@ -699,16 +804,21 @@ export function SchoolClassesBoard({
                   ))}
                 </SelectContent>
               </Select>
+              {editErrors.programId ? <FieldError>{editErrors.programId}</FieldError> : null}
             </Field>
-            <Field>
+            <Field data-invalid={editErrors.studentCount ? true : undefined}>
               <FieldLabel>Seats *</FieldLabel>
               <Input
                 type="number"
                 min={1}
                 max={5000}
                 value={editSeats}
-                onChange={(event) => setEditSeats(event.currentTarget.value)}
+                onChange={(event) => {
+                  setEditSeats(event.currentTarget.value);
+                  setEditErrors((prev) => ({ ...prev, studentCount: undefined }));
+                }}
               />
+              {editErrors.studentCount ? <FieldError>{editErrors.studentCount}</FieldError> : null}
             </Field>
             <Field>
               <FieldLabel>Class teacher</FieldLabel>
@@ -740,10 +850,12 @@ export function SchoolClassesBoard({
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-            <Button type="button" disabled={pending} onClick={saveEdit}>
-              {pending ? <Loader2 className="animate-spin" /> : null}
-              Save
-            </Button>
+            {editDirty ? (
+              <Button type="button" disabled={pending} onClick={saveEdit}>
+                {pending ? <Loader2 className="animate-spin" /> : null}
+                Save
+              </Button>
+            ) : null}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

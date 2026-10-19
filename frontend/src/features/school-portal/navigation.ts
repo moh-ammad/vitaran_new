@@ -60,7 +60,12 @@ export function isSchoolNavActive(href: string, pathname: string): boolean {
 const SEGMENT_LABELS: Record<string, string> = {
   teachers: "Teachers",
   classes: "Classes",
-  new: "Register",
+  organize: "Organize",
+  sections: "Section",
+  whole: "Class",
+  programs: "Programs",
+  students: "Students",
+  new: "Add student",
   edit: "Edit",
   resources: "Resources",
   "answer-keys": "Answer Keys",

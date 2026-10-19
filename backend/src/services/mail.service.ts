@@ -13,9 +13,16 @@ type MailPayload = {
   cc?: string | null;
 };
 
+function appBaseUrl() {
+  return (env.APP_URL ?? getCorsOrigins()[0] ?? "http://localhost:3000").replace(/\/$/, "");
+}
+
 function portalLoginUrl() {
-  const base = (env.APP_URL ?? getCorsOrigins()[0] ?? "http://localhost:3000").replace(/\/$/, "");
-  return `${base}/school/login`;
+  return `${appBaseUrl()}/school/login`;
+}
+
+function studentPortalLoginUrl() {
+  return `${appBaseUrl()}/school/student/login`;
 }
 
 function smtpConfigured() {
@@ -94,8 +101,11 @@ function credentialsHtml(params: {
   loginId: string;
   password: string;
   footerNote: string;
+  loginUrl?: string;
+  loginLabel?: string;
 }) {
-  const loginUrl = portalLoginUrl();
+  const loginUrl = params.loginUrl ?? portalLoginUrl();
+  const loginLabel = params.loginLabel ?? "Login email";
   return `<!DOCTYPE html>
 <html>
 <body style="font-family:Segoe UI,Arial,sans-serif;background:#f6f7fb;padding:24px;color:#171717">
@@ -106,7 +116,7 @@ function credentialsHtml(params: {
       <p style="margin:0 0 16px;line-height:1.5">${escapeHtml(params.intro)}</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin:0 0 20px">
         <tr><td style="padding:16px 18px">
-          <p style="margin:0 0 8px;font-size:13px;color:#64748b">Login email</p>
+          <p style="margin:0 0 8px;font-size:13px;color:#64748b">${escapeHtml(loginLabel)}</p>
           <p style="margin:0 0 14px;font-size:16px;font-weight:600">${escapeHtml(params.loginId)}</p>
           <p style="margin:0 0 8px;font-size:13px;color:#64748b">Password</p>
           <p style="margin:0;font-size:16px;font-weight:600;font-family:ui-monospace,Consolas,monospace">${escapeHtml(params.password)}</p>
@@ -254,6 +264,68 @@ export async function sendTeacherCredentialsEmail(input: {
   });
 
   return teacherSent;
+}
+
+/**
+ * School → student: roll no (or parent email) + password login. Optional email for reset.
+ */
+export async function sendStudentCredentialsEmail(input: {
+  to: string;
+  studentName: string;
+  schoolName: string;
+  schoolEmail?: string | null;
+  schoolCode: string;
+  rollNo: string;
+  password: string;
+  reason: "created" | "password-reset" | "resend";
+}) {
+  const brand = input.schoolName;
+  const schoolEmail = input.schoolEmail?.trim() || null;
+  const subject =
+    input.reason === "password-reset"
+      ? `Your student password was updated — ${input.schoolName}`
+      : `Your student portal account — ${input.schoolName}`;
+  const greeting =
+    input.reason === "password-reset"
+      ? "Password updated"
+      : input.reason === "resend"
+        ? `Login details for ${input.studentName}`
+        : `Welcome, ${input.studentName}`;
+  const intro =
+    input.reason === "password-reset"
+      ? `${input.schoolName} set a new password for your student portal. Sign in with your roll number (or parent/guardian email) and this password.`
+      : `${input.schoolName} created your student portal account. Sign in with your roll number (or parent/guardian email) and the password below.`;
+
+  const loginId = input.rollNo;
+  const text = [
+    brand,
+    greeting,
+    "",
+    `School: ${input.schoolName}`,
+    `Roll number: ${input.rollNo}`,
+    `Password: ${input.password}`,
+    `You can also sign in with the parent/guardian email on the account.`,
+    `Sign in: ${studentPortalLoginUrl()}`,
+  ].join("\n");
+
+  return sendMail({
+    to: input.to,
+    fromName: brand,
+    replyTo: schoolEmail,
+    cc: input.reason === "password-reset" && schoolEmail && schoolEmail !== input.to ? schoolEmail : null,
+    subject,
+    text,
+    html: credentialsHtml({
+      brand,
+      greeting,
+      intro,
+      loginId,
+      loginLabel: "Roll number",
+      password: input.password,
+      footerNote: `Sent by ${input.schoolName}. Sign in at ${studentPortalLoginUrl()}.`,
+      loginUrl: studentPortalLoginUrl(),
+    }),
+  });
 }
 
 export async function sendPasswordResetOtpEmail(input: {

@@ -15,6 +15,14 @@ export const schoolLoginSchema = z.object({
 
 export type SchoolLoginInput = z.infer<typeof schoolLoginSchema>;
 
+/** Student portal: roll number or parent/guardian email + password. */
+export const studentLoginSchema = z.object({
+  identifier: z.string().trim().min(1).max(254),
+  password: z.string().min(1).max(256),
+});
+
+export type StudentLoginInput = z.infer<typeof studentLoginSchema>;
+
 export const forgotPasswordRequestSchema = z.object({
   email: z.email().trim().toLowerCase(),
 });

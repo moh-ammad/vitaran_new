@@ -8,7 +8,7 @@ type AuthShellProps = {
   title: ReactNode;
   description: string;
   highlights: { icon: LucideIcon; title: string; description: string }[];
-  footnote: string;
+  footnote: ReactNode;
   /** The sign-in form. */
   children: ReactNode;
 };

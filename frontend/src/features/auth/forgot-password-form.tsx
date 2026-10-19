@@ -40,7 +40,17 @@ function BackLink({ onBackToLogin }: { onBackToLogin?: () => void }) {
   );
 }
 
-export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin?: () => void }) {
+type ForgotPasswordFormProps = {
+  onBackToLogin?: () => void;
+  description?: string;
+  emailLabel?: string;
+};
+
+export function ForgotPasswordForm({
+  onBackToLogin,
+  description = "Enter your school or teacher login email. We send a one-time code first — only after you verify it do we create and email a new password.",
+  emailLabel = "Login email",
+}: ForgotPasswordFormProps) {
   const [requestState, requestAction, requestPending] = useActionState<
     ForgotPasswordState,
     FormData
@@ -179,10 +189,7 @@ export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin?: () => vo
     <Card className="gap-6 rounded-3xl py-7 shadow-2xl ring-0 [--card-spacing:--spacing(7)]">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-neutral-950">Forgot password</CardTitle>
-        <CardDescription>
-          Enter your school or teacher login email. We send a one-time code first — only after you
-          verify it do we create and email a new password.
-        </CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <form key={requestState?.submittedAt ?? "email"} action={requestAction} noValidate>
@@ -195,7 +202,7 @@ export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin?: () => vo
             ) : null}
 
             <Field data-invalid={emailError ? true : undefined}>
-              <FieldLabel htmlFor={`${id}-email`}>Login email</FieldLabel>
+              <FieldLabel htmlFor={`${id}-email`}>{emailLabel}</FieldLabel>
               <Input
                 id={`${id}-email`}
                 name="email"

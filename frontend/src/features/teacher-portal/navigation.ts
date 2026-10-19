@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ScanLine,
   Trophy,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export const teacherNavGroups: TeacherNavGroup[] = [
   {
     label: "Teaching",
     items: [
+      { title: "Students", href: "/teacher/students", icon: Users },
       { title: "Resources", href: "/teacher/resources", icon: BookOpen },
       { title: "Answer Keys", href: "/teacher/answer-keys", icon: KeyRound },
       { title: "Results", href: "/teacher/results", icon: Trophy },
@@ -51,6 +53,7 @@ export function isTeacherNavActive(href: string, pathname: string): boolean {
 }
 
 const SEGMENT_LABELS: Record<string, string> = {
+  students: "Students",
   resources: "Resources",
   "answer-keys": "Answer Keys",
   results: "Results",

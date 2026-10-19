@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { InPageBackProvider } from "@/components/layout/in-page-back";
 import { SchoolHeader } from "@/components/layout/school-header";
 import { SchoolPageBack } from "@/components/layout/school-page-back";
 import { SchoolSidebar } from "@/components/layout/school-sidebar";
@@ -17,19 +18,21 @@ export default async function SchoolPanelLayout({
 
   return (
     <TooltipProvider>
-      <SidebarProvider
-        defaultOpen={defaultOpen}
-        style={{ "--sidebar-width": "10.8rem" } as React.CSSProperties}
-      >
-        <SchoolSidebar school={school} />
-        <SidebarInset className="min-w-0 bg-neutral-50">
-          <SchoolHeader />
-          <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
-            <SchoolPageBack />
-            {children}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      <InPageBackProvider>
+        <SidebarProvider
+          defaultOpen={defaultOpen}
+          style={{ "--sidebar-width": "10.8rem" } as React.CSSProperties}
+        >
+          <SchoolSidebar school={school} />
+          <SidebarInset className="min-w-0 bg-neutral-50">
+            <SchoolHeader />
+            <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
+              <SchoolPageBack />
+              {children}
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </InPageBackProvider>
       <Toaster theme="light" position="top-right" richColors closeButton />
     </TooltipProvider>
   );

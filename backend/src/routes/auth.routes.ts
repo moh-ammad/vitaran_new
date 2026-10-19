@@ -5,12 +5,19 @@ import {
   verifyForgotPasswordOtp,
 } from "../controllers/forgot-password.controller.js";
 import { getCurrentSchool, schoolLogin } from "../controllers/school-auth.controller.js";
+import { getCurrentStudent, studentLogin } from "../controllers/student-auth.controller.js";
 import { getCurrentTeacher, teacherLogin } from "../controllers/teacher-auth.controller.js";
-import { requireAdmin, requireSchool, requireTeacher } from "../middleware/authenticate.js";
+import {
+  requireAdmin,
+  requireSchool,
+  requireStudent,
+  requireTeacher,
+} from "../middleware/authenticate.js";
 import {
   forgotPasswordRateLimit,
   loginRateLimit,
   schoolLoginRateLimit,
+  studentLoginRateLimit,
   teacherLoginRateLimit,
 } from "../middleware/rate-limit.js";
 import { validate } from "../middleware/validate.js";
@@ -19,6 +26,7 @@ import {
   forgotPasswordVerifySchema,
   loginSchema,
   schoolLoginSchema,
+  studentLoginSchema,
 } from "../schemas/auth.schema.js";
 
 export const authRouter = Router();
@@ -41,6 +49,14 @@ authRouter.post(
   teacherLogin,
 );
 authRouter.get("/teacher/me", requireTeacher, getCurrentTeacher);
+
+authRouter.post(
+  "/student/login",
+  validate(studentLoginSchema),
+  studentLoginRateLimit,
+  studentLogin,
+);
+authRouter.get("/student/me", requireStudent, getCurrentStudent);
 
 authRouter.post(
   "/forgot-password",

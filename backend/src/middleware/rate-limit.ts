@@ -26,6 +26,8 @@ export const loginRateLimit = createLoginRateLimit("email");
 export const schoolLoginRateLimit = createLoginRateLimit("identifier");
 export const teacherLoginRateLimit = createLoginRateLimit("identifier");
 
+export const studentLoginRateLimit = createLoginRateLimit("identifier");
+
 export const forgotPasswordRateLimit = rateLimit({
   windowMs: LOGIN_WINDOW_MS,
   limit: 8,

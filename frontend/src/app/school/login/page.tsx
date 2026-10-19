@@ -54,7 +54,18 @@ export default async function PortalLoginPage() {
       }
       description="One login for schools and teachers. We’ll take you to the right portal."
       highlights={highlights}
-      footnote="Use the login details shared by Vitaran or your school."
+      footnote={
+        <>
+          Use the login details shared by Vitaran or your school. Students sign in at{" "}
+          <a
+            href="/school/student/login"
+            className="font-medium text-brand-800 underline-offset-2 hover:underline"
+          >
+            /school/student/login
+          </a>
+          .
+        </>
+      }
     >
       <PortalLoginForm />
     </AuthShell>

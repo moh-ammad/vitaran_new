@@ -15,6 +15,13 @@ export const TEACHER_LOGIN_PATH = SCHOOL_LOGIN_PATH;
 /** After teacher login — resources is the landing page. */
 export const TEACHER_HOME_PATH = "/teacher/resources";
 
+export const STUDENT_SESSION_COOKIE = "vitaran_student_session";
+export const STUDENT_BASE_PATH = "/student";
+/** Student sign-in sits under the school portal family. */
+export const STUDENT_LOGIN_PATH = "/school/student/login";
+/** After student login — resources only. */
+export const STUDENT_HOME_PATH = "/student/resources";
+
 /** Page the user tried to open before being sent to login; read once after signing in. */
 export const RETURN_TO_COOKIE = "vitaran_return_to";
 
@@ -28,14 +35,21 @@ export function safeRedirectPath(value: unknown, fallback: string): string {
 /** After portal login, only return to paths for that role (else home). */
 export function safePortalReturnPath(
   value: unknown,
-  role: "school" | "teacher",
+  role: "school" | "teacher" | "student",
   fallback: string,
 ): string {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
     return fallback;
   }
   if (role === "school") {
-    return value.startsWith("/school") && !value.startsWith("/school/login") ? value : fallback;
+    return value.startsWith("/school") &&
+      !value.startsWith("/school/login") &&
+      !value.startsWith("/school/student/login")
+      ? value
+      : fallback;
+  }
+  if (role === "student") {
+    return value.startsWith("/student") ? value : fallback;
   }
   if (value.startsWith("/teacher")) return value;
   if (value.startsWith("/answer-keys")) return `/teacher${value}`;
