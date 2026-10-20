@@ -17,6 +17,9 @@ const INPUT_CLASSES = "h-11 rounded-xl px-3.5";
 
 export function StudentLoginForm() {
   const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [identifier, setIdentifier] = useState("");
+  const [forgotHint, setForgotHint] = useState<string | null>(null);
+  const [forgotRollNo, setForgotRollNo] = useState("");
   const [state, formAction, pending] = useActionState<StudentLoginFormState, FormData>(
     studentPortalLogin,
     undefined,
@@ -27,12 +30,30 @@ export function StudentLoginForm() {
   const identifierError = state?.fieldErrors?.identifier?.[0];
   const passwordError = state?.fieldErrors?.password?.[0];
 
+  function startForgotPassword() {
+    const value = identifier.trim();
+    if (!value) {
+      setForgotHint("Enter your roll number above first, then click Forgot password.");
+      return;
+    }
+    if (value.includes("@")) {
+      setForgotHint(
+        "Forgot password needs your roll number (not email). Enter the roll number above — we send the code to the parent/guardian email on file.",
+      );
+      return;
+    }
+    setForgotHint(null);
+    setForgotRollNo(value);
+    setMode("forgot");
+  }
+
   if (mode === "forgot") {
     return (
       <ForgotPasswordForm
+        initialRollNo={forgotRollNo}
+        autoRequest
         onBackToLogin={() => setMode("login")}
-        description="Use the parent / guardian email on your student account. We send a one-time code first — only after you verify it do we create and email a new password."
-        emailLabel="Parent / guardian email"
+        description="Using the roll number from the sign-in form. We send a one-time code only to the parent/guardian email linked to that roll."
       />
     );
   }
@@ -58,6 +79,12 @@ export function StudentLoginForm() {
                 <AlertDescription>{state.message}</AlertDescription>
               </Alert>
             )}
+            {forgotHint && (
+              <Alert className="rounded-xl border-amber-200 bg-amber-50 text-amber-950">
+                <AlertCircle />
+                <AlertDescription>{forgotHint}</AlertDescription>
+              </Alert>
+            )}
 
             <Field data-invalid={identifierError ? true : undefined}>
               <FieldLabel htmlFor={identifierId}>Roll number or email</FieldLabel>
@@ -69,7 +96,11 @@ export function StudentLoginForm() {
                 autoComplete="username"
                 autoFocus
                 placeholder="Roll number or parent/guardian email"
-                defaultValue={state?.identifier ?? ""}
+                value={identifier}
+                onChange={(event) => {
+                  setIdentifier(event.target.value);
+                  if (forgotHint) setForgotHint(null);
+                }}
                 aria-invalid={identifierError ? true : undefined}
                 className={INPUT_CLASSES}
               />
@@ -82,7 +113,7 @@ export function StudentLoginForm() {
                 <button
                   type="button"
                   className="text-xs font-medium text-brand-800 hover:underline"
-                  onClick={() => setMode("forgot")}
+                  onClick={startForgotPassword}
                 >
                   Forgot password?
                 </button>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BookOpenCheck } from "lucide-react";
@@ -32,7 +33,19 @@ export default async function StudentLoginPage() {
       }
       description="Use your roll number or parent/guardian email, plus the password your school gave you."
       highlights={highlights}
-      footnote="Ask your school for your roll number and password. Forgot password uses the email on your account."
+      footnote={
+        <>
+          Ask your school for your roll number and password. Forgot password needs your roll number
+          — we email a code to the parent/guardian address on file. School or teacher?{" "}
+          <Link
+            href="/school/login"
+            className="font-medium text-brand-800 underline-offset-2 hover:underline"
+          >
+            Portal sign in
+          </Link>
+          .
+        </>
+      }
     >
       <StudentLoginForm />
     </AuthShell>

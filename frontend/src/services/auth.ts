@@ -80,10 +80,16 @@ export async function fetchCurrentStudent(token: string): Promise<StudentAccount
   return student;
 }
 
-export function requestForgotPasswordOtp(email: string) {
-  return apiClient<{ ok: true; message: string }>("/auth/forgot-password", {
+export function requestForgotPasswordOtp(input: { email: string } | { rollNo: string }) {
+  return apiClient<{
+    ok: true;
+    message: string;
+    email: string;
+    emailMasked: string;
+    rollNo?: string;
+  }>("/auth/forgot-password", {
     method: "POST",
-    body: { email },
+    body: input,
   });
 }
 

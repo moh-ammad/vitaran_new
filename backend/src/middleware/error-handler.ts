@@ -50,6 +50,11 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P1001") {
+      sendError(res, 503, "Database is temporarily unavailable. Please try again shortly.");
+      return;
+    }
+
     if (error.code === "P2025") {
       sendError(res, 404, "Resource not found");
       return;

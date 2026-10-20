@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BookOpenCheck, ClipboardCheck, ScanLine, Trophy } from "lucide-react";
@@ -56,14 +57,15 @@ export default async function PortalLoginPage() {
       highlights={highlights}
       footnote={
         <>
-          Use the login details shared by Vitaran or your school. Students sign in at{" "}
-          <a
+          Use the login details shared by Vitaran or your school.{" "}
+          <Link
             href="/school/student/login"
             className="font-medium text-brand-800 underline-offset-2 hover:underline"
           >
-            /school/student/login
-          </a>
-          .
+            Student sign in
+          </Link>
+          {" "}
+          (/school/student/login).
         </>
       }
     >

@@ -23,9 +23,23 @@ export const studentLoginSchema = z.object({
 
 export type StudentLoginInput = z.infer<typeof studentLoginSchema>;
 
-export const forgotPasswordRequestSchema = z.object({
-  email: z.email().trim().toLowerCase(),
-});
+/** Portal reset uses login email; student reset uses roll number (looks up parent email). */
+export const forgotPasswordRequestSchema = z
+  .object({
+    email: z.email().trim().toLowerCase().optional(),
+    rollNo: z.string().trim().min(1).max(64).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const hasEmail = Boolean(value.email);
+    const hasRoll = Boolean(value.rollNo);
+    if (hasEmail === hasRoll) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Provide either a login email or a student roll number.",
+        path: hasRoll ? ["rollNo"] : ["email"],
+      });
+    }
+  });
 
 export const forgotPasswordVerifySchema = z.object({
   email: z.email().trim().toLowerCase(),

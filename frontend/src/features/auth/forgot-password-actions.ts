@@ -8,14 +8,20 @@ export type ForgotPasswordState =
   | {
       step: "email" | "otp" | "done";
       email: string;
+      emailMasked?: string;
+      rollNo?: string;
       message?: string;
-      fieldErrors?: Partial<Record<"email" | "otp", string[]>>;
+      fieldErrors?: Partial<Record<"email" | "rollNo" | "otp", string[]>>;
       submittedAt: number;
     }
   | undefined;
 
 const emailSchema = z.object({
   email: z.email({ error: "Enter a valid email address." }).trim().toLowerCase(),
+});
+
+const rollSchema = z.object({
+  rollNo: z.string().trim().min(1, { error: "Enter your roll number." }).max(64),
 });
 
 const verifySchema = z.object({
@@ -26,11 +32,62 @@ const verifySchema = z.object({
     .regex(/^\d{6}$/, { error: "Enter the 6-digit code from your email." }),
 });
 
+function mapApiFieldErrors(error: unknown) {
+  if (!(error instanceof ApiError) || !Array.isArray(error.details)) return undefined;
+  return Object.fromEntries(
+    error.details
+      .filter(
+        (issue): issue is { path: string[]; message: string } =>
+          Array.isArray(issue?.path) && typeof issue?.message === "string",
+      )
+      .map((issue) => [issue.path[0], [issue.message]]),
+  ) as Partial<Record<"email" | "rollNo" | "otp", string[]>>;
+}
+
 export async function requestOtpAction(
   _state: ForgotPasswordState,
   formData: FormData,
 ): Promise<ForgotPasswordState> {
-  const email = String(formData.get("email") ?? "");
+  const email = String(formData.get("email") ?? "").trim();
+  const rollNo = String(formData.get("rollNo") ?? "").trim();
+
+  if (rollNo) {
+    const parsed = rollSchema.safeParse({ rollNo });
+    if (!parsed.success) {
+      return {
+        step: "email",
+        email: "",
+        rollNo,
+        fieldErrors: z.flattenError(parsed.error).fieldErrors,
+        submittedAt: Date.now(),
+      };
+    }
+
+    try {
+      const result = await requestForgotPasswordOtp({ rollNo: parsed.data.rollNo });
+      return {
+        step: "otp",
+        email: result.email,
+        emailMasked: result.emailMasked,
+        rollNo: result.rollNo ?? parsed.data.rollNo,
+        message: result.message,
+        submittedAt: Date.now(),
+      };
+    } catch (error) {
+      return {
+        step: "email",
+        email: "",
+        rollNo: parsed.data.rollNo,
+        message:
+          error instanceof ApiError
+            ? error.message
+            : "We couldn't send a code right now. Please try again.",
+        fieldErrors: mapApiFieldErrors(error),
+        submittedAt: Date.now(),
+      };
+    }
+  }
+
   const parsed = emailSchema.safeParse({ email });
   if (!parsed.success) {
     return {
@@ -42,10 +99,11 @@ export async function requestOtpAction(
   }
 
   try {
-    const result = await requestForgotPasswordOtp(parsed.data.email);
+    const result = await requestForgotPasswordOtp({ email: parsed.data.email });
     return {
       step: "otp",
-      email: parsed.data.email,
+      email: result.email,
+      emailMasked: result.emailMasked,
       message: result.message,
       submittedAt: Date.now(),
     };
@@ -57,6 +115,7 @@ export async function requestOtpAction(
         error instanceof ApiError
           ? error.message
           : "We couldn't send a code right now. Please try again.",
+      fieldErrors: mapApiFieldErrors(error),
       submittedAt: Date.now(),
     };
   }
@@ -68,11 +127,15 @@ export async function verifyOtpAction(
 ): Promise<ForgotPasswordState> {
   const email = String(formData.get("email") ?? "");
   const otp = String(formData.get("otp") ?? "");
+  const emailMasked = String(formData.get("emailMasked") ?? "") || undefined;
+  const rollNo = String(formData.get("rollNo") ?? "") || undefined;
   const parsed = verifySchema.safeParse({ email, otp });
   if (!parsed.success) {
     return {
       step: "otp",
       email,
+      emailMasked,
+      rollNo,
       fieldErrors: z.flattenError(parsed.error).fieldErrors,
       submittedAt: Date.now(),
     };
@@ -83,30 +146,22 @@ export async function verifyOtpAction(
     return {
       step: "done",
       email: parsed.data.email,
+      emailMasked,
+      rollNo,
       message: result.message,
       submittedAt: Date.now(),
     };
   } catch (error) {
-    const fieldErrors =
-      error instanceof ApiError && Array.isArray(error.details)
-        ? Object.fromEntries(
-            error.details
-              .filter(
-                (issue): issue is { path: string[]; message: string } =>
-                  Array.isArray(issue?.path) && typeof issue?.message === "string",
-              )
-              .map((issue) => [issue.path[0], [issue.message]]),
-          )
-        : undefined;
-
     return {
       step: "otp",
       email: parsed.data.email,
+      emailMasked,
+      rollNo,
       message:
         error instanceof ApiError
           ? error.message
           : "We couldn't verify that code. Please try again.",
-      fieldErrors: fieldErrors as ForgotPasswordState extends { fieldErrors?: infer F } ? F : never,
+      fieldErrors: mapApiFieldErrors(error),
       submittedAt: Date.now(),
     };
   }

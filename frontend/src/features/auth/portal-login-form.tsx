@@ -15,6 +15,9 @@ const INPUT_CLASSES = "h-11 rounded-xl px-3.5";
 
 export function PortalLoginForm() {
   const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [identifier, setIdentifier] = useState("");
+  const [forgotHint, setForgotHint] = useState<string | null>(null);
+  const [forgotEmail, setForgotEmail] = useState("");
   const [state, formAction, pending] = useActionState<LoginFormState, FormData>(
     portalLogin,
     undefined,
@@ -25,8 +28,30 @@ export function PortalLoginForm() {
   const identifierError = state?.fieldErrors?.identifier?.[0];
   const passwordError = state?.fieldErrors?.password?.[0];
 
+  function startForgotPassword() {
+    const value = identifier.trim();
+    if (!value) {
+      setForgotHint("Enter your login email above first, then click Forgot password.");
+      return;
+    }
+    if (!value.includes("@")) {
+      setForgotHint("Forgot password needs your login email (not a phone number). Enter it above.");
+      return;
+    }
+    setForgotHint(null);
+    setForgotEmail(value.toLowerCase());
+    setMode("forgot");
+  }
+
   if (mode === "forgot") {
-    return <ForgotPasswordForm onBackToLogin={() => setMode("login")} />;
+    return (
+      <ForgotPasswordForm
+        initialEmail={forgotEmail}
+        autoRequest
+        onBackToLogin={() => setMode("login")}
+        description="Using the email from the sign-in form. We only send a code if it matches a school or teacher account."
+      />
+    );
   }
 
   return (
@@ -47,6 +72,12 @@ export function PortalLoginForm() {
                 <AlertDescription>{state.message}</AlertDescription>
               </Alert>
             )}
+            {forgotHint && (
+              <Alert className="rounded-xl border-amber-200 bg-amber-50 text-amber-950">
+                <AlertCircle />
+                <AlertDescription>{forgotHint}</AlertDescription>
+              </Alert>
+            )}
 
             <Field data-invalid={identifierError ? true : undefined}>
               <FieldLabel htmlFor={identifierId}>Email or phone number</FieldLabel>
@@ -58,7 +89,11 @@ export function PortalLoginForm() {
                 autoComplete="username"
                 autoFocus
                 placeholder="you@example.com"
-                defaultValue={state?.identifier ?? ""}
+                value={identifier}
+                onChange={(event) => {
+                  setIdentifier(event.target.value);
+                  if (forgotHint) setForgotHint(null);
+                }}
                 aria-invalid={identifierError ? true : undefined}
                 className={INPUT_CLASSES}
               />
@@ -71,7 +106,7 @@ export function PortalLoginForm() {
                 <button
                   type="button"
                   className="text-xs font-medium text-brand-800 hover:underline"
-                  onClick={() => setMode("forgot")}
+                  onClick={startForgotPassword}
                 >
                   Forgot password?
                 </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId, useRef } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -42,14 +42,21 @@ function BackLink({ onBackToLogin }: { onBackToLogin?: () => void }) {
 
 type ForgotPasswordFormProps = {
   onBackToLogin?: () => void;
+  /** Portal: login email already entered on the sign-in form. */
+  initialEmail?: string;
+  /** Student: roll number already entered on the sign-in form. */
+  initialRollNo?: string;
+  /** Skip re-entering email/roll and send OTP immediately. */
+  autoRequest?: boolean;
   description?: string;
-  emailLabel?: string;
 };
 
 export function ForgotPasswordForm({
   onBackToLogin,
-  description = "Enter your school or teacher login email. We send a one-time code first — only after you verify it do we create and email a new password.",
-  emailLabel = "Login email",
+  initialEmail,
+  initialRollNo,
+  autoRequest = false,
+  description,
 }: ForgotPasswordFormProps) {
   const [requestState, requestAction, requestPending] = useActionState<
     ForgotPasswordState,
@@ -59,6 +66,15 @@ export function ForgotPasswordForm({
     verifyOtpAction,
     undefined,
   );
+  const autoFormRef = useRef<HTMLFormElement>(null);
+  const autoStarted = useRef(false);
+
+  useEffect(() => {
+    if (!autoRequest || autoStarted.current) return;
+    if (!initialEmail && !initialRollNo) return;
+    autoStarted.current = true;
+    autoFormRef.current?.requestSubmit();
+  }, [autoRequest, initialEmail, initialRollNo]);
 
   const step =
     verifyState?.step === "done"
@@ -66,11 +82,18 @@ export function ForgotPasswordForm({
       : verifyState?.step === "otp" || requestState?.step === "otp"
         ? "otp"
         : "email";
-  const email = verifyState?.email || requestState?.email || "";
+  const email = verifyState?.email || requestState?.email || initialEmail || "";
+  const emailMasked =
+    verifyState?.emailMasked || requestState?.emailMasked || (email ? email : "");
+  const rollNo = verifyState?.rollNo || requestState?.rollNo || initialRollNo || "";
   const pending = requestPending || verifyPending;
   const otpError = verifyState?.fieldErrors?.otp?.[0];
-  const emailError = requestState?.fieldErrors?.email?.[0];
   const id = useId();
+  const isStudent = Boolean(initialRollNo);
+
+  const defaultDescription = isStudent
+    ? "We look up the parent/guardian email on file for your roll number, then send a one-time code there."
+    : "We send a one-time code to your school or teacher login email — only after you verify it do we create and email a new password.";
 
   if (step === "done") {
     return (
@@ -79,8 +102,16 @@ export function ForgotPasswordForm({
           <CardTitle className="text-2xl font-bold text-neutral-950">Password updated</CardTitle>
           <CardDescription>
             Your new password was emailed to{" "}
-            <span className="font-medium text-neutral-800">{email}</span>. The updated password also
-            appears on the admin/school detail page.
+            <span className="font-medium text-neutral-800">
+              {emailMasked || email}
+            </span>
+            {rollNo ? (
+              <>
+                {" "}
+                for roll <span className="font-medium text-neutral-800">{rollNo}</span>
+              </>
+            ) : null}
+            . The updated password also appears on the admin/school detail page.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -114,8 +145,25 @@ export function ForgotPasswordForm({
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-neutral-950">Enter verification code</CardTitle>
           <CardDescription>
-            We sent a 6-digit OTP to <span className="font-medium text-neutral-800">{email}</span>.
-            After you verify it, a new password is emailed automatically.
+            {isStudent ? (
+              <>
+                We sent a 6-digit OTP to the parent/guardian email on file for roll{" "}
+                <span className="font-medium text-neutral-800">{rollNo}</span>
+                {emailMasked ? (
+                  <>
+                    {" "}
+                    (<span className="font-medium text-neutral-800">{emailMasked}</span>)
+                  </>
+                ) : null}
+                . After you verify it, a new password is emailed automatically.
+              </>
+            ) : (
+              <>
+                We sent a 6-digit OTP to{" "}
+                <span className="font-medium text-neutral-800">{emailMasked || email}</span>.
+                After you verify it, a new password is emailed automatically.
+              </>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -125,6 +173,8 @@ export function ForgotPasswordForm({
             noValidate
           >
             <input type="hidden" name="email" value={email} />
+            <input type="hidden" name="emailMasked" value={emailMasked} />
+            {rollNo ? <input type="hidden" name="rollNo" value={rollNo} /> : null}
             <FieldGroup>
               {infoMessage && !errorMessage ? (
                 <Alert className="rounded-xl border-brand-200 bg-brand-50 text-brand-950">
@@ -173,7 +223,11 @@ export function ForgotPasswordForm({
           </form>
 
           <form action={requestAction} className="flex items-center justify-between gap-2">
-            <input type="hidden" name="email" value={email} />
+            {isStudent ? (
+              <input type="hidden" name="rollNo" value={rollNo} />
+            ) : (
+              <input type="hidden" name="email" value={email} />
+            )}
             <BackLink onBackToLogin={onBackToLogin} />
             <Button type="submit" variant="ghost" size="sm" disabled={pending} className="text-xs">
               {requestPending ? <Loader2 className="animate-spin" /> : null}
@@ -185,11 +239,62 @@ export function ForgotPasswordForm({
     );
   }
 
+  // Auto-request from login form values — no second email/roll entry.
+  if (autoRequest && (initialEmail || initialRollNo)) {
+    const requestError =
+      requestState?.step === "email"
+        ? requestState.message ||
+          requestState.fieldErrors?.email?.[0] ||
+          requestState.fieldErrors?.rollNo?.[0]
+        : undefined;
+
+    return (
+      <Card className="gap-6 rounded-3xl py-7 shadow-2xl ring-0 [--card-spacing:--spacing(7)]">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-neutral-950">Forgot password</CardTitle>
+          <CardDescription>{description ?? defaultDescription}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form ref={autoFormRef} action={requestAction} className="sr-only" aria-hidden>
+            {initialRollNo ? (
+              <input type="hidden" name="rollNo" value={initialRollNo} />
+            ) : (
+              <input type="hidden" name="email" value={initialEmail} />
+            )}
+            <button type="submit">Send</button>
+          </form>
+
+          {requestPending || !requestState ? (
+            <Alert className="rounded-xl border-brand-200 bg-brand-50 text-brand-950">
+              <Loader2 className="animate-spin" />
+              <AlertDescription>
+                {isStudent
+                  ? `Looking up roll ${initialRollNo} and sending a code to the parent/guardian email on file…`
+                  : `Sending a verification code to ${initialEmail}…`}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {requestError ? (
+            <Alert variant="destructive" className="rounded-xl border-destructive/20 bg-destructive/5">
+              <AlertCircle />
+              <AlertDescription>{requestError}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="flex justify-center">
+            <BackLink onBackToLogin={onBackToLogin} />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="gap-6 rounded-3xl py-7 shadow-2xl ring-0 [--card-spacing:--spacing(7)]">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-neutral-950">Forgot password</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardDescription>{description ?? defaultDescription}</CardDescription>
       </CardHeader>
       <CardContent>
         <form key={requestState?.submittedAt ?? "email"} action={requestAction} noValidate>
@@ -201,22 +306,39 @@ export function ForgotPasswordForm({
               </Alert>
             ) : null}
 
-            <Field data-invalid={emailError ? true : undefined}>
-              <FieldLabel htmlFor={`${id}-email`}>{emailLabel}</FieldLabel>
-              <Input
-                id={`${id}-email`}
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                autoFocus
-                placeholder="you@example.com"
-                defaultValue={email}
-                aria-invalid={emailError ? true : undefined}
-                className={INPUT_CLASSES}
-              />
-              <FieldError>{emailError}</FieldError>
-            </Field>
+            {isStudent ? (
+              <Field data-invalid={requestState?.fieldErrors?.rollNo?.[0] ? true : undefined}>
+                <FieldLabel htmlFor={`${id}-roll`}>Roll number</FieldLabel>
+                <Input
+                  id={`${id}-roll`}
+                  name="rollNo"
+                  required
+                  autoFocus
+                  placeholder="Your roll number"
+                  defaultValue={rollNo}
+                  aria-invalid={requestState?.fieldErrors?.rollNo?.[0] ? true : undefined}
+                  className={INPUT_CLASSES}
+                />
+                <FieldError>{requestState?.fieldErrors?.rollNo?.[0]}</FieldError>
+              </Field>
+            ) : (
+              <Field data-invalid={requestState?.fieldErrors?.email?.[0] ? true : undefined}>
+                <FieldLabel htmlFor={`${id}-email`}>Login email</FieldLabel>
+                <Input
+                  id={`${id}-email`}
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  autoFocus
+                  placeholder="you@example.com"
+                  defaultValue={email}
+                  aria-invalid={requestState?.fieldErrors?.email?.[0] ? true : undefined}
+                  className={INPUT_CLASSES}
+                />
+                <FieldError>{requestState?.fieldErrors?.email?.[0]}</FieldError>
+              </Field>
+            )}
 
             <Button type="submit" disabled={pending} className="h-11 w-full rounded-full text-sm font-semibold">
               {requestPending ? (

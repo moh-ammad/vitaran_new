@@ -7,8 +7,10 @@ import * as forgotPasswordService from "../services/forgot-password.service.js";
 import { sendSuccess } from "../utils/api-response.js";
 
 export const requestForgotPasswordOtp: RequestHandler = async (req, res) => {
-  const { email } = req.body as ForgotPasswordRequestInput;
-  sendSuccess(res, await forgotPasswordService.requestPasswordResetOtp(email));
+  sendSuccess(
+    res,
+    await forgotPasswordService.requestPasswordResetOtp(req.body as ForgotPasswordRequestInput),
+  );
 };
 
 export const verifyForgotPasswordOtp: RequestHandler = async (req, res) => {
