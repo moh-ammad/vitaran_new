@@ -32,28 +32,43 @@ export type SchoolStatus = (typeof SCHOOL_STATUSES)[number];
 export type Subject = (typeof SUBJECTS)[number];
 export type Program = (typeof PROGRAMS)[number] | string;
 
-export type School = {
+/** List / dashboard row — identity and contact, no programs or credentials. */
+export type SchoolSummary = {
   id: string;
   code: string;
   name: string;
   board: SchoolBoard;
   type: SchoolType;
   status: SchoolStatus;
+  contactName: string;
+  contactEmail: string;
+  city: string;
+  state: string;
+  createdAt: string;
+};
+
+/** Dropdown / filter picker — enrolled program codes and class levels only. */
+export type SchoolOption = {
+  id: string;
+  name: string;
+  code: string;
+  type: SchoolType;
+  programs: string[];
+  programLabels: Record<string, string>;
+  offerings: { code: string; name: string; classLevels: number[] }[];
+};
+
+export type School = SchoolSummary & {
   schoolPrograms: SchoolProgramOffering[];
   programCodes: string[];
   principalName: string | null;
-  contactName: string;
-  contactEmail: string;
   contactPhone: string;
   addressLine: string;
-  city: string;
-  state: string;
   pincode: string;
   studentStrength: number | null;
   notes: string | null;
   accountEmail: string | null;
   accountPhone: string | null;
-  createdAt: string;
   updatedAt: string;
 };
 
@@ -92,7 +107,7 @@ export type Pagination = {
 };
 
 export type SchoolList = {
-  items: School[];
+  items: SchoolSummary[];
   pagination: Pagination;
 };
 
@@ -104,5 +119,11 @@ export type SchoolStats = {
   customized: number;
   byBoard: { board: SchoolBoard; count: number }[];
   byProgram: { program: string; programName: string; count: number }[];
-  recent: School[];
+  recent: SchoolSummary[];
+};
+
+export type AdminDashboard = {
+  schools: SchoolStats;
+  answerKeys: { total: number; published: number };
+  results: { total: number; published: number };
 };

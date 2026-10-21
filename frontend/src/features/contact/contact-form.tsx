@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
+import Form from "next/form";
 import { CheckCircle2, Paperclip, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,8 +41,7 @@ export function ContactForm() {
     setInterest("");
   };
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitContact = () => {
     setSubmitted(true);
   };
 
@@ -78,7 +78,7 @@ export function ContactForm() {
         <CardTitle className="text-2xl font-bold">Drop us a line!</CardTitle>
       </CardHeader>
       <CardContent>
-        <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
+        <Form ref={formRef} action={submitContact} className="space-y-5">
           <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
@@ -224,7 +224,7 @@ export function ContactForm() {
               </Button>
             </div>
           </FieldGroup>
-        </form>
+        </Form>
       </CardContent>
     </Card>
   );

@@ -116,11 +116,28 @@ export type TeacherList = {
 };
 
 export type SchoolDashboardStats = {
+  schoolName: string;
+  schoolCode: string;
   teachers: { total: number; active: number };
   answerKeys: number;
   results: number;
   programs: number;
   subjects: number;
+  classes: number;
+  programLabels: { code: string; name: string }[];
+  subjectIds: string[];
+};
+
+export type TeacherDashboardStats = {
+  name: string;
+  schoolName: string;
+  schoolCode: string;
+  students: number;
+  answerKeys: number;
+  results: number;
+  classLevels: number[];
+  subjects: string[];
+  classTeacherLabels: string[];
 };
 
 export type ClassTeacherRow = {

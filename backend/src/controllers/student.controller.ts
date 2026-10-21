@@ -26,6 +26,22 @@ export const listAdminSchoolStudents: RequestHandler = async (req, res) => {
   );
 };
 
+export const listAdminStudents: RequestHandler = async (req, res) => {
+  sendSuccess(
+    res,
+    await studentService.listStudents(req.query as unknown as ListStudentsQuery),
+  );
+};
+
+export const getAdminSchoolStudentCounts: RequestHandler = async (req, res) => {
+  sendSuccess(res, await studentService.getSchoolStudentCounts(String(req.params.schoolId)));
+};
+
+export const getSchoolStudentCounts: RequestHandler = async (_req, res) => {
+  const school = res.locals.school as SchoolAccountDto;
+  sendSuccess(res, await studentService.getSchoolStudentCounts(school.id));
+};
+
 export const listTeacherStudents: RequestHandler = async (req, res) => {
   const teacher = res.locals.teacher as TeacherAccountDto;
   sendSuccess(

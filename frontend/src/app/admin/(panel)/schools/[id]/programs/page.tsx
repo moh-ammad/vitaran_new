@@ -3,20 +3,18 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/features/admin/page-header";
 import { AdminRowActions } from "@/features/students/admin-row-actions";
 import { getSchool } from "@/services/schools";
-import { listAdminSchoolStudents } from "@/services/students";
+import { getAdminSchoolStudentCounts } from "@/services/students";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function AdminSchoolProgramsPage({ params }: Props) {
   const { id } = await params;
-  const school = await getSchool(id);
+  const [school, counts] = await Promise.all([
+    getSchool(id),
+    getAdminSchoolStudentCounts(id),
+  ]);
   if (!school) notFound();
-
-  const students = await listAdminSchoolStudents(id, { pageSize: 200 });
-  const countByProgram = new Map<string, number>();
-  for (const student of students.items) {
-    countByProgram.set(student.programId, (countByProgram.get(student.programId) ?? 0) + 1);
-  }
+  const countByProgram = counts.byProgram;
 
   return (
     <>
@@ -48,7 +46,7 @@ export default async function AdminSchoolProgramsPage({ params }: Props) {
                 <p className="mt-0.5 text-xs text-neutral-500">
                   {program.classes.length} class
                   {program.classes.length === 1 ? "" : "es"} ·{" "}
-                  {countByProgram.get(program.programId) ?? 0} students · year {program.year}
+                  {countByProgram[program.programId] ?? 0} students · year {program.year}
                 </p>
               </div>
               <AdminRowActions

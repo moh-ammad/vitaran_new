@@ -2,11 +2,13 @@ import "server-only";
 import { ApiError } from "@/services/api-client";
 import { adminApi } from "@/services/admin-api";
 import { schoolApi } from "@/services/school-api";
+import { teacherApi } from "@/services/teacher-api";
 import type { SchoolSection } from "@/types/section";
 import type {
   ClassTeacherSlot,
   SchoolDashboardStats,
   Teacher,
+  TeacherDashboardStats,
   TeacherDetail,
   TeacherInput,
   TeacherList,
@@ -86,6 +88,10 @@ export function resetAdminTeacherPassword(id: string, password: string) {
 
 export function getSchoolDashboard() {
   return schoolApi<SchoolDashboardStats>(`${SCHOOL_BASE}/dashboard`);
+}
+
+export function getTeacherDashboard() {
+  return teacherApi<TeacherDashboardStats>("/teacher/students/dashboard");
 }
 
 export function listSchoolTeachers(params?: Omit<ListParams, "schoolId">) {

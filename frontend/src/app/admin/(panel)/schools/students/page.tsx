@@ -1,7 +1,6 @@
 import { PageHeader } from "@/features/admin/page-header";
 import { StudentsTable } from "@/features/students/students-table";
-import { listSchools } from "@/services/schools";
-import { listAdminSchoolStudents } from "@/services/students";
+import { listAdminStudents } from "@/services/students";
 
 type Props = {
   searchParams: Promise<{ schoolId?: string }>;
@@ -9,47 +8,32 @@ type Props = {
 
 export default async function AdminAllStudentsPage({ searchParams }: Props) {
   const { schoolId } = await searchParams;
-  const schools = await listSchools({ pageSize: 100 });
-  const schoolMap = new Map(schools.items.map((s) => [s.id, s]));
-
-  const targets = schoolId
-    ? schools.items.filter((s) => s.id === schoolId)
-    : schools.items;
-
-  const batches = await Promise.all(
-    targets.map(async (school) => {
-      const list = await listAdminSchoolStudents(school.id, { pageSize: 200 });
-      return list.items.map((student) => ({
-        ...student,
-        schoolName: school.name,
-      }));
-    }),
-  );
-
-  const students = batches.flat().sort((a, b) => {
-    const schoolCmp = (a.schoolName ?? "").localeCompare(b.schoolName ?? "");
-    if (schoolCmp !== 0) return schoolCmp;
-    return a.classLevel - b.classLevel || a.rollNo.localeCompare(b.rollNo);
-  });
-
-  const filterSchool = schoolId ? schoolMap.get(schoolId) : null;
+  const { items, pagination } = await listAdminStudents({ schoolId, pageSize: 100 });
+  const filterSchoolName = schoolId ? items[0]?.schoolName : null;
+  const truncated = pagination.total > items.length;
 
   return (
     <>
       <PageHeader
         title="Students"
         description={
-          filterSchool
-            ? `${filterSchool.name} · open a row to view or edit`
+          filterSchoolName
+            ? `${filterSchoolName} · open a row to view or edit`
             : "All students across schools. Open a school for a focused roster, or pick a student here."
         }
-        count={students.length}
+        count={pagination.total}
       />
 
+      {truncated ? (
+        <p className="mb-3 text-xs text-neutral-500">
+          Showing the first {items.length} of {pagination.total}. Open a school to see its full roster.
+        </p>
+      ) : null}
+
       <StudentsTable
-        students={students}
+        students={items}
         mode="admin"
-        showSchool={!filterSchool}
+        showSchool={!schoolId}
         emptyMessage="No students yet. Schools add them from their portal, or open a school and use Add student."
       />
     </>

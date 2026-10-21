@@ -5,6 +5,7 @@ import {
   getAccountAvailability,
   getSchool,
   getSchoolStats,
+  listSchoolOptions,
   listSchools,
   resetSchoolPassword,
   sendSchoolCredentials,
@@ -15,6 +16,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accountAvailabilityQuerySchema,
   createSchoolSchema,
+  listSchoolOptionsQuerySchema,
   listSchoolsQuerySchema,
   resetSchoolPasswordSchema,
   schoolIdParamsSchema,
@@ -27,6 +29,11 @@ schoolRouter.use(requireAdmin);
 
 schoolRouter.get("/", validate(listSchoolsQuerySchema, "query"), listSchools);
 schoolRouter.get("/stats", getSchoolStats);
+schoolRouter.get(
+  "/options",
+  validate(listSchoolOptionsQuerySchema, "query"),
+  listSchoolOptions,
+);
 schoolRouter.get(
   "/account-availability",
   validate(accountAvailabilityQuerySchema, "query"),

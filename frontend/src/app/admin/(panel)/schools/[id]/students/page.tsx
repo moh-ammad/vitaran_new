@@ -14,7 +14,7 @@ export default async function AdminSchoolStudentsPage({ params }: Props) {
   const { id } = await params;
   const [school, students] = await Promise.all([
     getSchool(id),
-    listAdminSchoolStudents(id, { pageSize: 200 }),
+    listAdminSchoolStudents(id, { pageSize: 50 }),
   ]);
   if (!school) notFound();
 

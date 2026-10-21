@@ -3,7 +3,7 @@ import { PageHeader } from "@/features/admin/page-header";
 import { AdminRowActions } from "@/features/students/admin-row-actions";
 import { listAdminSchoolSections } from "@/services/sections";
 import { getSchool } from "@/services/schools";
-import { listAdminSchoolStudents } from "@/services/students";
+import { getAdminSchoolStudentCounts } from "@/services/students";
 
 type Props = { params: Promise<{ id: string; programId: string }> };
 
@@ -15,9 +15,9 @@ export default async function AdminSchoolProgramClassesPage({ params }: Props) {
   const program = school.schoolPrograms.find((p) => p.programId === programId);
   if (!program) notFound();
 
-  const [organization, students] = await Promise.all([
+  const [organization, counts] = await Promise.all([
     listAdminSchoolSections(id),
-    listAdminSchoolStudents(id, { programId, pageSize: 200 }),
+    getAdminSchoolStudentCounts(id),
   ]);
 
   const sections = organization.sections.filter((s) => s.programId === programId);
@@ -31,10 +31,11 @@ export default async function AdminSchoolProgramClassesPage({ params }: Props) {
     ]),
   ].sort((a, b) => a - b);
 
-  const countByLevel = new Map<number, number>();
-  for (const student of students.items) {
-    countByLevel.set(student.classLevel, (countByLevel.get(student.classLevel) ?? 0) + 1);
-  }
+  const countByLevel = Object.fromEntries(
+    counts.byClass
+      .filter((row) => row.programId === programId)
+      .map((row) => [row.classLevel, row.count]),
+  );
 
   return (
     <>
@@ -64,7 +65,7 @@ export default async function AdminSchoolProgramClassesPage({ params }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-neutral-950">Class {level}</p>
                   <p className="mt-0.5 text-xs text-neutral-500">
-                    {detail} · {countByLevel.get(level) ?? 0} students
+                    {detail} · {countByLevel[level] ?? 0} students
                   </p>
                 </div>
                 <AdminRowActions

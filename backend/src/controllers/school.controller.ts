@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import type {
   AccountAvailabilityQuery,
   CreateSchoolInput,
+  ListSchoolOptionsQuery,
   ListSchoolsQuery,
   ResetSchoolPasswordInput,
   UpdateSchoolInput,
@@ -15,6 +16,13 @@ export const listSchools: RequestHandler = async (req, res) => {
   sendSuccess(
     res,
     await schoolService.listSchools(req.query as unknown as ListSchoolsQuery),
+  );
+};
+
+export const listSchoolOptions: RequestHandler = async (req, res) => {
+  sendSuccess(
+    res,
+    await schoolService.listSchoolOptions(req.query as unknown as ListSchoolOptionsQuery),
   );
 };
 

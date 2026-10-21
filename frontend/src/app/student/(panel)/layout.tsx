@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { LogOut } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
+import { PanelFallback } from "@/features/admin/dashboard-parts";
 import { studentLogout } from "@/features/student-auth/actions";
 import { verifyStudentSession } from "@/features/student-auth/session";
 import { cn } from "@/lib/utils";
@@ -41,7 +43,9 @@ export default async function StudentPanelLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+        <Suspense fallback={<PanelFallback />}>{children}</Suspense>
+      </main>
       <Toaster theme="light" position="top-right" richColors closeButton />
     </div>
   );

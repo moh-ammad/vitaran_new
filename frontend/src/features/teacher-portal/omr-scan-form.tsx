@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Form from "next/form";
 import { Camera, CheckCircle2, Loader2, ScanLine, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -47,28 +48,29 @@ export function OmrScanForm({ tests, teacherName }: OmrScanFormProps) {
 
   const classes = selected?.classLevels ?? [];
 
-  return (
-    <form
-      className="mx-auto max-w-2xl space-y-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!selected || !classLevel || !file) {
-          toast.error("Pick a test, class, and OMR sheet image.");
-          return;
-        }
+  function submitScan() {
+    if (!selected || !classLevel || !file) {
+      toast.error("Pick a test, class, and OMR sheet image.");
+      return;
+    }
 
-        startTransition(async () => {
-          // Client-side capture for now — processing pipeline comes next.
-          await new Promise((resolve) => setTimeout(resolve, 600));
-          setDone({
-            testNumber: selected.testNumber,
-            classLevel: Number(classLevel),
-            fileName: file.name,
-          });
-          toast.success("OMR sheet received");
-          setFile(null);
-        });
-      }}
+    startTransition(async () => {
+      // Client-side capture for now — processing pipeline comes next.
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      setDone({
+        testNumber: selected.testNumber,
+        classLevel: Number(classLevel),
+        fileName: file.name,
+      });
+      toast.success("OMR sheet received");
+      setFile(null);
+    });
+  }
+
+  return (
+    <Form
+      action={submitScan}
+      className="mx-auto max-w-2xl space-y-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8"
     >
       <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
         <p className="text-xs font-semibold tracking-wider text-brand-700 uppercase">OMR Scan</p>
@@ -208,6 +210,6 @@ export function OmrScanForm({ tests, teacherName }: OmrScanFormProps) {
           </div>
         </div>
       )}
-    </form>
+    </Form>
   );
 }

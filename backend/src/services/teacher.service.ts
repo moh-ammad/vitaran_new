@@ -107,20 +107,7 @@ export function toTeacherDetailDto(teacher: TeacherRecord): TeacherDetailDto {
 }
 
 export function toTeacherAccountDto(teacher: TeacherRecord): TeacherAccountDto {
-  const schoolPrograms = teacher.school.schoolPrograms.map((row) => ({
-    programId: row.programId,
-    programCode: row.program.code,
-    programName: row.program.name,
-    year: row.program.year,
-    classFrom: row.program.classFrom,
-    classTo: row.program.classTo,
-    catalogSubjects: row.program.subjects,
-    classes: row.classes.map((cls) => ({
-      classLevel: cls.classLevel,
-      subjects: cls.subjects,
-    })),
-  }));
-
+  const assignments = toAssignments(teacher);
   return {
     id: teacher.id,
     name: teacher.name,
@@ -128,7 +115,7 @@ export function toTeacherAccountDto(teacher: TeacherRecord): TeacherAccountDto {
     phone: teacher.phone,
     status: teacher.status,
     schoolId: teacher.schoolId,
-    assignments: toAssignments(teacher),
+    assignments,
     classTeacherSections: [
       ...teacher.classTeacherOfClasses.map((row) => ({
         kind: "class" as const,
@@ -152,8 +139,8 @@ export function toTeacherAccountDto(teacher: TeacherRecord): TeacherAccountDto {
       name: teacher.school.name,
       code: teacher.school.code,
       type: teacher.school.type,
-      schoolPrograms,
-      programCodes: schoolPrograms.map((row) => row.programCode),
+      schoolPrograms: [],
+      programCodes: [...new Set(assignments.map((row) => row.programCode))],
     },
   };
 }

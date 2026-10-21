@@ -2,11 +2,13 @@ import "server-only";
 import { ApiError } from "@/services/api-client";
 import { adminApi } from "@/services/admin-api";
 import type {
+  AdminDashboard,
   School,
   SchoolBoard,
   SchoolDetail,
   SchoolInput,
   SchoolList,
+  SchoolOption,
   SchoolStats,
   SchoolStatus,
   SchoolType,
@@ -32,39 +34,21 @@ export function listSchools(params: SchoolListParams = {}) {
   return adminApi<SchoolList>(`/schools${suffix}`);
 }
 
-/** Options for customized answer-key upload — includes enrolled class levels per program. */
-export async function listCustomizedSchoolOptions() {
-  const { items } = await listSchools({ type: "CUSTOMIZED", pageSize: 100 });
-  return items.map(({ id, name, code, schoolPrograms }) => ({
-    id,
-    name,
-    code,
-    offerings: schoolPrograms.map((row) => ({
-      code: row.programCode,
-      name: row.programName,
-      classLevels: row.classes.map((cls) => cls.classLevel).sort((a, b) => a - b),
-    })),
-  }));
+export function listSchoolOptions(params: { type?: SchoolType; status?: SchoolStatus } = {}) {
+  const query = new URLSearchParams();
+  if (params.type) query.set("type", params.type);
+  if (params.status) query.set("status", params.status);
+  const suffix = query.size > 0 ? `?${query}` : "";
+  return adminApi<SchoolOption[]>(`/schools/options${suffix}`);
 }
 
-/** Options for pickers that target any school, with its type and enrolled programs. */
-export async function listSchoolOptions() {
-  const { items } = await listSchools({ pageSize: 100 });
-  return items.map(({ id, name, code, type, programCodes, schoolPrograms }) => ({
-    id,
-    name,
-    code,
-    type,
-    programs: programCodes,
-    programLabels: Object.fromEntries(
-      schoolPrograms.map((row) => [row.programCode, row.programName]),
-    ),
-    offerings: schoolPrograms.map((row) => ({
-      code: row.programCode,
-      name: row.programName,
-      classLevels: row.classes.map((cls) => cls.classLevel).sort((a, b) => a - b),
-    })),
-  }));
+/** Options for customized answer-key upload — enrolled class levels per program. */
+export function listCustomizedSchoolOptions() {
+  return listSchoolOptions({ type: "CUSTOMIZED" });
+}
+
+export function getAdminDashboard() {
+  return adminApi<AdminDashboard>("/dashboard");
 }
 
 export function getSchoolStats() {

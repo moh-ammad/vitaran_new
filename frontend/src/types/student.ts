@@ -3,6 +3,7 @@ export type StudentStatus = "ACTIVE" | "INACTIVE";
 export type Student = {
   id: string;
   schoolId: string;
+  schoolName: string;
   name: string;
   rollNo: string;
   email: string | null;

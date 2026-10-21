@@ -9,7 +9,7 @@ import { PageHeader } from "@/features/admin/page-header";
 import { StudentDetailView } from "@/features/students/student-detail-view";
 import { StudentForm } from "@/features/students/student-form";
 import { StudentsTable } from "@/features/students/students-table";
-import { loadSchoolStudentAction } from "@/features/students/actions";
+import { loadSchoolRosterAction, loadSchoolStudentAction } from "@/features/students/actions";
 import { SchoolClassesBoard } from "@/features/teachers/school-classes-board";
 import { capitalizeWords } from "@/features/schools/schema";
 import type { SchoolProgramOffering } from "@/types/program";
@@ -94,7 +94,17 @@ export function SchoolClassesWorkspace({
     );
   }, [view, students]);
 
-  const openRoster = (focus: RosterFocus) => setView({ name: "roster", focus });
+  const openRoster = (focus: RosterFocus) => {
+    setView({ name: "roster", focus });
+    startTransition(async () => {
+      const items = await loadSchoolRosterAction(
+        focus.kind === "section"
+          ? { sectionId: focus.row.id }
+          : { programId: focus.row.programId, classLevel: focus.row.classLevel, wholeClass: true },
+      );
+      setStudents(items);
+    });
+  };
 
   const openStudent = (studentId: string, focus: RosterFocus) => {
     startTransition(async () => {

@@ -8,11 +8,12 @@ import {
   createSchoolStudent,
   deleteSchoolStudent,
   getSchoolStudent,
+  listSchoolStudents,
   resetSchoolStudentPassword,
   sendSchoolStudentCredentials,
   updateSchoolStudent,
 } from "@/services/students";
-import type { CreateStudentInput, StudentDetail } from "@/types/student";
+import type { CreateStudentInput, Student, StudentDetail } from "@/types/student";
 
 export type StudentFormState = {
   values?: Partial<CreateStudentInput>;
@@ -203,6 +204,16 @@ export async function deleteStudentInPlaceAction(id: string) {
 
 export async function loadSchoolStudentAction(id: string): Promise<StudentDetail | null> {
   return getSchoolStudent(id);
+}
+
+export async function loadSchoolRosterAction(params: {
+  sectionId?: string;
+  programId?: string;
+  classLevel?: number;
+  wholeClass?: boolean;
+}): Promise<Student[]> {
+  const list = await listSchoolStudents({ ...params, pageSize: 100 });
+  return list.items;
 }
 
 export async function sendStudentCredentialsAction(id: string) {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/features/admin/page-header";
 import { getSchool } from "@/services/schools";
-import { listAdminSchoolStudents } from "@/services/students";
+import { getAdminSchoolStudentCounts } from "@/services/students";
 
 type Props = { params: Promise<{ id: string; classLevel: string }> };
 
@@ -19,11 +19,12 @@ export default async function AdminSchoolClassLevelPage({ params }: Props) {
   );
   if (programs.length === 0) notFound();
 
-  const students = await listAdminSchoolStudents(id, { classLevel, pageSize: 200 });
-  const countByProgram = new Map<string, number>();
-  for (const student of students.items) {
-    countByProgram.set(student.programId, (countByProgram.get(student.programId) ?? 0) + 1);
-  }
+  const counts = await getAdminSchoolStudentCounts(id);
+  const countByProgram = Object.fromEntries(
+    counts.byClass
+      .filter((row) => row.classLevel === classLevel)
+      .map((row) => [row.programId, row.count]),
+  );
 
   return (
     <>
@@ -40,7 +41,7 @@ export default async function AdminSchoolClassLevelPage({ params }: Props) {
             >
               <h2 className="text-lg font-bold text-brand-950">{program.programName}</h2>
               <p className="mt-2 text-sm text-neutral-600">
-                {countByProgram.get(program.programId) ?? 0} students
+                {countByProgram[program.programId] ?? 0} students
               </p>
             </Link>
           </li>

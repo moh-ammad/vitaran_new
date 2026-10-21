@@ -1,36 +1,24 @@
 import { SchoolClassesWorkspace } from "@/features/students/school-classes-workspace";
 import { verifySchoolSession } from "@/features/school-auth/session";
 import { listSchoolClassOrganization } from "@/services/sections";
-import { listSchoolStudents } from "@/services/students";
+import { getSchoolStudentCounts } from "@/services/students";
 import { listSchoolClassTeacherSlots, listSchoolTeachers } from "@/services/teachers";
 
 export default async function SchoolClassesPage() {
-  const [school, teachersList, classTeacherSlots, organization, students] = await Promise.all([
+  const [school, teachersList, classTeacherSlots, organization, counts] = await Promise.all([
     verifySchoolSession(),
-    listSchoolTeachers({ pageSize: 200, status: "ACTIVE" }),
+    listSchoolTeachers({ pageSize: 50, status: "ACTIVE" }),
     listSchoolClassTeacherSlots(),
     listSchoolClassOrganization(),
-    listSchoolStudents({ pageSize: 200 }),
+    getSchoolStudentCounts(),
   ]);
 
-  const enrolledBySection = new Map<string, number>();
-  const enrolledByWhole = new Map<string, number>();
-
-  for (const student of students.items) {
-    if (student.sectionId) {
-      enrolledBySection.set(
-        student.sectionId,
-        (enrolledBySection.get(student.sectionId) ?? 0) + 1,
-      );
-      continue;
-    }
-    const whole = organization.wholeClasses.find(
-      (row) =>
-        row.classLevel === student.classLevel && row.programId === student.programId,
+  const enrolledByWhole: Record<string, number> = {};
+  for (const row of organization.wholeClasses) {
+    const match = counts.byWhole.find(
+      (item) => item.programId === row.programId && item.classLevel === row.classLevel,
     );
-    if (whole) {
-      enrolledByWhole.set(whole.id, (enrolledByWhole.get(whole.id) ?? 0) + 1);
-    }
+    enrolledByWhole[row.id] = match?.count ?? 0;
   }
 
   return (
@@ -38,10 +26,10 @@ export default async function SchoolClassesPage() {
       schoolPrograms={school.schoolPrograms}
       teachers={teachersList.items}
       classTeacherSlots={classTeacherSlots}
-      students={students.items}
+      students={[]}
       sections={organization.sections}
-      enrolledBySection={Object.fromEntries(enrolledBySection)}
-      enrolledByWhole={Object.fromEntries(enrolledByWhole)}
+      enrolledBySection={counts.bySection}
+      enrolledByWhole={enrolledByWhole}
     />
   );
 }

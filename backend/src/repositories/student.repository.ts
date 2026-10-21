@@ -78,13 +78,30 @@ export function findStudentsByRoll(rollNo: string) {
   });
 }
 
+export const studentListSelect = {
+  id: true,
+  schoolId: true,
+  name: true,
+  rollNo: true,
+  email: true,
+  programId: true,
+  classLevel: true,
+  sectionId: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  school: { select: { id: true, name: true, code: true } },
+  program: { select: { code: true, name: true } },
+  section: { select: { id: true, name: true } },
+} satisfies Prisma.StudentSelect;
+
 export async function findStudents(query: ListFilter) {
   const where = listWhere(query);
   const skip = (query.page - 1) * query.pageSize;
   const [items, total] = await Promise.all([
     prisma.student.findMany({
       where,
-      include: studentInclude,
+      select: studentListSelect,
       orderBy: [{ classLevel: "asc" }, { rollNo: "asc" }],
       skip,
       take: query.pageSize,
@@ -92,6 +109,32 @@ export async function findStudents(query: ListFilter) {
     prisma.student.count({ where }),
   ]);
   return { items, total };
+}
+
+export async function countStudentsGrouped(schoolId: string) {
+  const [byProgram, byClass, bySection, byWhole] = await Promise.all([
+    prisma.student.groupBy({
+      by: ["programId"],
+      where: { schoolId },
+      _count: { _all: true },
+    }),
+    prisma.student.groupBy({
+      by: ["programId", "classLevel"],
+      where: { schoolId },
+      _count: { _all: true },
+    }),
+    prisma.student.groupBy({
+      by: ["sectionId"],
+      where: { schoolId, sectionId: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.student.groupBy({
+      by: ["programId", "classLevel"],
+      where: { schoolId, sectionId: null },
+      _count: { _all: true },
+    }),
+  ]);
+  return { byProgram, byClass, bySection, byWhole };
 }
 
 export function countStudents(where: Prisma.StudentWhereInput) {
@@ -171,7 +214,7 @@ export async function findStudentsForTeacher(
   const [items, total] = await Promise.all([
     prisma.student.findMany({
       where,
-      include: studentInclude,
+      select: studentListSelect,
       orderBy: [{ classLevel: "asc" }, { rollNo: "asc" }],
       skip,
       take: query.pageSize,

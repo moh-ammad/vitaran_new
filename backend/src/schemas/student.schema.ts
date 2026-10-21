@@ -37,6 +37,7 @@ export const updateStudentSchema = z
 export const listStudentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(50),
+  schoolId: z.uuid().optional(),
   programId: z.uuid().optional(),
   classLevel: z.coerce.number().int().min(1).max(12).optional(),
   sectionId: z.uuid().optional(),

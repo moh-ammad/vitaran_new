@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { getTeacherDashboard } from "../controllers/portal.controller.js";
 import {
   createAdminSchoolStudent,
   createStudent,
@@ -9,7 +10,10 @@ import {
   getAdminSchoolStudent,
   getAdminStudent,
   getStudent,
+  getAdminSchoolStudentCounts,
+  getSchoolStudentCounts,
   listAdminSchoolStudents,
+  listAdminStudents,
   listStudents,
   listTeacherStudents,
   resetAdminStudentPassword,
@@ -39,6 +43,7 @@ const schoolStudentParams = z.object({ schoolId: z.uuid(), id: z.uuid() });
 /** School portal: manage this school's students. */
 export const schoolStudentRouter = Router();
 schoolStudentRouter.use(requireSchool);
+schoolStudentRouter.get("/counts", getSchoolStudentCounts);
 schoolStudentRouter.get("/", validate(listStudentsQuerySchema, "query"), listStudents);
 schoolStudentRouter.post("/", validate(createStudentSchema), createStudent);
 schoolStudentRouter.get("/:id", validateStudentId, getStudent);
@@ -61,6 +66,11 @@ schoolStudentRouter.delete("/:id", validateStudentId, deleteStudent);
 /** Admin: students under a school. */
 export const adminSchoolStudentRouter = Router({ mergeParams: true });
 adminSchoolStudentRouter.use(requireAdmin);
+adminSchoolStudentRouter.get(
+  "/counts",
+  validate(schoolIdParams, "params"),
+  getAdminSchoolStudentCounts,
+);
 adminSchoolStudentRouter.get(
   "/",
   validate(schoolIdParams, "params"),
@@ -93,6 +103,7 @@ adminSchoolStudentRouter.delete(
 /** Admin: flat student routes (short URLs — no school id in path). */
 export const adminStudentRouter = Router();
 adminStudentRouter.use(requireAdmin);
+adminStudentRouter.get("/", validate(listStudentsQuerySchema, "query"), listAdminStudents);
 adminStudentRouter.get("/:id", validateStudentId, getAdminStudent);
 adminStudentRouter.patch("/:id", validateStudentId, validate(updateStudentSchema), updateAdminStudent);
 adminStudentRouter.delete("/:id", validateStudentId, deleteAdminStudent);
@@ -107,4 +118,5 @@ adminStudentRouter.post(
 /** Teacher portal: roster for assigned / class-teacher classes. */
 export const teacherStudentRouter = Router();
 teacherStudentRouter.use(requireTeacher);
+teacherStudentRouter.get("/dashboard", getTeacherDashboard);
 teacherStudentRouter.get("/", validate(listStudentsQuerySchema, "query"), listTeacherStudents);

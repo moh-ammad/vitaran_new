@@ -12,6 +12,7 @@ import type {
 } from "@/types/student";
 
 type ListParams = {
+  schoolId?: string;
   programId?: string;
   classLevel?: number;
   sectionId?: string;
@@ -33,6 +34,23 @@ function queryString(params: ListParams = {}) {
 
 export function listSchoolStudents(params?: ListParams) {
   return schoolApi<StudentListResult>(`/school/students${queryString(params)}`);
+}
+
+export type SchoolStudentCounts = {
+  byProgram: Record<string, number>;
+  byClass: { programId: string; classLevel: number; count: number }[];
+  bySection: Record<string, number>;
+  byWhole: { programId: string; classLevel: number; count: number }[];
+};
+
+export function getSchoolStudentCounts() {
+  return schoolApi<SchoolStudentCounts>("/school/students/counts");
+}
+
+export function getAdminSchoolStudentCounts(schoolId: string) {
+  return adminApi<SchoolStudentCounts>(
+    `/schools/${encodeURIComponent(schoolId)}/students/counts`,
+  );
 }
 
 export async function getSchoolStudent(id: string): Promise<StudentDetail | null> {
@@ -78,6 +96,10 @@ export function listAdminSchoolStudents(schoolId: string, params?: ListParams) {
   return adminApi<StudentListResult>(
     `/schools/${encodeURIComponent(schoolId)}/students${queryString(params)}`,
   );
+}
+
+export function listAdminStudents(params?: ListParams) {
+  return adminApi<StudentListResult>(`/students${queryString(params)}`);
 }
 
 export async function getAdminSchoolStudent(

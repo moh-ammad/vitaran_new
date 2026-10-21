@@ -6,7 +6,11 @@ import * as schoolRepository from "../repositories/school.repository.js";
 import type { SchoolLoginInput } from "../schemas/auth.schema.js";
 import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
-import { toSchoolAccountDto, type SchoolAccountDto } from "./school.service.js";
+import {
+  toSchoolAccountDto,
+  toSchoolSessionAccountDto,
+  type SchoolAccountDto,
+} from "./school.service.js";
 
 const JWT_ALGORITHM = "HS256";
 const JWT_ISSUER = "vitaran-api";
@@ -88,7 +92,7 @@ export async function verifySchoolToken(token: string): Promise<SchoolAccountDto
       throw new Error("Not a school token");
     }
 
-    const school = await schoolRepository.findSchoolById(payload.sub);
+    const school = await schoolRepository.findSchoolSessionById(payload.sub);
 
     if (
       !school?.passwordHash ||
@@ -98,7 +102,7 @@ export async function verifySchoolToken(token: string): Promise<SchoolAccountDto
       throw new Error("School session revoked");
     }
 
-    return toSchoolAccountDto(school);
+    return toSchoolSessionAccountDto(school);
   } catch (_error) {
     throw new AppError(401, "Invalid or expired session");
   }

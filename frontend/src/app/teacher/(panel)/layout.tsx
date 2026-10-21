@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
+import { Suspense } from "react";
 import { TeacherHeader } from "@/components/layout/teacher-header";
 import { TeacherPageBack } from "@/components/layout/teacher-page-back";
 import { TeacherSidebar } from "@/components/layout/teacher-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PanelFallback } from "@/features/admin/dashboard-parts";
 import { verifyTeacherSession } from "@/features/teacher-auth/session";
 
 const SIDEBAR_STATE_COOKIE = "teacher_sidebar_state";
@@ -33,7 +35,7 @@ export default async function TeacherPanelLayout({
           <TeacherHeader />
           <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
             <TeacherPageBack />
-            {children}
+            <Suspense fallback={<PanelFallback />}>{children}</Suspense>
           </div>
         </SidebarInset>
       </SidebarProvider>

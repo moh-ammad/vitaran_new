@@ -38,7 +38,7 @@ export default async function AdminEditTeacherPage({
       <TeacherForm
         teacher={teacher}
         schoolPrograms={school.schoolPrograms}
-        sections={sections}
+        sections={sections.sections}
         classTeacherSlots={classTeacherSlots}
         myClassTeacherTokens={ownedTokens(classTeacherSlots, teacher.id)}
         action={updateAdminTeacherAction.bind(null, teacher.id)}

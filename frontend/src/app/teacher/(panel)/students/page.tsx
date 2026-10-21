@@ -6,7 +6,7 @@ import { listTeacherStudents } from "@/services/students";
 export default async function TeacherStudentsPage() {
   const [teacher, list] = await Promise.all([
     verifyTeacherSession(),
-    listTeacherStudents({ pageSize: 200 }),
+    listTeacherStudents({ pageSize: 50 }),
   ]);
 
   const ctLabels = (teacher.classTeacherSections ?? []).map((row) =>

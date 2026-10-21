@@ -8,14 +8,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { School } from "@/types/school";
+import type { SchoolSummary } from "@/types/school";
 import { formatDate } from "@/utils/format";
 import { BOARD_LABELS } from "./constants";
 import { SchoolRowActions } from "./school-row-actions";
 import { SchoolStatusBadge } from "./school-status-badge";
 import { SchoolTypeBadge } from "./school-type-badge";
 
-export function SchoolsTable({ schools }: { schools: School[] }) {
+export function SchoolsTable({ schools }: { schools: SchoolSummary[] }) {
   return (
     <Table>
       <TableHeader>

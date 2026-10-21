@@ -24,12 +24,6 @@ const teacherInclude = {
       type: true,
       status: true,
       accountEmail: true,
-      schoolPrograms: {
-        include: {
-          program: true,
-          classes: { orderBy: { classLevel: "asc" } },
-        },
-      },
     },
   },
 } satisfies Prisma.TeacherInclude;

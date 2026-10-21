@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { getAdminDashboard } from "../controllers/dashboard.controller.js";
+import { requireAdmin } from "../middleware/authenticate.js";
 import {
   answerKeyRouter,
   schoolAnswerKeyRouter,
@@ -27,6 +29,7 @@ export const apiRouter = Router();
 
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/auth", authRouter);
+apiRouter.get("/dashboard", requireAdmin, getAdminDashboard);
 apiRouter.use("/schools", schoolRouter);
 apiRouter.use("/schools/:schoolId/sections", adminSchoolSectionRouter);
 apiRouter.use("/schools/:schoolId/students", adminSchoolStudentRouter);

@@ -25,7 +25,7 @@ export default async function AdminNewTeacherPage({
       />
       <TeacherForm
         schoolPrograms={school.schoolPrograms}
-        sections={sections}
+        sections={sections.sections}
         classTeacherSlots={classTeacherSlots}
         action={createAdminTeacherAction.bind(null, school.id)}
         cancelHref={`/admin/schools/${school.id}`}

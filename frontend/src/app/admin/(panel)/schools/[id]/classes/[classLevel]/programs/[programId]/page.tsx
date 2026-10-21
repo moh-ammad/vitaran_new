@@ -22,10 +22,8 @@ export default async function AdminSchoolProgramStudentsPage({ params }: Props) 
   const students = await listAdminSchoolStudents(id, {
     classLevel,
     programId,
-    pageSize: 200,
+    pageSize: 50,
   });
-
-  const base = `/admin/schools/${id}/classes/${classLevel}/programs/${programId}`;
 
   return (
     <>
@@ -36,7 +34,7 @@ export default async function AdminSchoolProgramStudentsPage({ params }: Props) 
       />
       <StudentsTable
         students={students.items}
-        detailHref={(s) => `${base}/students/${s.id}`}
+        mode="admin"
         emptyMessage="No students enrolled yet."
       />
     </>

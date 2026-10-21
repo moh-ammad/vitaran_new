@@ -18,6 +18,7 @@ import type { TeacherAccountDto } from "./teacher.service.js";
 export type StudentDto = {
   id: string;
   schoolId: string;
+  schoolName: string;
   name: string;
   rollNo: string;
   email: string | null;
@@ -43,10 +44,28 @@ export type StudentAccountDto = StudentDto & {
 
 type StudentRecord = NonNullable<Awaited<ReturnType<typeof studentRepository.findStudentById>>>;
 
-function toStudentDto(row: StudentRecord): StudentDto {
+type StudentListRow = {
+  id: string;
+  schoolId: string;
+  name: string;
+  rollNo: string;
+  email: string | null;
+  programId: string;
+  classLevel: number;
+  sectionId: string | null;
+  status: StudentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  school: { name: string };
+  program: { code: string; name: string };
+  section: { name: string } | null;
+};
+
+function toStudentDto(row: StudentListRow): StudentDto {
   return {
     id: row.id,
     schoolId: row.schoolId,
+    schoolName: row.school.name,
     name: row.name,
     rollNo: row.rollNo,
     email: row.email,
@@ -193,7 +212,10 @@ async function assertUniqueRoll(schoolId: string, rollNo: string, excludeId?: st
 }
 
 export async function listStudents(query: ListStudentsQuery, schoolId?: string) {
-  const { items, total } = await studentRepository.findStudents({ ...query, schoolId });
+  const { items, total } = await studentRepository.findStudents({
+    ...query,
+    schoolId: schoolId ?? query.schoolId,
+  });
   return {
     items: items.map(toStudentDto),
     pagination: {
@@ -202,6 +224,28 @@ export async function listStudents(query: ListStudentsQuery, schoolId?: string) 
       total,
       totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
     },
+  };
+}
+
+export async function getSchoolStudentCounts(schoolId: string) {
+  const grouped = await studentRepository.countStudentsGrouped(schoolId);
+  return {
+    byProgram: Object.fromEntries(
+      grouped.byProgram.map((row) => [row.programId, row._count._all]),
+    ),
+    byClass: grouped.byClass.map((row) => ({
+      programId: row.programId,
+      classLevel: row.classLevel,
+      count: row._count._all,
+    })),
+    bySection: Object.fromEntries(
+      grouped.bySection.map((row) => [row.sectionId ?? "", row._count._all]),
+    ),
+    byWhole: grouped.byWhole.map((row) => ({
+      programId: row.programId,
+      classLevel: row.classLevel,
+      count: row._count._all,
+    })),
   };
 }
 
