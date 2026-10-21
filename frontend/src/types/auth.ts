@@ -30,3 +30,8 @@ export type StudentLoginResult = {
   expiresAt: string;
   student: StudentAccount;
 };
+
+export type GoogleLoginResult =
+  | (SchoolLoginResult & { role: "school" })
+  | (TeacherLoginResult & { role: "teacher" })
+  | (StudentLoginResult & { role: "student" });

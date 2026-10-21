@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BookOpenCheck } from "lucide-react";
-import { STUDENT_HOME_PATH, STUDENT_SESSION_COOKIE } from "@/constants/auth";
+import { SCHOOL_LOGIN_PATH, STUDENT_HOME_PATH, STUDENT_SESSION_COOKIE } from "@/constants/auth";
 import { AuthShell } from "@/features/auth/auth-shell";
+import { googleErrorMessage } from "@/features/auth/google-errors";
 import { StudentLoginForm } from "@/features/student-auth/student-login-form";
 
 export const metadata: Metadata = {
@@ -19,9 +19,12 @@ const highlights = [
   },
 ];
 
-export default async function StudentLoginPage() {
+export default async function StudentLoginPage({
+  searchParams,
+}: PageProps<"/school/student/login">) {
   const cookieStore = await cookies();
   if (cookieStore.has(STUDENT_SESSION_COOKIE)) redirect(STUDENT_HOME_PATH);
+  const { error } = await searchParams;
 
   return (
     <AuthShell
@@ -31,23 +34,16 @@ export default async function StudentLoginPage() {
           Sign in with your <span className="text-gradient">roll number</span>
         </>
       }
-      description="Use your roll number or parent/guardian email, plus the password your school gave you."
+      description="Use your roll number or parent/guardian email. Continue with Google only if that Gmail is already on the student record."
       highlights={highlights}
-      footnote={
-        <>
-          Ask your school for your roll number and password. Forgot password needs your roll number
-          — we email a code to the parent/guardian address on file. School or teacher?{" "}
-          <Link
-            href="/school/login"
-            className="font-medium text-brand-800 underline-offset-2 hover:underline"
-          >
-            Portal sign in
-          </Link>
-          .
-        </>
-      }
+      switcher={{
+        href: SCHOOL_LOGIN_PATH,
+        label: "School or teacher sign in",
+        hint: "School or teacher?",
+      }}
+      footnote="Ask your school for your roll number and password."
     >
-      <StudentLoginForm />
+      <StudentLoginForm googleError={googleErrorMessage(error)} />
     </AuthShell>
   );
 }

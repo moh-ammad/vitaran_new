@@ -25,6 +25,10 @@ export const STUDENT_HOME_PATH = "/student/resources";
 /** Page the user tried to open before being sent to login; read once after signing in. */
 export const RETURN_TO_COOKIE = "vitaran_return_to";
 
+/** Which portal started Google OAuth — school/teacher vs student. */
+export const GOOGLE_PORTAL_COOKIE = "vitaran_google_portal";
+export const GOOGLE_COMPLETE_PATH = "/auth/google/complete";
+
 /** Only same-site paths are allowed, so a return path can't send users to another origin. */
 export function safeRedirectPath(value: unknown, fallback: string): string {
   return typeof value === "string" && value.startsWith("/") && !value.startsWith("//")

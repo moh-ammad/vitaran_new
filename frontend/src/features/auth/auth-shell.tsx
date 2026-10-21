@@ -9,12 +9,22 @@ type AuthShellProps = {
   description: string;
   highlights: { icon: LucideIcon; title: string; description: string }[];
   footnote: ReactNode;
+  /** Visible jump to the other portal login. */
+  switcher?: { href: string; label: string; hint: string };
   /** The sign-in form. */
   children: ReactNode;
 };
 
 /** Full-screen sign-in layout shared by the admin and school logins. */
-export function AuthShell({ badge, title, description, highlights, footnote, children }: AuthShellProps) {
+export function AuthShell({
+  badge,
+  title,
+  description,
+  highlights,
+  footnote,
+  switcher,
+  children,
+}: AuthShellProps) {
   return (
     <main className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-brand-950 text-white">
       <div className="bg-grid absolute inset-0 -z-10 mask-[radial-gradient(ellipse_at_top,black_30%,transparent_75%)]" />
@@ -62,10 +72,18 @@ export function AuthShell({ badge, title, description, highlights, footnote, chi
 
         <div className="animate-in fade-in slide-in-from-bottom-8 w-full max-w-md duration-700 lg:justify-self-end">
           {children}
-          <p className="mt-6 flex items-center justify-center gap-2 text-xs text-brand-300">
-            <ShieldCheck className="size-3.5" />
-            {footnote}
-          </p>
+          {switcher ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-center text-sm text-brand-200">{switcher.hint}</p>
+              <Link
+                href={switcher.href}
+                className="flex h-11 w-full items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                {switcher.label}
+              </Link>
+            </div>
+          ) : null}
+          <p className="mt-4 text-center text-xs leading-relaxed text-brand-300">{footnote}</p>
         </div>
       </div>
     </main>

@@ -70,6 +70,15 @@ export function findStudentByEmail(email: string) {
   });
 }
 
+/** Up to two rows so Google login can detect a shared parent/guardian email. */
+export function findStudentsByEmail(email: string) {
+  return prisma.student.findMany({
+    where: { email: { equals: email, mode: "insensitive" } },
+    include: studentInclude,
+    take: 2,
+  });
+}
+
 export function findStudentsByRoll(rollNo: string) {
   return prisma.student.findMany({
     where: { rollNo: { equals: rollNo.trim(), mode: "insensitive" } },

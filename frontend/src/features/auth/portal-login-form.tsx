@@ -9,12 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ForgotPasswordForm } from "./forgot-password-form";
+import { GoogleSignInButton } from "./google-sign-in-button";
 import { portalLogin } from "./portal-login";
 import type { LoginFormState } from "./schema";
 
 const INPUT_CLASSES = "h-11 rounded-xl px-3.5";
 
-export function PortalLoginForm() {
+export function PortalLoginForm({ googleError }: { googleError?: string | null }) {
   const [mode, setMode] = useState<"login" | "forgot">("login");
   const [identifier, setIdentifier] = useState("");
   const [forgotHint, setForgotHint] = useState<string | null>(null);
@@ -67,10 +68,10 @@ export function PortalLoginForm() {
       <CardContent>
         <Form key={state?.submittedAt ?? "login"} action={formAction} noValidate>
           <FieldGroup>
-            {state?.message && (
+            {(state?.message || googleError) && (
               <Alert variant="destructive" className="rounded-xl border-destructive/20 bg-destructive/5">
                 <AlertCircle />
-                <AlertDescription>{state.message}</AlertDescription>
+                <AlertDescription>{state?.message ?? googleError}</AlertDescription>
               </Alert>
             )}
             {forgotHint && (
@@ -141,6 +142,13 @@ export function PortalLoginForm() {
             </Button>
           </FieldGroup>
         </Form>
+        <div className="mt-5 space-y-5">
+          <p className="relative text-center text-xs font-medium text-neutral-400">
+            <span className="absolute inset-x-0 top-1/2 border-t border-neutral-200" />
+            <span className="relative bg-white px-2">or</span>
+          </p>
+          <GoogleSignInButton portal="school" />
+        </div>
       </CardContent>
     </Card>
   );

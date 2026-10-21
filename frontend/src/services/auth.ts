@@ -3,6 +3,7 @@ import { apiClient } from "@/services/api-client";
 import type {
   AdminLoginResult,
   AdminProfile,
+  GoogleLoginResult,
   SchoolLoginResult,
   StudentLoginResult,
   TeacherLoginResult,
@@ -68,6 +69,15 @@ export function loginStudent(credentials: { identifier: string; password: string
   return apiClient<StudentLoginResult>("/auth/student/login", {
     method: "POST",
     body: credentials,
+    cache: "no-store",
+  });
+}
+
+/** Exchange a Google ID token for the existing portal JWT. Never creates accounts. */
+export function loginWithGoogle(idToken: string, portal: "school" | "student") {
+  return apiClient<GoogleLoginResult>("/auth/google", {
+    method: "POST",
+    body: { idToken, portal },
     cache: "no-store",
   });
 }

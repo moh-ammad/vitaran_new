@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getCurrentAdmin, login } from "../controllers/auth.controller.js";
+import { googleLogin } from "../controllers/google-auth.controller.js";
 import {
   requestForgotPasswordOtp,
   verifyForgotPasswordOtp,
@@ -15,6 +16,7 @@ import {
 } from "../middleware/authenticate.js";
 import {
   forgotPasswordRateLimit,
+  googleLoginRateLimit,
   loginRateLimit,
   schoolLoginRateLimit,
   studentLoginRateLimit,
@@ -24,6 +26,7 @@ import { validate } from "../middleware/validate.js";
 import {
   forgotPasswordRequestSchema,
   forgotPasswordVerifySchema,
+  googleLoginSchema,
   loginSchema,
   schoolLoginSchema,
   studentLoginSchema,
@@ -32,6 +35,12 @@ import {
 export const authRouter = Router();
 
 authRouter.post("/login", validate(loginSchema), loginRateLimit, login);
+authRouter.post(
+  "/google",
+  validate(googleLoginSchema),
+  googleLoginRateLimit,
+  googleLogin,
+);
 authRouter.get("/me", requireAdmin, getCurrentAdmin);
 
 authRouter.post(

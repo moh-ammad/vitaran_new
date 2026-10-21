@@ -28,6 +28,28 @@ export const teacherLoginRateLimit = createLoginRateLimit("identifier");
 
 export const studentLoginRateLimit = createLoginRateLimit("identifier");
 
+function googleLoginKey(idToken: unknown) {
+  if (typeof idToken !== "string") return "google-unknown";
+  try {
+    const payload = JSON.parse(Buffer.from(idToken.split(".")[1] ?? "", "base64url").toString());
+    return typeof payload.email === "string" ? `google:${payload.email.toLowerCase()}` : "google-unknown";
+  } catch {
+    return "google-unknown";
+  }
+}
+
+export const googleLoginRateLimit = rateLimit({
+  windowMs: LOGIN_WINDOW_MS,
+  limit: LOGIN_MAX_ATTEMPTS,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => googleLoginKey(req.body?.idToken),
+  handler: (_req, res) => {
+    sendError(res, 429, "Too many login attempts. Please try again later.");
+  },
+});
+
 export const forgotPasswordRateLimit = rateLimit({
   windowMs: LOGIN_WINDOW_MS,
   limit: 8,

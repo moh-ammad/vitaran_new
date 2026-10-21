@@ -69,12 +69,24 @@ export async function loginStudent(input: StudentLoginInput): Promise<StudentLog
     throw new AppError(401, "Invalid roll number, email or password");
   }
 
+  return issueStudentLogin(student, secret);
+}
+
+type StudentRecord = NonNullable<Awaited<ReturnType<typeof studentRepository.findStudentById>>>;
+
+/** Password or Google — same JWT. Caller already proved the account. */
+export async function issueStudentLogin(
+  student: StudentRecord,
+  secret = getSecret(),
+): Promise<StudentLoginResult> {
   if (student.status !== StudentStatus.ACTIVE) {
     throw new AppError(403, "This student account is inactive");
   }
-
   if (student.school.status !== SchoolStatus.ACTIVE) {
     throw new AppError(403, "This school account is inactive");
+  }
+  if (!student.passwordHash) {
+    throw new AppError(401, "Invalid roll number, email or password");
   }
 
   const expiresAt = new Date(Date.now() + env.SCHOOL_JWT_EXPIRES_IN_DAYS * DAY_MS);

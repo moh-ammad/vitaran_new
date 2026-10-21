@@ -48,3 +48,10 @@ export const forgotPasswordVerifySchema = z.object({
 
 export type ForgotPasswordRequestInput = z.infer<typeof forgotPasswordRequestSchema>;
 export type ForgotPasswordVerifyInput = z.infer<typeof forgotPasswordVerifySchema>;
+
+export const googleLoginSchema = z.object({
+  idToken: z.string().trim().min(20).max(8192),
+  portal: z.enum(["school", "student"]),
+});
+
+export type GoogleLoginInput = z.infer<typeof googleLoginSchema>;

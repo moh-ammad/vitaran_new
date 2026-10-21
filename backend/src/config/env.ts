@@ -1,8 +1,11 @@
 import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-if (existsSync(".env")) {
-  process.loadEnvFile(".env");
+const envPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../.env");
+if (existsSync(envPath)) {
+  process.loadEnvFile(envPath);
 }
 
 const envSchema = z.object({
@@ -31,6 +34,8 @@ const envSchema = z.object({
   SMTP_USER: z.string().trim().min(1).optional(),
   SMTP_PASS: z.string().min(1).optional(),
   SMTP_FROM: z.string().trim().min(1).optional(),
+  /** Google OAuth client ID — must match Auth.js AUTH_GOOGLE_ID. */
+  GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -51,6 +56,10 @@ const parsed = envSchema.safeParse({
   SMTP_USER: process.env.SMTP_USER?.trim() || undefined,
   SMTP_PASS: process.env.SMTP_PASS || undefined,
   SMTP_FROM: process.env.SMTP_FROM?.trim() || undefined,
+  GOOGLE_CLIENT_ID:
+    process.env.GOOGLE_CLIENT_ID?.trim() ||
+    process.env.AUTH_GOOGLE_ID?.trim() ||
+    undefined,
 });
 
 if (!parsed.success) {
