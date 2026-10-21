@@ -1,5 +1,5 @@
 import { createApp } from "./app.js";
-import { prisma } from "./config/database.js";
+import { disconnectDatabase } from "./config/database.js";
 import { env } from "./config/env.js";
 import { logger } from "./utils/logger.js";
 
@@ -15,7 +15,7 @@ function shutdown(signal: string) {
   logger.info({ signal }, "Shutting down");
 
   server.close(() => {
-    prisma.$disconnect().finally(() => process.exit(0));
+    disconnectDatabase().finally(() => process.exit(0));
   });
 
   setTimeout(() => {
