@@ -12,6 +12,9 @@ import { verifyAdminSession } from "@/features/admin-auth/session";
 
 const SIDEBAR_STATE_COOKIE = "sidebar_state";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminPanelLayout({
   children,
 }: LayoutProps<"/admin">) {

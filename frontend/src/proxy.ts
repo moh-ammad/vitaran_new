@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   ADMIN_BASE_PATH,
   ADMIN_LOGIN_PATH,
+  ADMIN_LOGOUT_PATH,
   ADMIN_SESSION_COOKIE,
   RETURN_TO_COOKIE,
   SCHOOL_BASE_PATH,
@@ -26,6 +27,8 @@ function redirectToLogin(request: NextRequest, loginPath: string) {
   }
 
   const response = NextResponse.redirect(new URL(loginPath, request.nextUrl));
+  response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+  response.headers.set("Pragma", "no-cache");
   response.cookies.set(RETURN_TO_COOKIE, pathname + search, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -33,6 +36,12 @@ function redirectToLogin(request: NextRequest, loginPath: string) {
     path: "/",
     maxAge: 60 * 10,
   });
+  return response;
+}
+
+function adminResponse(response: NextResponse) {
+  response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+  response.headers.set("Pragma", "no-cache");
   return response;
 }
 
@@ -60,10 +69,16 @@ export function proxy(request: NextRequest) {
   const hasTeacher = request.cookies.has(TEACHER_SESSION_COOKIE);
 
   if (pathname.startsWith(ADMIN_BASE_PATH)) {
-    if (pathname === ADMIN_LOGIN_PATH || request.cookies.has(ADMIN_SESSION_COOKIE)) {
-      return NextResponse.next();
+    if (
+      pathname === ADMIN_LOGIN_PATH ||
+      pathname === ADMIN_LOGOUT_PATH ||
+      request.cookies.has(ADMIN_SESSION_COOKIE)
+    ) {
+      return adminResponse(NextResponse.next());
     }
-    return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl));
+    return adminResponse(
+      NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl)),
+    );
   }
 
   // Already signed in → never show the portal login form.
