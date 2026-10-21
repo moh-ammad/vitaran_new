@@ -151,16 +151,17 @@ export function DocumentTable({
                 </TableCell>
                 <TableCell className="pr-6">
                   <div className="ml-auto flex w-fit divide-x divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
-                    <a
+                    <Link
                       href={documentFileHref(basePath, item.id)}
                       target="_blank"
                       rel="noreferrer"
+                      prefetch={false}
                       title="Open PDF"
                       aria-label={`Open ${item.fileName}`}
                       className={ROW_ACTION}
                     >
                       <ExternalLink />
-                    </a>
+                    </Link>
                     <Link
                       href={documentEditHref(basePath, item.id)}
                       title="Edit"

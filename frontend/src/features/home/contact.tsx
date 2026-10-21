@@ -46,21 +46,21 @@ export function Contact() {
             ))}
             <li className="flex gap-4">
               <Mail className="mt-0.5 size-5 shrink-0 text-glow" />
-              <a
+              <Link
                 href={`mailto:${contactDetails.email}`}
                 className="text-brand-100 hover:text-white"
               >
                 {contactDetails.email}
-              </a>
+              </Link>
             </li>
             <li className="flex gap-4">
               <Phone className="mt-0.5 size-5 shrink-0 text-glow" />
-              <a
+              <Link
                 href={contactDetails.phoneHref}
                 className="text-brand-100 hover:text-white"
               >
                 {contactDetails.phone}
-              </a>
+              </Link>
             </li>
           </ul>
         </div>

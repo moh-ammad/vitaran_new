@@ -134,7 +134,7 @@ export function AdminSidebar({ admin }: { admin: AdminProfile }) {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  render={<a href="/" target="_blank" rel="noreferrer" />}
+                  render={<Link href="/" target="_blank" rel="noreferrer" />}
                 >
                   <ExternalLink />
                   View website

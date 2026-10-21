@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import Link from "next/link";
 import { ExternalLink, FileText, Upload, X } from "lucide-react";
 import { FieldError } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
@@ -92,15 +93,16 @@ export function PdfField({ current, errors, onFileChange }: PdfFieldProps) {
                 <p className="text-xs text-neutral-500">Current file · {formatFileSize(current.fileSize)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <a
+                <Link
                   href={current.href}
                   target="_blank"
                   rel="noreferrer"
+                  prefetch={false}
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-brand-700 hover:bg-brand-50 hover:text-brand-900"
                 >
                   Open
                   <ExternalLink className="size-3.5" />
-                </a>
+                </Link>
                 <label
                   htmlFor={inputId}
                   className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-brand-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-brand-800"

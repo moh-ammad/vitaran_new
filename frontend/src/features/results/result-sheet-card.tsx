@@ -1,6 +1,7 @@
 "use client";
 
 import { useDeferredValue, useState } from "react";
+import Link from "next/link";
 import { Download, Search, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ResultCell, ResultSheet } from "@/types/result";
@@ -86,15 +87,18 @@ export function ResultSheetCard({ sheet, downloadHref }: ResultSheetCardProps) {
               className="h-10 w-full rounded-lg border border-neutral-200 bg-white pr-3 pl-9 text-sm text-neutral-950 outline-none placeholder:text-neutral-400 hover:border-brand-300 focus-visible:border-brand-600 focus-visible:ring-3 focus-visible:ring-brand-600/15"
             />
           </label>
-          <a
+          <Link
             href={downloadHref}
             download={sheet.fileName}
+            target="_blank"
+            rel="noopener noreferrer"
+            prefetch={false}
             title="Download Excel"
             className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-brand-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:scale-[0.98]"
           >
             <Download className="size-4" />
             <span className="hidden sm:inline">Download</span>
-          </a>
+          </Link>
         </div>
       </header>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Atom,
   Calculator,
@@ -182,10 +183,11 @@ function BookBrowser({ books }: { books: SolutionBook[] }) {
                   .filter((b) => b.subject === subject)
                   .map((book) => (
                     <li key={book.href}>
-                      <a
+                      <Link
                         href={book.href}
                         target="_blank"
                         rel="noopener noreferrer"
+                        prefetch={false}
                         className="group flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm font-medium text-brand-800 ring-1 ring-brand-100 transition-all hover:bg-brand-800 hover:text-white hover:ring-brand-800 active:scale-[0.98]"
                       >
                         <span>{classLabel(book.grade)}</span>
@@ -194,7 +196,7 @@ function BookBrowser({ books }: { books: SolutionBook[] }) {
                         ) : (
                           <Download className="size-3.5 opacity-60 group-hover:opacity-100" />
                         )}
-                      </a>
+                      </Link>
                     </li>
                   ))}
               </ul>
