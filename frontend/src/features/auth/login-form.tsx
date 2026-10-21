@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId } from "react";
+import Form from "next/form";
 import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export function LoginForm({ action, title, description, identifier }: LoginFormP
       </CardHeader>
 
       <CardContent>
-        <form key={state?.submittedAt ?? "login"} action={formAction} noValidate>
+        <Form key={state?.submittedAt ?? "login"} action={formAction} noValidate>
 
           <FieldGroup>
             {state?.message && (
@@ -95,7 +96,7 @@ export function LoginForm({ action, title, description, identifier }: LoginFormP
               )}
             </Button>
           </FieldGroup>
-        </form>
+        </Form>
       </CardContent>
     </Card>
   );

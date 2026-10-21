@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId, useState } from "react";
+import Form from "next/form";
 import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ export function PortalLoginForm() {
       </CardHeader>
 
       <CardContent>
-        <form key={state?.submittedAt ?? "login"} action={formAction} noValidate>
+        <Form key={state?.submittedAt ?? "login"} action={formAction} noValidate>
           <FieldGroup>
             {state?.message && (
               <Alert variant="destructive" className="rounded-xl border-destructive/20 bg-destructive/5">
@@ -139,7 +140,7 @@ export function PortalLoginForm() {
               )}
             </Button>
           </FieldGroup>
-        </form>
+        </Form>
       </CardContent>
     </Card>
   );

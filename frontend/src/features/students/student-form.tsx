@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import Form from "next/form";
 import { AlertCircle, Loader2, Save } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -201,7 +202,7 @@ export function StudentForm({
   }
 
   return (
-    <form
+    <Form
       action={formAction}
       className="space-y-4"
       onSubmit={(event) => {
@@ -397,6 +398,6 @@ export function StudentForm({
           {isEdit ? "Save changes" : "Add student"}
         </Button>
       ) : null}
-    </form>
+    </Form>
   );
 }

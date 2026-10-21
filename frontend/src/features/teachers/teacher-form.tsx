@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import Form from "next/form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
@@ -232,7 +233,7 @@ function TeacherFormFields({
 
   return (
     <>
-      <form
+      <Form
         ref={formRef}
         action={formAction}
         noValidate
@@ -455,7 +456,7 @@ function TeacherFormFields({
             </Button>
           )}
         </footer>
-      </form>
+      </Form>
       {dialog}
     </>
   );

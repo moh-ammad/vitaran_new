@@ -3,6 +3,16 @@
 import { useDeferredValue, useState } from "react";
 import Link from "next/link";
 import { Download, Search, SearchX } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { ResultCell, ResultSheet } from "@/types/result";
 import { studentCount } from "./constants";
@@ -76,76 +86,81 @@ export function ResultSheetCard({ sheet, downloadHref }: ResultSheetCardProps) {
         </div>
 
         <div className="flex w-full items-center gap-2 sm:w-auto">
-          <label className="relative flex-1 sm:w-64 sm:flex-none">
-            <span className="sr-only">Search students</span>
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400" />
-            <input
+          <InputGroup className="h-10 flex-1 bg-white sm:w-64 sm:flex-none">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
               type="search"
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
               placeholder="Search students"
-              className="h-10 w-full rounded-lg border border-neutral-200 bg-white pr-3 pl-9 text-sm text-neutral-950 outline-none placeholder:text-neutral-400 hover:border-brand-300 focus-visible:border-brand-600 focus-visible:ring-3 focus-visible:ring-brand-600/15"
+              aria-label="Search students"
             />
-          </label>
-          <Link
-            href={downloadHref}
-            download={sheet.fileName}
-            target="_blank"
-            rel="noopener noreferrer"
-            prefetch={false}
-            title="Download Excel"
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-brand-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:scale-[0.98]"
+          </InputGroup>
+          <Button
+            nativeButton={false}
+            className="h-10 shrink-0 rounded-lg bg-brand-900 px-4 text-sm font-semibold text-white hover:bg-brand-800"
+            render={
+              <Link
+                href={downloadHref}
+                download={sheet.fileName}
+                target="_blank"
+                rel="noopener noreferrer"
+                prefetch={false}
+                title="Download Excel"
+              />
+            }
           >
             <Download className="size-4" />
             <span className="hidden sm:inline">Download</span>
-          </Link>
+          </Button>
         </div>
       </header>
 
       {visible.length > 0 ? (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-brand-100 bg-brand-50">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-brand-100 bg-brand-50 hover:bg-brand-50">
               {shown.map((index) => (
-                <th
+                <TableHead
                   key={index}
-                  scope="col"
                   className={cn(
-                    "px-2.5 py-3 text-left align-bottom text-[11px] leading-tight font-semibold tracking-wide wrap-anywhere text-brand-900 uppercase first:pl-5 last:pr-5",
+                    "h-auto px-2.5 py-3 text-left align-bottom text-[11px] leading-tight font-semibold tracking-wide whitespace-normal wrap-anywhere text-brand-900 uppercase first:pl-5 last:pr-5",
                     numeric.has(index) && "text-right",
                   )}
                 >
                   {sheet.columns[index]}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {visible.map((row, rowIndex) => (
-              <tr key={rowIndex} className="transition-colors hover:bg-brand-50/50">
+              <TableRow key={rowIndex} className="hover:bg-brand-50/50">
                 {shown.map((index) => (
-                  <td
+                  <TableCell
                     key={index}
                     className={cn(
-                      "px-2.5 py-2.5 wrap-anywhere text-neutral-700 first:pl-5 last:pr-5",
+                      "px-2.5 py-2.5 wrap-anywhere whitespace-normal text-neutral-700 first:pl-5 last:pr-5",
                       numeric.has(index) && "text-right text-neutral-950 tabular-nums",
                       row[index] === null && "text-neutral-300",
                     )}
                   >
                     {formatCell(row[index] ?? null)}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : (
         <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
           <SearchX className="size-6 text-brand-300" />
           <p className="text-sm font-semibold text-neutral-900">No students match “{query}”</p>
-          <button type="button" onClick={() => setQuery("")} className="text-xs font-semibold text-brand-700 hover:underline">
+          <Button type="button" variant="link" onClick={() => setQuery("")} className="h-auto text-xs text-brand-700">
             Clear search
-          </button>
+          </Button>
         </div>
       )}
     </section>

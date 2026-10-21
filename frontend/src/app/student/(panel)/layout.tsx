@@ -1,6 +1,7 @@
 import Link from "next/link";
+import Form from "next/form";
 import { LogOut } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { studentLogout } from "@/features/student-auth/actions";
 import { verifyStudentSession } from "@/features/student-auth/session";
@@ -31,15 +32,12 @@ export default async function StudentPanelLayout({
             >
               Resources
             </Link>
-            <form action={studentLogout}>
-              <button
-                type="submit"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-              >
+            <Form action={studentLogout}>
+              <Button type="submit" variant="outline" size="sm" className="gap-1.5">
                 <LogOut className="size-3.5" />
                 Sign out
-              </button>
-            </form>
+              </Button>
+            </Form>
           </div>
         </div>
       </header>

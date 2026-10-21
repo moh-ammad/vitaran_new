@@ -5,6 +5,13 @@ import { Camera, CheckCircle2, Loader2, ScanLine, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { capitalizeWords } from "@/features/schools/schema";
 
@@ -81,25 +88,32 @@ export function OmrScanForm({ tests, teacherName }: OmrScanFormProps) {
         <>
           <Field>
             <FieldLabel htmlFor="omr-test">Test ID</FieldLabel>
-            <select
-              id="omr-test"
-              className="h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm font-semibold text-neutral-950 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+            <Select
+              items={tests.map((item) => ({
+                value: `${item.programCode}:${item.testNumber}`,
+                label: `Test ID ${item.testNumber} · ${capitalizeWords(item.programName)}`,
+              }))}
               value={testKey}
-              onChange={(event) => {
-                setTestKey(event.target.value);
+              onValueChange={(value) => {
+                setTestKey(String(value ?? ""));
                 setClassLevel("");
                 setDone(null);
               }}
             >
-              {tests.map((item) => (
-                <option
-                  key={`${item.programCode}:${item.testNumber}`}
-                  value={`${item.programCode}:${item.testNumber}`}
-                >
-                  Test ID {item.testNumber} · {capitalizeWords(item.programName)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="omr-test" className="h-11 w-full font-semibold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {tests.map((item) => (
+                  <SelectItem
+                    key={`${item.programCode}:${item.testNumber}`}
+                    value={`${item.programCode}:${item.testNumber}`}
+                  >
+                    Test ID {item.testNumber} · {capitalizeWords(item.programName)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
 
           <Field>

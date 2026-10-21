@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import Form from "next/form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FieldError } from "@/components/ui/field";
@@ -66,7 +67,7 @@ export function AnswerKeyForm({ schools, programs, answerKey }: AnswerKeyFormPro
   const failed = state?.status === "error" ? state : undefined;
 
   return (
-    <form action={formAction} noValidate>
+    <Form action={formAction} noValidate>
       <FormFields
         key={failed?.submittedAt ?? "initial"}
         schools={schools}
@@ -77,7 +78,7 @@ export function AnswerKeyForm({ schools, programs, answerKey }: AnswerKeyFormPro
         message={failed?.message}
         pending={pending}
       />
-    </form>
+    </Form>
   );
 }
 

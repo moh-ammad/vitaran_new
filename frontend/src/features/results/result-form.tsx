@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition, type ReactNode } from "react";
+import Form from "next/form";
 import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -79,7 +80,7 @@ export function ResultForm({ schools, resultSet, defaultSchoolId, backHref = RES
   const defaultSchool = schools.find(({ id }) => id === defaultSchoolId);
 
   return (
-    <form action={formAction} noValidate>
+    <Form action={formAction} noValidate>
       <FormFields
         key={failed?.submittedAt ?? "initial"}
         schools={schools}
@@ -90,7 +91,7 @@ export function ResultForm({ schools, resultSet, defaultSchoolId, backHref = RES
         message={failed?.message}
         pending={pending}
       />
-    </form>
+    </Form>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useId, useRef } from "react";
+import Form from "next/form";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -167,7 +168,7 @@ export function ForgotPasswordForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form
+          <Form
             key={`otp-${verifyState?.submittedAt ?? requestState?.submittedAt ?? "x"}`}
             action={verifyAction}
             noValidate
@@ -220,9 +221,9 @@ export function ForgotPasswordForm({
                 )}
               </Button>
             </FieldGroup>
-          </form>
+          </Form>
 
-          <form action={requestAction} className="flex items-center justify-between gap-2">
+          <Form action={requestAction} className="flex items-center justify-between gap-2">
             {isStudent ? (
               <input type="hidden" name="rollNo" value={rollNo} />
             ) : (
@@ -233,7 +234,7 @@ export function ForgotPasswordForm({
               {requestPending ? <Loader2 className="animate-spin" /> : null}
               Resend code
             </Button>
-          </form>
+          </Form>
         </CardContent>
       </Card>
     );
@@ -255,14 +256,14 @@ export function ForgotPasswordForm({
           <CardDescription>{description ?? defaultDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form ref={autoFormRef} action={requestAction} className="sr-only" aria-hidden>
+          <Form ref={autoFormRef} action={requestAction} className="sr-only" aria-hidden>
             {initialRollNo ? (
               <input type="hidden" name="rollNo" value={initialRollNo} />
             ) : (
               <input type="hidden" name="email" value={initialEmail} />
             )}
-            <button type="submit">Send</button>
-          </form>
+            <Button type="submit">Send</Button>
+          </Form>
 
           {requestPending || !requestState ? (
             <Alert className="rounded-xl border-brand-200 bg-brand-50 text-brand-950">
@@ -297,7 +298,7 @@ export function ForgotPasswordForm({
         <CardDescription>{description ?? defaultDescription}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form key={requestState?.submittedAt ?? "email"} action={requestAction} noValidate>
+        <Form key={requestState?.submittedAt ?? "email"} action={requestAction} noValidate>
           <FieldGroup>
             {requestState?.step === "email" && requestState.message ? (
               <Alert variant="destructive" className="rounded-xl border-destructive/20 bg-destructive/5">
@@ -356,7 +357,7 @@ export function ForgotPasswordForm({
 
             <BackLink onBackToLogin={onBackToLogin} />
           </FieldGroup>
-        </form>
+        </Form>
       </CardContent>
     </Card>
   );

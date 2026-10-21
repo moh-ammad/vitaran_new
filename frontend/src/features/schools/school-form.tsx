@@ -8,6 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import Form from "next/form";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Save } from "lucide-react";
@@ -410,7 +411,7 @@ function SchoolFormWizard({
 
   return (
     <>
-    <form
+    <Form
       ref={formRef}
       action={action}
       onSubmit={handleSubmit}
@@ -706,8 +707,8 @@ function SchoolFormWizard({
           </footer>
           )}
         </div>
-      </div>
-    </form>
+        </div>
+    </Form>
     {unsaved.dialog}
     </>
   );
