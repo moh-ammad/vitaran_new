@@ -86,7 +86,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
               <MapPin className="size-3.5 shrink-0" />
               <span className="truncate">
                 {school.addressLine}, {school.city}, {school.state}
-              </span>
+          </span>
             </p>
           </div>
           <div className="flex shrink-0 gap-2">

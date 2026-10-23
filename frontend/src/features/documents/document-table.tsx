@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, FileText, Pencil, Upload } from "lucide-react";
+import { ExternalLink, FileText, ListChecks, Pencil, Upload } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Empty,
@@ -24,6 +24,7 @@ import type { DeleteResult, PdfDocument, Publishable, SchoolRef } from "@/types/
 import type { SchoolType } from "@/types/school";
 import {
   capitalize,
+  documentAnswersHref,
   documentEditHref,
   documentFileHref,
   formatFileSize,
@@ -41,7 +42,12 @@ const NUMBER_PILL =
 
 const HEAD = "h-10 text-[11px] font-semibold tracking-wider text-neutral-500 uppercase";
 
-type DocumentRow = PdfDocument & Publishable & { type?: SchoolType; school: SchoolRef | null };
+type DocumentRow = PdfDocument & Publishable & {
+  type?: SchoolType;
+  school: SchoolRef | null;
+  answerCount?: number;
+  testId?: string;
+};
 
 type DocumentTableProps = {
   items: DocumentRow[];
@@ -52,6 +58,8 @@ type DocumentTableProps = {
   uploadHref: string;
   /** Answer keys show whether they are regular or customized. */
   showType?: boolean;
+  /** Admin-only: open the per-question answers editor. */
+  showAnswersEdit?: boolean;
   /** The list is narrowed by filters, so an empty list means "no matches". */
   filtered?: boolean;
   publishAction: (id: string, published: boolean) => Promise<DeleteResult>;
@@ -64,6 +72,7 @@ export function DocumentTable({
   basePath,
   uploadHref,
   showType = false,
+  showAnswersEdit = false,
   filtered = false,
   publishAction,
   deleteAction,
@@ -162,6 +171,16 @@ export function DocumentTable({
                     >
                       <ExternalLink />
                     </Link>
+                    {showAnswersEdit && (
+                      <Link
+                        href={documentAnswersHref(basePath, item.id)}
+                        title="Edit answers"
+                        aria-label={`Edit answers for ${item.fileName}`}
+                        className={ROW_ACTION}
+                      >
+                        <ListChecks />
+                      </Link>
+                    )}
                     <Link
                       href={documentEditHref(basePath, item.id)}
                       title="Edit"

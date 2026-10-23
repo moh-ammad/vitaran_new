@@ -8,6 +8,9 @@ const app = createApp();
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, "Server listening");
 });
+// Scanned answer-key OCR can run past a minute; don't drop the socket mid-parse.
+server.requestTimeout = 10 * 60 * 1000;
+server.headersTimeout = 10 * 60 * 1000 + 1000;
 
 const shutdownTimeoutMs = 10_000;
 

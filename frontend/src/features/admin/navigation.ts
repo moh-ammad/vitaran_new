@@ -86,12 +86,19 @@ const SEGMENT_LABELS: Record<string, string> = {
   programs: "Programs",
   new: "Register",
   edit: "Edit",
+  answers: "Answers",
   "answer-keys": "Answer Keys",
   upload: "Upload",
   results: "Results",
   classes: "Classes",
   students: "Students",
 };
+
+function crumbLabel(segment: string, previous: string | undefined) {
+  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
+  if (previous === "answer-keys") return "Key";
+  return "Details";
+}
 
 export type AdminBreadcrumb = { label: string; href: string };
 
@@ -101,7 +108,7 @@ export function getAdminBreadcrumbs(pathname: string): AdminBreadcrumb[] {
 
   segments.forEach((segment, index) => {
     crumbs.push({
-      label: SEGMENT_LABELS[segment] ?? "Details",
+      label: crumbLabel(segment, segments[index - 1]),
       href: `/admin/${segments.slice(0, index + 1).join("/")}`,
     });
   });

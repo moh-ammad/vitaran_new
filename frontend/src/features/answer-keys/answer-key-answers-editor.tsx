@@ -1,0 +1,246 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { Loader2, RefreshCw, Save } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { SUBJECT_LABELS } from "@/features/schools/constants";
+import { cn } from "@/lib/utils";
+import type { AnswerKeyDetail, AnswerOption, SubjectRange } from "@/types/answer-key";
+import { reparseAnswerKeyAction, saveAnswerKeyAnswersAction } from "./actions";
+
+const OPTIONS: AnswerOption[] = ["A", "B", "C", "D"];
+
+type AnswerKeyAnswersEditorProps = {
+  answerKey: AnswerKeyDetail;
+  /** School / teacher: look, don't edit. */
+  readOnly?: boolean;
+};
+
+function questionsIn(range: SubjectRange) {
+  return Array.from({ length: Math.max(0, range.to - range.from + 1) }, (_, index) => range.from + index);
+}
+
+function snapshot(
+  answers: Record<string, AnswerOption>,
+  explanations: Record<string, string>,
+  ranges: SubjectRange[],
+) {
+  return JSON.stringify({ answers, explanations, ranges });
+}
+
+export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKeyAnswersEditorProps) {
+  const [saving, startSaving] = useTransition();
+  const [parsing, startParsing] = useTransition();
+  const [answers, setAnswers] = useState<Record<string, AnswerOption>>(() => answerKey.answers);
+  const [explanations, setExplanations] = useState<Record<string, string>>(() => answerKey.explanations);
+  const [ranges, setRanges] = useState<SubjectRange[]>(() => answerKey.subjectRanges);
+  const [baseline, setBaseline] = useState(() =>
+    snapshot(answerKey.answers, answerKey.explanations, answerKey.subjectRanges),
+  );
+
+  const [filter, setFilter] = useState<"all" | "filled" | "missing">("all");
+  const [printedAnswers, setPrintedAnswers] = useState(() => answerKey.printedAnswers ?? {});
+  const [printedExplanations, setPrintedExplanations] = useState(
+    () => answerKey.printedExplanations ?? {},
+  );
+
+  const dirty = useMemo(
+    () => snapshot(answers, explanations, ranges) !== baseline,
+    [answers, explanations, ranges, baseline],
+  );
+  const totalQuestions = ranges.reduce((sum, range) => sum + Math.max(0, range.to - range.from + 1), 0);
+  const answerCount = Object.keys(answers).length;
+  const missingCount = Math.max(0, totalQuestions - answerCount);
+  const paper = ranges.map((range) => SUBJECT_LABELS[range.subject][0]).join("") || "—";
+  const pending = saving || parsing;
+
+  const visibleQuestions = (range: SubjectRange) =>
+    questionsIn(range).filter((question) => {
+      const filled = Boolean(answers[String(question)]);
+      if (filter === "filled") return filled;
+      if (filter === "missing") return !filled;
+      return true;
+    });
+
+  function save() {
+    if (!dirty) return;
+    startSaving(async () => {
+      try {
+        const saved = await saveAnswerKeyAnswersAction(answerKey.id, {
+          answers,
+          explanations,
+          printedAnswers,
+          subjectRanges: ranges,
+        });
+        setAnswers(saved.answers);
+        setExplanations(saved.explanations);
+        setPrintedAnswers(saved.printedAnswers ?? {});
+        setPrintedExplanations(saved.printedExplanations ?? {});
+        setRanges(saved.subjectRanges);
+        setBaseline(snapshot(saved.answers, saved.explanations, saved.subjectRanges));
+        toast.success("Saved");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not save answers");
+      }
+    });
+  }
+
+  function reparse() {
+    startParsing(async () => {
+      try {
+        const parsed = await reparseAnswerKeyAction(answerKey.id);
+        setAnswers(parsed.answers);
+        setPrintedAnswers(parsed.printedAnswers ?? parsed.answers);
+        setPrintedExplanations(parsed.printedExplanations ?? {});
+        setExplanations(parsed.explanations);
+        setRanges(parsed.subjectRanges);
+        setFilter("all");
+        toast.success(
+          `Read ${parsed.answerCount} answers from the PDF KEY. Change only the options school reported, then save.`,
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not parse this PDF");
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-neutral-900">
+            Test ID {answerKey.testId} · {paper} (
+            {ranges.map((range) => `${range.from}–${range.to}`).join(", ") || "no ranges yet"})
+          </p>
+          <p className="text-xs text-neutral-500">
+            {readOnly
+              ? "View only. Ask admin to change an option or explanation."
+              : "Change an option or explanation and save. School and the class teacher see those updates. You do not reprint the PDF."}
+          </p>
+        </div>
+        {!readOnly && (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={reparse} disabled={pending}>
+              {parsing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {parsing ? "Reading PDF…" : "Re-parse PDF"}
+            </Button>
+            <Button type="button" onClick={save} disabled={pending || !dirty}>
+              {saving ? <Loader2 className="animate-spin" /> : <Save />}
+              Save answers
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {totalQuestions > 0 && (
+        <div className="flex flex-wrap gap-2" aria-label="Filter answers">
+          {(
+            [
+              ["all", `All ${totalQuestions}`],
+              ["filled", `Filled ${answerCount}`],
+              ["missing", `Missing ${missingCount}`],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={filter === id}
+              onClick={() => setFilter(id)}
+              className={cn(
+                "rounded-full border px-3.5 py-1.5 text-xs font-semibold",
+                filter === id
+                  ? "border-brand-900 bg-brand-900 text-white"
+                  : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {ranges.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">
+          {readOnly ? "No answers published for this test yet." : "No answers stored yet. Re-parse the PDF or fill them in."}
+        </p>
+      ) : (
+        ranges.map((range) => {
+          const shown = visibleQuestions(range);
+          if (shown.length === 0) return null;
+          return (
+          <section
+            key={`${range.subject}-${range.from}`}
+            className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm"
+          >
+            <header className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+              <h2 className="text-sm font-bold text-neutral-900">
+                {SUBJECT_LABELS[range.subject]} · Q{range.from}–{range.to} · {range.maxMarks} marks
+              </h2>
+            </header>
+            <ol className="divide-y divide-neutral-100">
+              {shown.map((question) => {
+                const key = String(question);
+                const missing = !answers[key];
+                return (
+                  <li
+                    key={question}
+                    className={cn(
+                      "grid gap-3 px-4 py-3 md:grid-cols-[4.5rem_auto_minmax(0,1fr)] md:items-start",
+                      missing && "bg-amber-50/70",
+                    )}
+                  >
+                    <p className="pt-1 text-sm font-bold text-neutral-700 tabular-nums">Q{question}</p>
+                    <div className="flex gap-1">
+                      {OPTIONS.map((option) => {
+                        const selected = answers[key] === option;
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            disabled={pending || readOnly}
+                            onClick={() => {
+                              if (readOnly) return;
+                              setAnswers((current) => ({ ...current, [key]: option }));
+                            }}
+                            className={cn(
+                              "size-8 rounded-md text-xs font-bold",
+                              selected
+                                ? "bg-brand-900 text-white"
+                                : "border border-neutral-200 bg-white text-neutral-700",
+                              !readOnly && !selected && "hover:bg-neutral-50",
+                              readOnly && "cursor-default",
+                            )}
+                          >
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {readOnly ? (
+                      <p className="whitespace-pre-wrap text-sm text-neutral-700">
+                        {explanations[key] || <span className="text-neutral-400">No explanation</span>}
+                      </p>
+                    ) : (
+                      <Textarea
+                        value={explanations[key] ?? ""}
+                        disabled={pending}
+                        rows={2}
+                        placeholder="Explanation"
+                        onChange={(event) =>
+                          setExplanations((current) => ({ ...current, [key]: event.target.value }))
+                        }
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+          );
+        })
+      )}
+    </div>
+  );
+}

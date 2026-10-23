@@ -4,12 +4,16 @@ import {
   getAnswerKey,
   getAnswerKeyFile,
   getAnswerKeyStats,
+  getSchoolAnswerKey,
   getSchoolAnswerKeyFile,
+  getTeacherAnswerKey,
   getTeacherAnswerKeyFile,
   listAnswerKeys,
   listSchoolAnswerKeys,
   listSchoolTests,
   listTeacherAnswerKeys,
+  reparseAnswerKey,
+  saveAnswerKeyAnswers,
   setAnswerKeyPublished,
   updateAnswerKey,
   uploadAnswerKey,
@@ -19,6 +23,7 @@ import { validate } from "../middleware/validate.js";
 import {
   answerKeyIdParamsSchema,
   listAnswerKeysQuerySchema,
+  saveAnswerKeyAnswersSchema,
   schoolTestsQuerySchema,
   updateAnswerKeyQuerySchema,
   uploadAnswerKeyQuerySchema,
@@ -38,6 +43,13 @@ answerKeyRouter.get("/stats", getAnswerKeyStats);
 answerKeyRouter.get("/school-tests", validate(schoolTestsQuerySchema, "query"), listSchoolTests);
 answerKeyRouter.get("/:id", validateId, getAnswerKey);
 answerKeyRouter.patch(
+  "/:id/answers",
+  validateId,
+  validate(saveAnswerKeyAnswersSchema),
+  saveAnswerKeyAnswers,
+);
+answerKeyRouter.post("/:id/parse", validateId, reparseAnswerKey);
+answerKeyRouter.patch(
   "/:id",
   validateId,
   validate(updateAnswerKeyQuerySchema, "query"),
@@ -54,6 +66,7 @@ export const schoolAnswerKeyRouter = Router();
 schoolAnswerKeyRouter.use(requireSchool);
 
 schoolAnswerKeyRouter.get("/", listSchoolAnswerKeys);
+schoolAnswerKeyRouter.get("/:id", validateId, getSchoolAnswerKey);
 schoolAnswerKeyRouter.get("/:id/file", validateId, getSchoolAnswerKeyFile);
 
 /** Answer keys as seen by a signed-in teacher (class-scoped). */
@@ -62,4 +75,5 @@ export const teacherAnswerKeyRouter = Router();
 teacherAnswerKeyRouter.use(requireTeacher);
 
 teacherAnswerKeyRouter.get("/", listTeacherAnswerKeys);
+teacherAnswerKeyRouter.get("/:id", validateId, getTeacherAnswerKey);
 teacherAnswerKeyRouter.get("/:id/file", validateId, getTeacherAnswerKeyFile);

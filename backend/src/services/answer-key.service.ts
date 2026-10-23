@@ -1,36 +1,126 @@
 import type { Prisma } from "../generated/prisma/client.js";
 import { SchoolType } from "../generated/prisma/enums.js";
 import * as answerKeyRepository from "../repositories/answer-key.repository.js";
-import type { AnswerKeySummary } from "../repositories/answer-key.repository.js";
+import type {
+  AnswerKeyDetail,
+  AnswerKeySummary,
+} from "../repositories/answer-key.repository.js";
 import * as programRepository from "../repositories/program.repository.js";
 import * as schoolRepository from "../repositories/school.repository.js";
 import type {
   ListAnswerKeysQuery,
+  SaveAnswerKeyAnswersInput,
   UpdateAnswerKeyQuery,
   UploadAnswerKeyQuery,
 } from "../schemas/answer-key.schema.js";
+import {
+  asAnswers,
+  asExplanations,
+  asSubjectRanges,
+  diffCorrections,
+  parseAnswerKeyPdf,
+} from "../utils/answer-key-parse.js";
 import { AppError } from "../utils/app-error.js";
 import { notifyContentChanged } from "../utils/content-events.js";
+import { logger } from "../utils/logger.js";
 import { readPdf, requirePdf, toPdfData } from "../utils/pdf.js";
 import { answerKeyAccessFilter, type ContentActor } from "./content-access.js";
 import { toSchoolRef, type SchoolAccountDto } from "./school.service.js";
 
 const KIND = "answer-keys";
 
-function toAnswerKeyDto({ school, createdAt, updatedAt, publishedAt, programCode, ...rest }: AnswerKeySummary) {
+function toAnswerKeyDto(row: AnswerKeySummary | AnswerKeyDetail, forPortal = false) {
+  const answers = asAnswers(row.answers);
+  const explanations = asExplanations(row.explanations);
+  const printedAnswers = asAnswers(row.printedAnswers);
+  const printedExplanations = asExplanations(row.printedExplanations);
+  const corrections =
+    Object.keys(printedAnswers).length === 0
+      ? []
+      : diffCorrections(printedAnswers, answers, printedExplanations, explanations);
   return {
-    ...rest,
-    program: programCode,
-    programCode,
-    school: school && toSchoolRef(school),
-    publishedAt: publishedAt?.toISOString() ?? null,
-    createdAt: createdAt.toISOString(),
-    updatedAt: updatedAt.toISOString(),
+    id: row.id,
+    program: row.programCode,
+    programCode: row.programCode,
+    type: row.type,
+    testId: row.testId,
+    testNumber: row.testNumber,
+    classLevel: row.classLevel,
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    published: row.published,
+    answers: forPortal ? {} : answers,
+    explanations: forPortal ? {} : explanations,
+    printedAnswers: forPortal ? {} : printedAnswers,
+    printedExplanations: forPortal ? {} : printedExplanations,
+    corrections,
+    subjectRanges: asSubjectRanges(row.subjectRanges),
+    answerCount: Object.keys(answers).length,
+    correctionCount: corrections.length,
+    school: row.school && toSchoolRef(row.school),
+    publishedAt: row.publishedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+type ParsedJsonFields = {
+  answers: Prisma.InputJsonValue;
+  explanations: Prisma.InputJsonValue;
+  printedAnswers: Prisma.InputJsonValue;
+  printedExplanations: Prisma.InputJsonValue;
+  subjectRanges: Prisma.InputJsonValue;
+};
+
+async function parsedFromPdf(pdf: Buffer): Promise<ParsedJsonFields> {
+  try {
+    const parsed = await parseAnswerKeyPdf(pdf);
+    if (Object.keys(parsed.answers).length === 0) {
+      throw new AppError(422, "Could not read the KEY table from page 1 of this PDF");
+    }
+    return {
+      answers: parsed.answers as Prisma.InputJsonValue,
+      explanations: parsed.explanations as Prisma.InputJsonValue,
+      printedAnswers: parsed.answers as Prisma.InputJsonValue,
+      printedExplanations: parsed.explanations as Prisma.InputJsonValue,
+      subjectRanges: parsed.subjectRanges as Prisma.InputJsonValue,
+    };
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    logger.warn({ err: error }, "Could not parse answer key PDF");
+    throw new AppError(422, "Could not read the KEY table from page 1 of this PDF");
+  }
+}
+
+async function withPrintedSnapshot(row: AnswerKeyDetail): Promise<AnswerKeyDetail> {
+  if (Object.keys(asAnswers(row.printedAnswers)).length > 0) return row;
+  const file = await answerKeyRepository.findAnswerKeyFile({ id: row.id });
+  if (!file) return row;
+  try {
+    const parsed = await parseAnswerKeyPdf(Buffer.from(file.data));
+    if (Object.keys(parsed.answers).length === 0) return row;
+    return answerKeyRepository.updateAnswerKey(row.id, {
+      printedAnswers: parsed.answers as Prisma.InputJsonValue,
+      printedExplanations: parsed.explanations as Prisma.InputJsonValue,
+    });
+  } catch (error) {
+    logger.warn({ err: error, id: row.id }, "Could not snapshot printed KEY");
+    return row;
+  }
 }
 
 const classLevelIssue = (message: string) =>
   new AppError(400, message, [{ path: ["classLevel"], message }]);
+
+/** Test numbers may repeat. Test IDs may not — one key per ID. */
+async function assertUniqueTestId(testId: string, exceptId?: string) {
+  const existing = await answerKeyRepository.findAnswerKeyByTestId(testId, exceptId);
+  if (existing) {
+    throw new AppError(400, "This test ID is already used", [
+      { path: ["testId"], message: "This test ID is already used. Test numbers can repeat; test IDs cannot." },
+    ]);
+  }
+}
 
 /**
  * REGULAR → any class in the catalog program range.
@@ -115,7 +205,7 @@ export async function listRecentAnswerKeys({ limit, testNumber, type, schoolId }
       programCodes: school.schoolPrograms.map((row) => row.program.code),
     }));
   }
-  return (await answerKeyRepository.findRecentAnswerKeys({ AND: where }, limit)).map(toAnswerKeyDto);
+  return (await answerKeyRepository.findRecentAnswerKeys({ AND: where }, limit)).map((row) => toAnswerKeyDto(row));
 }
 
 /**
@@ -188,7 +278,7 @@ export async function getAnswerKeyStats() {
 export async function getAnswerKey(id: string) {
   const answerKey = await answerKeyRepository.findAnswerKeyById(id);
   if (!answerKey) throw new AppError(404, "Answer key not found");
-  return toAnswerKeyDto(answerKey);
+  return toAnswerKeyDto(await withPrintedSnapshot(answerKey));
 }
 
 export async function uploadAnswerKey(
@@ -198,7 +288,9 @@ export async function uploadAnswerKey(
   const pdf = requirePdf(body);
   const resolvedSchoolId = await resolveSchoolId(meta.type, schoolId);
   await assertProgramClass(meta.type, program, meta.classLevel, resolvedSchoolId);
+  await assertUniqueTestId(meta.testId);
 
+  const parsed = await parsedFromPdf(pdf);
   return toAnswerKeyDto(
     await answerKeyRepository.createAnswerKey({
       type: meta.type,
@@ -208,6 +300,7 @@ export async function uploadAnswerKey(
       programCode: program,
       schoolId: resolvedSchoolId,
       ...toPdfData(pdf, fileName ?? "answer-key.pdf"),
+      ...parsed,
     }),
   );
 }
@@ -220,7 +313,9 @@ export async function updateAnswerKey(
   const pdf = readPdf(body);
   const resolvedSchoolId = await resolveSchoolId(meta.type, schoolId);
   await assertProgramClass(meta.type, program, meta.classLevel, resolvedSchoolId);
+  await assertUniqueTestId(meta.testId, id);
 
+  const parsed = pdf ? await parsedFromPdf(pdf) : {};
   const answerKey = await answerKeyRepository.updateAnswerKey(id, {
     type: meta.type,
     testId: meta.testId,
@@ -229,6 +324,7 @@ export async function updateAnswerKey(
     programCode: program,
     schoolId: resolvedSchoolId,
     ...(pdf && toPdfData(pdf, fileName ?? "answer-key.pdf")),
+    ...parsed,
   });
   // The key may have moved to another school, so tell every school.
   if (answerKey.published) notifyContentChanged({ kind: KIND, schoolId: null });
@@ -252,7 +348,9 @@ export async function getAnswerKeyFile(id: string, actor?: ContentActor | School
 }
 
 export async function listVisibleAnswerKeys(actor: ContentActor) {
-  return (await answerKeyRepository.findAnswerKeys(answerKeyAccessFilter(actor))).map(toAnswerKeyDto);
+  return (await answerKeyRepository.findAnswerKeys(answerKeyAccessFilter(actor))).map((row) =>
+    toAnswerKeyDto(row, true),
+  );
 }
 
 export async function countVisibleAnswerKeys(actor: ContentActor) {
@@ -274,4 +372,62 @@ export async function setAnswerKeyPublished(id: string, published: boolean) {
 export async function deleteAnswerKey(id: string) {
   const { schoolId, published } = await answerKeyRepository.deleteAnswerKey(id);
   if (published) notifyContentChanged({ kind: KIND, schoolId });
+}
+
+/** Admin edits one question's option and explanation after parse. */
+export async function saveAnswerKeyAnswers(id: string, input: SaveAnswerKeyAnswersInput) {
+  const existing = await answerKeyRepository.findAnswerKeyById(id);
+  if (!existing) throw new AppError(404, "Answer key not found");
+  await withPrintedSnapshot(existing);
+
+  const answers = asAnswers(input.answers);
+  const explanations: Record<string, string> = {};
+  for (const [question, text] of Object.entries(input.explanations)) {
+    if (text.trim()) explanations[question] = text.trim();
+  }
+  const printedAnswers = input.printedAnswers
+    ? asAnswers(input.printedAnswers)
+    : asAnswers(existing.printedAnswers);
+  const subjectRanges =
+    input.subjectRanges.length > 0
+      ? input.subjectRanges
+      : asSubjectRanges(existing.subjectRanges);
+
+  const answerKey = await answerKeyRepository.updateAnswerKey(id, {
+    answers: answers as Prisma.InputJsonValue,
+    explanations: explanations as Prisma.InputJsonValue,
+    ...(Object.keys(printedAnswers).length > 0
+      ? { printedAnswers: printedAnswers as Prisma.InputJsonValue }
+      : {}),
+    subjectRanges: subjectRanges as Prisma.InputJsonValue,
+  });
+  notifyContentChanged({ kind: KIND, schoolId: answerKey.school?.id ?? null });
+  const { rescoreOmScansForKey } = await import("./om-scan.service.js");
+  await rescoreOmScansForKey(id);
+  return toAnswerKeyDto(answerKey);
+}
+
+export async function getVisibleAnswerKey(id: string, actor: ContentActor) {
+  const row = await answerKeyRepository.findVisibleAnswerKey(id, answerKeyAccessFilter(actor));
+  if (!row) throw new AppError(404, "Answer key not found");
+  return toAnswerKeyDto(await withPrintedSnapshot(row), true);
+}
+
+/** Re-read the stored PDF into the editor. Does not write until admin clicks Save. */
+export async function reparseAnswerKey(id: string) {
+  const file = await answerKeyRepository.findAnswerKeyFile({ id });
+  if (!file) throw new AppError(404, "Answer key not found");
+  const existing = await answerKeyRepository.findAnswerKeyById(id);
+  if (!existing) throw new AppError(404, "Answer key not found");
+  const parsed = await parseAnswerKeyPdf(Buffer.from(file.data));
+  if (Object.keys(parsed.answers).length === 0) {
+    throw new AppError(422, "Could not read answers from this PDF");
+  }
+  return toAnswerKeyDto({
+    ...existing,
+    answers: parsed.answers,
+    printedAnswers: parsed.answers,
+    explanations: existing.explanations,
+    subjectRanges: parsed.subjectRanges,
+  });
 }

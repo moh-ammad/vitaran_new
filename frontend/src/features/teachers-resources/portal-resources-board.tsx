@@ -70,7 +70,7 @@ export function PortalResourcesBoard({ role, description }: PortalResourcesBoard
       <div className={cn("-mx-4 -mb-4 sm:-mx-5 lg:-mx-6", pending && "opacity-70 transition-opacity")}>
         <ResourcePage
           key={cacheKey}
-          title="Teachers"
+          title={role === "student" ? "Your" : "Teachers"}
           highlight="Resources"
           books={solutionBooks}
           programIds={payload.programIds}

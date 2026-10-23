@@ -45,10 +45,17 @@ function splitColumns({ columns, rows }: Pick<ResultSheet, "columns" | "rows">) 
 type ResultSheetCardProps = {
   sheet: ResultSheet;
   downloadHref: string;
+  showDownload?: boolean;
+  emptyMessage?: string;
 };
 
 /** A class's results: title, search and download in one header, then the students. */
-export function ResultSheetCard({ sheet, downloadHref }: ResultSheetCardProps) {
+export function ResultSheetCard({
+  sheet,
+  downloadHref,
+  showDownload = true,
+  emptyMessage = "No students from your classes in this result.",
+}: ResultSheetCardProps) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const { shown, tags, numeric } = splitColumns(sheet);
@@ -65,7 +72,9 @@ export function ResultSheetCard({ sheet, downloadHref }: ResultSheetCardProps) {
     <section className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-[0_12px_32px_-20px_rgb(25_28_95/0.35)]">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-brand-100 px-5 py-4 sm:px-6">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold text-neutral-950">Class {sheet.classLevel}</h2>
+          <h2 className="text-lg font-bold text-neutral-950">
+            {sheet.classLabel || sheet.label || `Class ${sheet.classLevel}`}
+          </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500">
             <span className="font-semibold text-neutral-800">{studentCount(sheet.rowCount)}</span>
             {detail && (
@@ -98,23 +107,25 @@ export function ResultSheetCard({ sheet, downloadHref }: ResultSheetCardProps) {
               aria-label="Search students"
             />
           </InputGroup>
-          <Button
-            nativeButton={false}
-            className="h-10 shrink-0 rounded-lg bg-brand-900 px-4 text-sm font-semibold text-white hover:bg-brand-800"
-            render={
-              <Link
-                href={downloadHref}
-                download={sheet.fileName}
-                target="_blank"
-                rel="noopener noreferrer"
-                prefetch={false}
-                title="Download Excel"
-              />
-            }
-          >
-            <Download className="size-4" />
-            <span className="hidden sm:inline">Download</span>
-          </Button>
+          {showDownload && (
+            <Button
+              nativeButton={false}
+              className="h-10 shrink-0 rounded-lg bg-brand-900 px-4 text-sm font-semibold text-white hover:bg-brand-800"
+              render={
+                <Link
+                  href={downloadHref}
+                  download={sheet.fileName}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  prefetch={false}
+                  title="Download Excel"
+                />
+              }
+            >
+              <Download className="size-4" />
+              <span className="hidden sm:inline">Download</span>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -157,10 +168,14 @@ export function ResultSheetCard({ sheet, downloadHref }: ResultSheetCardProps) {
       ) : (
         <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
           <SearchX className="size-6 text-brand-300" />
-          <p className="text-sm font-semibold text-neutral-900">No students match “{query}”</p>
-          <Button type="button" variant="link" onClick={() => setQuery("")} className="h-auto text-xs text-brand-700">
-            Clear search
-          </Button>
+          <p className="text-sm font-semibold text-neutral-900">
+            {query ? `No students match “${query}”` : emptyMessage}
+          </p>
+          {query ? (
+            <Button type="button" variant="link" onClick={() => setQuery("")} className="h-auto text-xs text-brand-700">
+              Clear search
+            </Button>
+          ) : null}
         </div>
       )}
     </section>

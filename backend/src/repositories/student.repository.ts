@@ -1,6 +1,6 @@
 import { prisma } from "../config/database.js";
 import type { Prisma } from "../generated/prisma/client.js";
-import type { StudentStatus } from "../generated/prisma/enums.js";
+import { StudentStatus } from "../generated/prisma/enums.js";
 import type { ListStudentsQuery } from "../schemas/student.schema.js";
 
 export const studentInclude = {
@@ -46,9 +46,37 @@ export function findStudentById(id: string) {
   return prisma.student.findUnique({ where: { id }, include: studentInclude });
 }
 
+export function listSchoolRolls(schoolId: string) {
+  return prisma.student.findMany({
+    where: { schoolId, status: StudentStatus.ACTIVE },
+    select: { rollNo: true },
+  });
+}
+
+export function listSchoolRoster(schoolId: string) {
+  return prisma.student.findMany({
+    where: { schoolId, status: StudentStatus.ACTIVE },
+    select: {
+      name: true,
+      rollNo: true,
+      classLevel: true,
+      sectionId: true,
+      program: { select: { code: true, name: true } },
+      section: { select: { id: true, name: true } },
+    },
+  });
+}
+
 export function findStudentBySchoolAndRoll(schoolId: string, rollNo: string) {
   return prisma.student.findUnique({
     where: { schoolId_rollNo: { schoolId, rollNo } },
+    include: studentInclude,
+  });
+}
+
+export function findActiveStudentInSchool(schoolId: string, rollNo: string) {
+  return prisma.student.findFirst({
+    where: { schoolId, status: StudentStatus.ACTIVE, rollNo: { equals: rollNo.trim(), mode: "insensitive" } },
     include: studentInclude,
   });
 }

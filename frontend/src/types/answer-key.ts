@@ -1,5 +1,21 @@
 import type { PdfDocument, Publishable, SchoolRef } from "@/types/document";
-import type { Program, SchoolType } from "@/types/school";
+import type { Program, SchoolType, Subject } from "@/types/school";
+
+export type AnswerOption = "A" | "B" | "C" | "D";
+
+export type SubjectRange = {
+  subject: Subject;
+  from: number;
+  to: number;
+  maxMarks: number;
+};
+
+export type AnswerCorrection = {
+  question: number;
+  from: AnswerOption | null;
+  to: AnswerOption | null;
+  explanation: string;
+};
 
 export type AnswerKey = PdfDocument & Publishable & {
   type: SchoolType;
@@ -7,6 +23,25 @@ export type AnswerKey = PdfDocument & Publishable & {
   testId: string;
   /** Set only for customized answer keys. */
   school: SchoolRef | null;
+  answers?: Record<string, AnswerOption>;
+  explanations?: Record<string, string>;
+  printedAnswers?: Record<string, AnswerOption>;
+  printedExplanations?: Record<string, string>;
+  corrections?: AnswerCorrection[];
+  subjectRanges?: SubjectRange[];
+  answerCount?: number;
+  correctionCount?: number;
+};
+
+export type AnswerKeyDetail = AnswerKey & {
+  answers: Record<string, AnswerOption>;
+  explanations: Record<string, string>;
+  printedAnswers: Record<string, AnswerOption>;
+  printedExplanations: Record<string, string>;
+  corrections: AnswerCorrection[];
+  subjectRanges: SubjectRange[];
+  answerCount: number;
+  correctionCount: number;
 };
 
 export type AnswerKeyInput = {

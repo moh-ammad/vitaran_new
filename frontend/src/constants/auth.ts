@@ -21,7 +21,7 @@ export const STUDENT_BASE_PATH = "/student";
 /** Student sign-in sits under the school portal family. */
 export const STUDENT_LOGIN_PATH = "/school/student/login";
 /** After student login — resources only. */
-export const STUDENT_HOME_PATH = "/student/resources";
+export const STUDENT_HOME_PATH = "/student";
 
 /** Page the user tried to open before being sent to login; read once after signing in. */
 export const RETURN_TO_COOKIE = "vitaran_return_to";

@@ -50,6 +50,21 @@ export const googleLoginRateLimit = rateLimit({
   },
 });
 
+export const omrScanRateLimit = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
+  keyGenerator: (req, res) => {
+    const teacher = (res as { locals?: { teacher?: { id?: string } } }).locals?.teacher;
+    return teacher?.id ?? req.ip ?? "omr-unknown";
+  },
+  handler: (_req, res) => {
+    sendError(res, 429, "Too many OMR scans. Wait a few minutes and try again.");
+  },
+});
+
 export const forgotPasswordRateLimit = rateLimit({
   windowMs: LOGIN_WINDOW_MS,
   limit: 8,

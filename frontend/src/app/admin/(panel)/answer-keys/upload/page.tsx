@@ -5,6 +5,7 @@ import { listPrograms } from "@/services/programs";
 import { listCustomizedSchoolOptions } from "@/services/schools";
 
 export const metadata: Metadata = { title: "Upload Answer Key" };
+export const maxDuration = 300;
 
 export default async function UploadAnswerKeyPage() {
   const [schools, programs] = await Promise.all([

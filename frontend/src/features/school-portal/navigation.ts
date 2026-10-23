@@ -67,10 +67,17 @@ const SEGMENT_LABELS: Record<string, string> = {
   students: "Students",
   new: "Add student",
   edit: "Edit",
+  answers: "Key corrections",
   resources: "Resources",
   "answer-keys": "Answer Keys",
   results: "Results",
 };
+
+function crumbLabel(segment: string, previous: string | undefined) {
+  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
+  if (previous === "answer-keys") return "Key";
+  return "Details";
+}
 
 export type SchoolBreadcrumb = { label: string; href: string };
 
@@ -93,5 +100,6 @@ export function getSchoolParentHref(pathname: string): string | null {
   const dashboard = "/school";
   if (pathname === dashboard) return null;
   if (allItems.some((item) => item.href === pathname)) return dashboard;
+  if (/\/answer-keys\/[^/]+\/answers$/.test(pathname)) return pathname.replace(/\/[^/]+\/answers$/, "");
   return getSchoolBreadcrumbs(pathname).at(-2)?.href ?? dashboard;
 }

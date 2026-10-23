@@ -1,8 +1,10 @@
 import type { Publishable, SchoolRef } from "@/types/document";
-import type { Program, SchoolType } from "@/types/school";
+import type { Program, SchoolType, Subject } from "@/types/school";
 
 export type ResultClass = {
   classLevel: number;
+  /** Teacher portal: "Class 8-B" when the sheet is scoped to one section. */
+  label?: string;
   rowCount: number;
   fileName: string;
   fileSize: number;
@@ -34,6 +36,23 @@ export type ResultSheet = Omit<ResultClass, "updatedAt"> & {
   caption: string[];
   columns: string[];
   rows: ResultCell[][];
+  classLabel?: string;
+  updatedAt: string;
+};
+
+/** One published test for the signed-in student — their scores only. */
+export type StudentResultRow = {
+  resultSetId: string;
+  testId: string;
+  testNumber: number;
+  programName: string;
+  classLevel: number;
+  sectionName: string | null;
+  caption: string[];
+  subjects: Array<{ subject: Subject; score: number; max: number | null }>;
+  total: number | null;
+  maxTotal: number | null;
+  percentage: number | null;
   updatedAt: string;
 };
 

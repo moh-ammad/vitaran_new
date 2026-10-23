@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { wasEdited } from "@/features/documents/constants";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
@@ -17,23 +16,22 @@ type ResultSetViewProps = {
   basePath: string;
   /** Shown to admins, who need to know which school this is. */
   showSchool?: boolean;
+  showDownload?: boolean;
   backHref?: string;
   actions?: ReactNode;
 };
 
 /** A test's results: a title line, a tab per uploaded class, and that class's students. */
-export function ResultSetView({ resultSet, sheet, basePath, showSchool = false, backHref, actions }: ResultSetViewProps) {
+export function ResultSetView({
+  resultSet,
+  sheet,
+  basePath,
+  showSchool = false,
+  showDownload = true,
+  actions,
+}: ResultSetViewProps) {
   return (
     <div className="space-y-4">
-      {backHref && (
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-900"
-        >
-          <ArrowLeft className="size-4" />
-          All results
-        </Link>
-      )}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
@@ -89,6 +87,7 @@ export function ResultSetView({ resultSet, sheet, basePath, showSchool = false, 
         key={sheet.classLevel}
         sheet={sheet}
         downloadHref={resultSheetDownloadHref(basePath, resultSet.id, sheet.classLevel)}
+        showDownload={showDownload}
       />
     </div>
   );

@@ -6,7 +6,7 @@ export default async function TeacherResultsPage() {
     <PortalResultsBoard
       role="teacher"
       basePath={TEACHER_RESULTS_PATH}
-      description="Published results for your assigned classes."
+      description="Class teachers see every subject for their class. Subject teachers see only their subject."
     />
   );
 }

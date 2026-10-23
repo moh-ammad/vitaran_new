@@ -5,7 +5,14 @@ import { listFiltersQuery, type ListFilters } from "@/services/list-filters";
 import { pdfUploadRequest } from "@/services/pdf-upload";
 import { schoolApi, schoolFetch } from "@/services/school-api";
 import { teacherApi, teacherFetch } from "@/services/teacher-api";
-import type { AnswerKey, AnswerKeyInput, SchoolTestOption } from "@/types/answer-key";
+import type {
+  AnswerKey,
+  AnswerKeyDetail,
+  AnswerKeyInput,
+  AnswerOption,
+  SchoolTestOption,
+  SubjectRange,
+} from "@/types/answer-key";
 import type { ContentStats } from "@/types/document";
 
 const BASE = "/answer-keys";
@@ -29,9 +36,9 @@ export function getAnswerKeyStats() {
   return adminApi<ContentStats>(`${BASE}/stats`);
 }
 
-export async function getAnswerKey(id: string): Promise<AnswerKey | null> {
+export async function getAnswerKey(id: string): Promise<AnswerKeyDetail | null> {
   try {
-    return await adminApi<AnswerKey>(itemPath(BASE, id));
+    return await adminApi<AnswerKeyDetail>(itemPath(BASE, id));
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return null;
     throw error;
@@ -56,6 +63,22 @@ export function deleteAnswerKey(id: string) {
   return adminApi<void>(itemPath(BASE, id), { method: "DELETE" });
 }
 
+export function saveAnswerKeyAnswers(
+  id: string,
+  input: {
+    answers: Record<string, AnswerOption>;
+    explanations: Record<string, string>;
+    printedAnswers?: Record<string, AnswerOption>;
+    subjectRanges: SubjectRange[];
+  },
+) {
+  return adminApi<AnswerKeyDetail>(`${itemPath(BASE, id)}/answers`, { method: "PATCH", body: input });
+}
+
+export function reparseAnswerKey(id: string) {
+  return adminApi<AnswerKeyDetail>(`${itemPath(BASE, id)}/parse`, { method: "POST" });
+}
+
 export function fetchAnswerKeyFile(id: string) {
   return adminFetch(`${itemPath(BASE, id)}/file`);
 }
@@ -65,6 +88,15 @@ export function listSchoolAnswerKeys() {
   return schoolApi<AnswerKey[]>(SCHOOL_BASE);
 }
 
+export async function getSchoolAnswerKey(id: string): Promise<AnswerKeyDetail | null> {
+  try {
+    return await schoolApi<AnswerKeyDetail>(itemPath(SCHOOL_BASE, id));
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return null;
+    throw error;
+  }
+}
+
 export function fetchSchoolAnswerKeyFile(id: string) {
   return schoolFetch(`${itemPath(SCHOOL_BASE, id)}/file`);
 }
@@ -72,6 +104,15 @@ export function fetchSchoolAnswerKeyFile(id: string) {
 /** Keys for the signed-in teacher's assigned classes. */
 export function listTeacherAnswerKeys() {
   return teacherApi<AnswerKey[]>(TEACHER_BASE);
+}
+
+export async function getTeacherAnswerKey(id: string): Promise<AnswerKeyDetail | null> {
+  try {
+    return await teacherApi<AnswerKeyDetail>(itemPath(TEACHER_BASE, id));
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return null;
+    throw error;
+  }
 }
 
 export function fetchTeacherAnswerKeyFile(id: string) {

@@ -57,7 +57,12 @@ export const getTeacherDashboard: RequestHandler = async (_req, res) => {
     students: roster.pagination.total,
     answerKeys,
     results,
-    classLevels: [...new Set(teacher.assignments.map((row) => row.classLevel))].sort((a, b) => a - b),
+    classLevels: [
+      ...new Set([
+        ...teacher.assignments.map((row) => row.classLevel),
+        ...(teacher.classTeacherSections ?? []).map((row) => row.classLevel),
+      ]),
+    ].sort((a, b) => a - b),
     subjects: [...new Set(teacher.assignments.map((row) => row.subject))],
     classTeacherLabels: (teacher.classTeacherSections ?? []).map((row) =>
       row.kind === "section"

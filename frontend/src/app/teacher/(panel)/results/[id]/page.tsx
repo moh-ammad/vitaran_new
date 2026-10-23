@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/features/admin/page-header";
+import { LiveRefresh } from "@/features/live/live-refresh";
 import { TEACHER_RESULTS_PATH } from "@/features/results/constants";
 import { ResultSetView, selectedClass } from "@/features/results/result-set-view";
 import { getTeacherResultSet, getTeacherResultSheet } from "@/services/results";
@@ -19,12 +20,13 @@ export default async function TeacherResultDetailPage({
 
   return (
     <>
+      <LiveRefresh kind="results" />
       <PageHeader title="Result" />
       <ResultSetView
         resultSet={resultSet}
         sheet={sheet}
         basePath={TEACHER_RESULTS_PATH}
-        backHref={TEACHER_RESULTS_PATH}
+        showDownload={false}
       />
     </>
   );

@@ -57,7 +57,7 @@ export async function apiClient<T>(
         : error instanceof Error
           ? error.message
           : "network error";
-    throw new ApiError(`Could not reach the API (${url}): ${cause}`, 503);
+    throw new ApiError(`Could not reach the API: ${cause}`, 503);
   }
 
   if (response.status === 204) {

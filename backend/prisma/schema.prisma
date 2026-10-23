@@ -104,6 +104,8 @@ model School {
   classTeachers     ClassTeacher[]
   schoolClasses     SchoolClass[]
   students          Student[]
+  omScans           OmScan[]
+  omResultReleases  OmResultRelease[]
 
   @@index([status])
   @@index([board])
@@ -155,6 +157,8 @@ model Teacher {
   assignments            TeacherAssignment[]
   classTeacherOf         SchoolSection[]
   classTeacherOfClasses  ClassTeacher[]
+  omScans                OmScan[]
+  omResultReleases       OmResultRelease[]
 
   @@index([schoolId])
   @@index([status])
@@ -255,6 +259,7 @@ model Student {
   passwordEncrypted String        @map("password_encrypted") @db.VarChar(512)
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  omScans           OmScan[]
 
   @@unique([schoolId, rollNo])
   @@index([schoolId, classLevel])
@@ -283,17 +288,90 @@ model AnswerKey {
   fileSize    Int        @map("file_size")
   /// PDF bytes; never selected in list queries.
   data        Bytes
+  /// Current A–D options, keyed by question number ("1" → "B").
+  answers       Json? @map("answers")
+  /// Per-question explanation text, keyed by question number.
+  explanations  Json? @map("explanations")
+  /// KEY table as printed in the PDF. Admin edits never overwrite this.
+  printedAnswers Json? @map("printed_answers")
+  /// Explanations as first parsed from the PDF (usually empty for scanned keys).
+  printedExplanations Json? @map("printed_explanations")
+  /// Subject bands in paper order: MPC (75) or MPCB (100), 25 questions each.
+  subjectRanges Json? @map("subject_ranges")
   /// Schools only see published answer keys.
   published   Boolean    @default(false)
   publishedAt DateTime?  @map("published_at") @db.Timestamptz(3)
   createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  omScans     OmScan[]
 
+  @@unique([testId])
   @@index([createdAt])
   @@index([schoolId])
   @@index([programCode])
   @@index([testId, testNumber])
   @@map("answer_keys")
+}
+
+/// One OMR attempt per student per test. Answers stay; scores recompute when the key changes.
+model OmScan {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId     String    @map("student_id") @db.Uuid
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answerKeyId   String    @map("answer_key_id") @db.Uuid
+  answerKey     AnswerKey @relation(fields: [answerKeyId], references: [id], onDelete: Cascade)
+  testId        String    @map("test_id") @db.VarChar(64)
+  rollNo        String    @map("roll_no") @db.VarChar(64)
+  /// Entered by the teacher at scan time (defaults to the scan day).
+  examDate      DateTime? @map("exam_date") @db.Date
+  answers       Json
+  flags         Json
+  subjectScores Json      @map("subject_scores")
+  correct       Int
+  wrong         Int
+  blank         Int
+  total         Int
+  maxTotal      Int       @map("max_total")
+  rank          Int?
+  classSize     Int?      @map("class_size")
+  fileName      String    @map("file_name") @db.VarChar(255)
+  fileSize      Int       @map("file_size")
+  image         Bytes
+  scannedById   String    @map("scanned_by_id") @db.Uuid
+  scannedBy     Teacher   @relation(fields: [scannedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([studentId, testId])
+  @@index([schoolId, testId])
+  @@index([answerKeyId])
+  @@index([scannedById])
+  @@map("om_scans")
+}
+
+/// Class teacher's push of OMR results for one test to one class (section or whole class).
+/// Students and subject teachers only see scans whose class is released.
+model OmResultRelease {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  testId        String    @map("test_id") @db.VarChar(64)
+  programId     String    @map("program_id") @db.Uuid
+  classLevel    Int       @map("class_level") @db.SmallInt
+  /// Section id, or "class" for a whole class without sections.
+  sectionKey    String    @map("section_key") @db.VarChar(64)
+  published     Boolean   @default(false)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  updatedById   String    @map("updated_by_id") @db.Uuid
+  updatedBy     Teacher   @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([schoolId, testId, programId, classLevel, sectionKey])
+  @@index([updatedById])
+  @@map("om_result_releases")
 }
 
 /// One test's results for one school and program; each class is uploaded as its own sheet.
