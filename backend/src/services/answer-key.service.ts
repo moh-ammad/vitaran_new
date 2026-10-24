@@ -43,6 +43,7 @@ function toAnswerKeyDto(row: AnswerKeySummary | AnswerKeyDetail, forPortal = fal
     program: row.programCode,
     programCode: row.programCode,
     type: row.type,
+    pattern: row.pattern,
     testId: row.testId,
     testNumber: row.testNumber,
     classLevel: row.classLevel,
@@ -70,6 +71,7 @@ type ParsedJsonFields = {
   printedAnswers: Prisma.InputJsonValue;
   printedExplanations: Prisma.InputJsonValue;
   subjectRanges: Prisma.InputJsonValue;
+  pattern: "MAINS" | "ADVANCED";
 };
 
 async function parsedFromPdf(pdf: Buffer): Promise<ParsedJsonFields> {
@@ -84,6 +86,7 @@ async function parsedFromPdf(pdf: Buffer): Promise<ParsedJsonFields> {
       printedAnswers: parsed.answers as Prisma.InputJsonValue,
       printedExplanations: parsed.explanations as Prisma.InputJsonValue,
       subjectRanges: parsed.subjectRanges as Prisma.InputJsonValue,
+      pattern: parsed.pattern,
     };
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -400,6 +403,7 @@ export async function saveAnswerKeyAnswers(id: string, input: SaveAnswerKeyAnswe
       ? { printedAnswers: printedAnswers as Prisma.InputJsonValue }
       : {}),
     subjectRanges: subjectRanges as Prisma.InputJsonValue,
+    ...(input.pattern ? { pattern: input.pattern } : {}),
   });
   notifyContentChanged({ kind: KIND, schoolId: answerKey.school?.id ?? null });
   const { rescoreOmScansForKey } = await import("./om-scan.service.js");
@@ -429,5 +433,6 @@ export async function reparseAnswerKey(id: string) {
     printedAnswers: parsed.answers,
     explanations: existing.explanations,
     subjectRanges: parsed.subjectRanges,
+    pattern: parsed.pattern,
   });
 }
