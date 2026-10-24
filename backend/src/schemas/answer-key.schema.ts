@@ -31,11 +31,16 @@ export const answerKeyIdParamsSchema = z.object({
 });
 
 const questionKey = z.string().regex(/^\d+$/);
+const keyAnswer = z
+  .string()
+  .trim()
+  .transform((value) => value.toUpperCase())
+  .pipe(z.string().regex(/^(ADD|[A-D](\/[A-D])*)$/, "Use A–D, two options like B/C, or ADD"));
 
 export const saveAnswerKeyAnswersSchema = z.object({
-  answers: z.record(questionKey, z.enum(["A", "B", "C", "D"])),
+  answers: z.record(questionKey, keyAnswer),
   explanations: z.record(questionKey, z.string().max(4000)).default({}),
-  printedAnswers: z.record(questionKey, z.enum(["A", "B", "C", "D"])).optional(),
+  printedAnswers: z.record(questionKey, keyAnswer).optional(),
   subjectRanges: z
     .array(
       z.object({

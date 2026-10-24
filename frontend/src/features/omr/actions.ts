@@ -5,10 +5,12 @@ import { ApiError } from "@/services/api-client";
 import { getOmScanTarget, scanTeacherOmr, setOmResultRelease } from "@/services/om-scans";
 import type { OmResultRelease, OmScanResult, OmScanTarget } from "@/types/om-scan";
 
-export async function scanOmrAction(formData: FormData): Promise<OmScanResult> {
+export async function scanOmrAction(
+  formData: FormData,
+): Promise<{ ok: true; result: OmScanResult } | { ok: false; message: string }> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    throw new Error("Attach an OMR sheet image");
+    return { ok: false, message: "Attach an OMR sheet image" };
   }
   const identity = {
     rollNo: String(formData.get("rollNo") ?? "").trim(),
@@ -16,7 +18,7 @@ export async function scanOmrAction(formData: FormData): Promise<OmScanResult> {
     examDate: String(formData.get("examDate") ?? "").trim(),
   };
   if (!identity.rollNo || !identity.testId || !identity.examDate) {
-    throw new Error("Enter roll no, test ID and exam date first");
+    return { ok: false, message: "Enter roll no, test ID and exam date first" };
   }
   try {
     const result = await scanTeacherOmr(file, identity);
@@ -25,9 +27,10 @@ export async function scanOmrAction(formData: FormData): Promise<OmScanResult> {
     revalidatePath("/school/results");
     revalidatePath("/student/results");
     revalidatePath("/admin/results");
-    return result;
+    return { ok: true, result };
   } catch (error) {
-    throw new Error(error instanceof ApiError ? error.message : "Scan failed");
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    throw error;
   }
 }
 

@@ -70,9 +70,8 @@ function crimsonDots(data: ImageData) {
 /** Live check on a video frame: lock only when the printed marks say the whole sheet is readable. */
 export function sheetAlignment(data: ImageData): AlignStatus {
   const { width, height } = data;
-  if (width > height) return { ok: false, reason: "Hold the phone upright (portrait)" };
   const dots = crimsonDots(data);
-  if (dots.length < 2) return { ok: false, reason: "Point the camera at the OMR sheet" };
+  if (dots.length < 2) return { ok: false, reason: "Point the camera at questions 1–100" };
 
   const tl = dots.reduce((a, b) => (b.x + b.y < a.x + a.y ? b : a));
   const tr = dots.reduce((a, b) => (b.x - b.y > a.x - a.y ? b : a));
@@ -80,8 +79,7 @@ export function sheetAlignment(data: ImageData): AlignStatus {
   if (tl === tr || tr.x - tl.x < width * 0.2) return { ok: false, reason: "Show the top of the sheet (logo and red dots)" };
   if (Math.abs(tr.y - tl.y) > span * MAX_TILT) return { ok: false, reason: "Straighten the sheet — keep the top edge level" };
   if (span < width * MIN_SPAN) return { ok: false, reason: "Move closer" };
-  if (tl.y + span * GRID_BOTTOM > height) return { ok: false, reason: "Move back — question 20 row must be in view" };
-  if (tl.y < height * 0.01) return { ok: false, reason: "Move down — the header must be in view" };
+  if (tl.y + span * GRID_BOTTOM > height) return { ok: false, reason: "Move back — keep questions 1–100 in view" };
   return { ok: true, reason: "Hold still…", marks: { tl, tr } };
 }
 

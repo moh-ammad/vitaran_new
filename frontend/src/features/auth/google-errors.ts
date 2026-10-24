@@ -13,7 +13,7 @@ export function googleErrorMessage(code: unknown): string | null {
     case "google-ambiguous":
       return "This email is used for more than one student. Sign in with roll number and password.";
     case "Configuration":
-      return "Google sign-in isn't configured yet.";
+      return "Google sign-in is unavailable right now. Use your email and password.";
     case "AccessDenied":
       return "Google sign-in was cancelled.";
     case "google":

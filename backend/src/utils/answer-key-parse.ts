@@ -5,6 +5,8 @@ import { readKeyGrid } from "./answer-key-grid.js";
 
 export const ANSWER_OPTIONS = ["A", "B", "C", "D"] as const;
 export type AnswerOption = (typeof ANSWER_OPTIONS)[number];
+/** Printed KEY cell: one option, two options ("B/C"), or a bonus ("ADD"). */
+export type KeyAnswer = AnswerOption | `${AnswerOption}/${AnswerOption}` | "ADD";
 
 export type SubjectRange = {
   subject: Subject;
@@ -15,7 +17,7 @@ export type SubjectRange = {
 
 export type ParsedAnswerKey = {
   testId: string | null;
-  answers: Record<string, AnswerOption>;
+  answers: Record<string, KeyAnswer>;
   explanations: Record<string, string>;
   subjectRanges: SubjectRange[];
 };
@@ -37,6 +39,34 @@ const HEADING: Record<string, Subject> = {
 
 const isOption = (value: string): value is AnswerOption =>
   ANSWER_OPTIONS.includes(value as AnswerOption);
+
+export function parseKeyAnswer(value: unknown): KeyAnswer | null {
+  if (typeof value !== "string") return null;
+  const token = value.trim().toUpperCase();
+  if (token === "ADD" || token === "BONUS" || token === "FREE") return "ADD";
+  const parts = token
+    .split("/")
+    .map((part) => part.trim())
+    .filter(isOption);
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0]!;
+  const unique = [...new Set(parts)];
+  return unique.join("/") as KeyAnswer;
+}
+
+export function keyOptions(answer: KeyAnswer | null | undefined): AnswerOption[] {
+  if (!answer || answer === "ADD") return [];
+  return answer.split("/").filter(isOption);
+}
+
+export function isBonusKey(answer: KeyAnswer | null | undefined) {
+  return answer === "ADD";
+}
+
+export function matchesKey(marked: AnswerOption | null | undefined, expected: KeyAnswer) {
+  if (expected === "ADD") return true;
+  return Boolean(marked && keyOptions(expected).includes(marked));
+}
 
 async function screenshotPage(parser: PDFParse, page: number, scale: number) {
   const shots = await parser.getScreenshot({
@@ -89,7 +119,7 @@ function collectHeadings(text: string) {
   return found;
 }
 
-function lastQuestion(answers: Record<string, AnswerOption>, extras: number[]) {
+function lastQuestion(answers: Record<string, KeyAnswer>, extras: number[]) {
   const nums = [...Object.keys(answers).map(Number), ...extras];
   const max = nums.length ? Math.max(...nums) : 0;
   if (max > BLOCK * 3) return BLOCK * 4;
@@ -156,7 +186,7 @@ export function parseAnswerKeyText(text: string): ParsedAnswerKey {
   const fromKey = collectAnswers(text);
   const headings = collectHeadings(text);
   const explanations: Record<string, string> = {};
-  const fromExpl: Record<string, AnswerOption> = {};
+  const fromExpl: Record<string, KeyAnswer> = {};
 
   for (const [question, chunk] of explanationChunks(text)) {
     const parsed = parseChunk(chunk);
@@ -172,15 +202,60 @@ export function parseAnswerKeyText(text: string): ParsedAnswerKey {
   return { testId, answers, explanations, subjectRanges };
 }
 
+const KEY_TOKEN = /(\d{1,3})\s*\)\s*(Add|BONUS|FREE|[A-D](?:\s*\/\s*[A-D])*)(?![A-Za-z])/gi;
+
+/** A key line is "1) C 2) A 3) B …"; prose never packs this many "n) X" pairs on one line. */
+function isKeyLine(line: string) {
+  return (line.match(/\d{1,3}\s*\)\s*(?:Add|BONUS|FREE|[A-D])/gi)?.length ?? 0) >= 4;
+}
+
 /**
- * Answers live in the KEY grid on page 1 (10×10). Skip explanation pages —
- * reparse stays fast and options come from the printed key, not OCR guesses.
+ * Typed key list such as "1) C 2) A … 75) A".
+ * "B/C" keeps both options. "60) Add" is a bonus (free marks).
+ */
+export function parseTextKey(text: string): ParsedAnswerKey | null {
+  const lines = text.split(/\r?\n/);
+  const answers: Record<string, KeyAnswer> = {};
+  for (const line of lines.filter(isKeyLine)) {
+    for (const match of line.matchAll(KEY_TOKEN)) {
+      const question = Number(match[1]);
+      const parsed = parseKeyAnswer(match[2]);
+      if (question >= 1 && question <= 200 && parsed) answers[String(question)] = parsed;
+    }
+  }
+  if (Object.keys(answers).length < 10) return null;
+
+  const prose = lines.filter((line) => !isKeyLine(line)).join("\n");
+  const explanations: Record<string, string> = {};
+  for (const [question, chunk] of explanationChunks(prose)) {
+    const { explanation } = parseChunk(chunk);
+    if (explanation) explanations[String(question)] = explanation;
+  }
+  const keyNumbers = lines
+    .filter(isKeyLine)
+    .flatMap((line) => [...line.matchAll(/(\d{1,3})\s*\)/g)].map((m) => Number(m[1])));
+  const last = lastQuestion(answers, keyNumbers);
+  const subjects = subjectOrder(collectHeadings(prose), last);
+  return {
+    testId: text.match(/Test\s*I[D1]\s*:?\s*([A-Z0-9-]{2,20})/i)?.[1] ?? null,
+    answers,
+    explanations,
+    subjectRanges: rangesFor(subjects, last),
+  };
+}
+
+/**
+ * A typed key list ("1) C 2) A …") is read from the PDF text. Scanned keys fall back to the
+ * printed 10×10 KEY grid on page 1.
  */
 export async function parseAnswerKeyPdf(pdf: Buffer): Promise<ParsedAnswerKey> {
   const parser = new PDFParse({ data: pdf });
   try {
+    const fromText = parseTextKey((await parser.getText()).text);
+    if (fromText) return fromText;
     const page = await screenshotPage(parser, 1, 2);
-    const answers = await readKeyGrid(await cropBand(page, 0.26, 0.36));
+    const grid = await readKeyGrid(await cropBand(page, 0.26, 0.36));
+    const answers: Record<string, KeyAnswer> = { ...grid };
     const last = lastQuestion(answers, []);
     const subjects = subjectOrder([], last || Object.keys(answers).length);
     const subjectRanges = rangesFor(subjects, last || subjects.length * BLOCK);
@@ -190,13 +265,21 @@ export async function parseAnswerKeyPdf(pdf: Buffer): Promise<ParsedAnswerKey> {
   }
 }
 
-export function asAnswers(value: unknown): Record<string, AnswerOption> {
+export function asAnswers(value: unknown): Record<string, KeyAnswer> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const answers: Record<string, AnswerOption> = {};
+  const answers: Record<string, KeyAnswer> = {};
   for (const [question, option] of Object.entries(value as Record<string, unknown>)) {
-    if (/^\d+$/.test(question) && typeof option === "string" && isOption(option)) {
-      answers[question] = option;
-    }
+    if (!/^\d+$/.test(question)) continue;
+    const parsed = parseKeyAnswer(option);
+    if (parsed) answers[question] = parsed;
+  }
+  return answers;
+}
+
+export function asMarkedAnswers(value: unknown): Record<string, AnswerOption> {
+  const answers: Record<string, AnswerOption> = {};
+  for (const [question, option] of Object.entries(asAnswers(value))) {
+    if (isOption(option)) answers[question] = option;
   }
   return answers;
 }
@@ -236,15 +319,15 @@ export function defaultSubjectRanges(lastQuestion: number): SubjectRange[] {
 
 export type AnswerCorrection = {
   question: number;
-  from: AnswerOption | null;
-  to: AnswerOption | null;
+  from: KeyAnswer | null;
+  to: KeyAnswer | null;
   explanation: string;
 };
 
 /** Questions where admin changed the printed KEY option. Explanation rides along. */
 export function diffCorrections(
-  printedAnswers: Record<string, AnswerOption>,
-  answers: Record<string, AnswerOption>,
+  printedAnswers: Record<string, KeyAnswer>,
+  answers: Record<string, KeyAnswer>,
   _printedExplanations: Record<string, string>,
   explanations: Record<string, string>,
 ): AnswerCorrection[] {

@@ -1,5 +1,13 @@
 import type { Subject } from "../generated/prisma/enums.js";
-import { asAnswers, asSubjectRanges, type AnswerOption, type SubjectRange } from "./answer-key-parse.js";
+import {
+  asAnswers,
+  asMarkedAnswers,
+  asSubjectRanges,
+  isBonusKey,
+  matchesKey,
+  type AnswerOption,
+  type SubjectRange,
+} from "./answer-key-parse.js";
 
 export type SubjectScore = {
   subject: Subject;
@@ -25,22 +33,30 @@ export type OmScore = {
 const MARKS = 4;
 
 export function scoreOmrAnswers(
-  marked: Record<string, AnswerOption>,
+  markedInput: unknown,
   keyAnswers: unknown,
   rangesInput: unknown,
 ): OmScore {
+  const marked = asMarkedAnswers(markedInput);
   const key = asAnswers(keyAnswers);
-  const questions = Object.keys(key)
+  const keyQuestions = Object.keys(key)
     .map(Number)
     .filter((n) => n > 0)
     .sort((a, b) => a - b);
-  const last = questions[questions.length - 1] ?? 0;
+  const last = keyQuestions[keyQuestions.length - 1] ?? 0;
   const ranges: SubjectRange[] =
     asSubjectRanges(rangesInput).length > 0
       ? asSubjectRanges(rangesInput)
       : last > 0
         ? [{ subject: "MATHEMATICS" as Subject, from: 1, to: last, maxMarks: last * MARKS }]
         : [];
+
+  const questions =
+    ranges.length > 0
+      ? ranges.flatMap((range) =>
+          Array.from({ length: Math.max(0, range.to - range.from + 1) }, (_, i) => range.from + i),
+        )
+      : keyQuestions;
 
   const subjectScores: SubjectScore[] = ranges.map((range) => ({
     subject: range.subject,
@@ -61,21 +77,22 @@ export function scoreOmrAnswers(
     const expected = key[String(question)];
     const got = marked[String(question)];
     const band = subjectScores.find((row) => question >= row.from && question <= row.to);
-    if (!got) {
-      blank += 1;
-      if (band) band.blank += 1;
-      continue;
-    }
-    if (got === expected) {
+    if (!expected) continue;
+    if (isBonusKey(expected) || matchesKey(got, expected)) {
       correct += 1;
       if (band) {
         band.correct += 1;
         band.total += MARKS;
       }
-    } else {
-      wrong += 1;
-      if (band) band.wrong += 1;
+      continue;
     }
+    if (!got) {
+      blank += 1;
+      if (band) band.blank += 1;
+      continue;
+    }
+    wrong += 1;
+    if (band) band.wrong += 1;
   }
 
   return {
@@ -85,6 +102,6 @@ export function scoreOmrAnswers(
     wrong,
     blank,
     total: correct * MARKS,
-    maxTotal: questions.length * MARKS,
+    maxTotal: subjectScores.reduce((sum, row) => sum + row.maxTotal, 0) || questions.length * MARKS,
   };
 }

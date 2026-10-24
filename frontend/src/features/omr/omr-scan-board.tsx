@@ -52,7 +52,7 @@ export function OmrScanBoard({ initial, releases }: { initial: OmScan[]; release
                     testId === id ? "border-brand-900 bg-brand-900 text-white" : "border-neutral-200 bg-white"
                   }`}
                 >
-                  Test {id}
+                  Test ID {id}
                 </button>
               ))}
             </div>

@@ -31,7 +31,7 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
   const [lookup, setLookup] = useState<{ query: string; target: OmScanTarget | null; error: string } | null>(null);
   const [checking, startChecking] = useTransition();
   const [cameraWanted, setLive] = useState(false);
-  const [hint, setHint] = useState("Point the camera at the full OMR sheet");
+  const [hint, setHint] = useState("Point the camera at questions 1–100");
   const [locked, setLocked] = useState(false);
   const [pending, startTransition] = useTransition();
   const goodFrames = useRef(0);
@@ -145,18 +145,18 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
     form.append("examDate", identity.examDate);
     form.append("file", file);
     startTransition(async () => {
-      try {
-        const result = await scanOmrAction(form);
-        onScanned(result);
-        toast.success(`Scored ${result.scan.student.name} · ${result.scan.total}/${result.scan.maxTotal}`);
-        // One sheet per student: stop the camera and clear the roll so the next sheet needs its own.
-        setLive(false);
-        setRollNo("");
-        rollRef.current?.focus();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Scan failed");
+      const result = await scanOmrAction(form);
+      if (!result.ok) {
+        toast.error(result.message);
         goodFrames.current = 0;
+        return;
       }
+      onScanned(result.result);
+      toast.success(`Scored ${result.result.scan.student.name} · ${result.result.scan.total}/${result.result.scan.maxTotal}`);
+      // One sheet per student: stop the camera and clear the roll so the next sheet needs its own.
+      setLive(false);
+      setRollNo("");
+      rollRef.current?.focus();
     });
   }
 
@@ -212,8 +212,8 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
             </p>
             <p className="mt-0.5 text-xs text-emerald-800">
               {target.student.programName} · Class {target.student.classLevel}
-              {target.student.sectionName ? `-${target.student.sectionName}` : ""} · Test {target.test.testNumber} (ID{" "}
-              {target.test.testId}) · {target.test.questions} questions
+              {target.student.sectionName ? `-${target.student.sectionName}` : ""} · Test ID {target.test.testId} (test
+              no. {target.test.testNumber}) · {target.test.questions} questions
             </p>
             {target.previous && (
               <p className="mt-1 text-xs text-amber-800">
@@ -237,8 +237,7 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
             <Camera className="size-10 opacity-70" />
             <p className="text-sm font-semibold">{ready ? "Camera off" : "Enter the sheet details first"}</p>
             <p className="px-6 text-center text-xs text-white/70">
-              Auto-capture locks onto the red dots printed on the sheet and fires once all 100 questions are in view
-              and the camera is steady.
+              Fill the frame with questions 1–100. A photo of just the bubble grid is enough — no header needed.
             </p>
           </div>
         )}

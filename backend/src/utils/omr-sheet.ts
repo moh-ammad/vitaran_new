@@ -368,6 +368,15 @@ async function readHeaderFields(fields: PhotoFields) {
   };
 }
 
+function warpTarget(rgba: Rgba) {
+  const aspect = rgba.width / Math.max(1, rgba.height);
+  if (aspect >= 0.58 && aspect <= 0.86) {
+    return { width: CANONICAL_WIDTH, height: CANONICAL_HEIGHT };
+  }
+  const height = Math.round(CANONICAL_WIDTH / aspect);
+  return { width: CANONICAL_WIDTH, height: Math.max(500, Math.min(1800, height)) };
+}
+
 const EMPTY_HEADER = {
   rollNo: "",
   rollCandidates: [] as string[],
@@ -411,10 +420,9 @@ export async function readOmrSheet(image: Buffer, options: { identity?: boolean 
   const graySrc = await asGray(image);
   const focus = sharpness(graySrc);
   if (focus < 18) return fail("Image is blurry; hold still");
-  if (rgba.height < rgba.width) return fail("Hold the sheet portrait, full page in view");
 
-  // White paper on a white desk hides the page edge; the whole frame is then the fallback,
-  // since the bubble grid is measured on the photo either way.
+  // White paper on a white desk hides the page edge; the whole frame is then the fallback.
+  // A bubbles-only crop (questions 1–100, no header) is warped at its own aspect.
   const paper = findPaperQuad(rgba);
   const wholePhoto: Quad = [
     { x: 0, y: 0 },
@@ -423,12 +431,13 @@ export async function readOmrSheet(image: Buffer, options: { identity?: boolean 
     { x: 0, y: rgba.height - 1 },
   ];
   const quads = paper && quadQuality(paper, rgba.width, rgba.height, focus).ok ? [paper, wholePhoto] : [wholePhoto];
+  const target = warpTarget(rgba);
   let usedQuad = quads[0]!;
-  let warped = await warpQuad(rgba, usedQuad);
+  let warped = await warpQuad(rgba, usedQuad, target.width, target.height);
   let layout = layoutOmrBubbles(warped.rgba);
   for (const quad of quads.slice(1)) {
     if (layout.measured && layout.flags.every((f) => !f.reason.startsWith("Could not locate"))) break;
-    const retryWarp = await warpQuad(rgba, quad);
+    const retryWarp = await warpQuad(rgba, quad, target.width, target.height);
     const retry = layoutOmrBubbles(retryWarp.rgba);
     if (retry.measured && retry.markCount >= layout.markCount) {
       usedQuad = quad;
@@ -436,9 +445,9 @@ export async function readOmrSheet(image: Buffer, options: { identity?: boolean 
       layout = retry;
     }
   }
-  if (!layout.measured) return fail("Could not find the answer grid. Fill the frame with the full page.");
+  if (!layout.measured) return fail("Could not find the answer grid. Show questions 1–100, edge to edge.");
   const frame = gridFrame(layout.bubbles);
-  if (!frame) return fail("Could not find the answer grid. Fill the frame with the full page.");
+  if (!frame) return fail("Could not find the answer grid. Show questions 1–100, edge to edge.");
   const header = options.identity === false ? EMPTY_HEADER : await readHeaderFields(await photoFields(image, rgba, frame, usedQuad));
   const identity = {
     rollNo: header.rollNo,
@@ -454,7 +463,7 @@ export async function readOmrSheet(image: Buffer, options: { identity?: boolean 
   };
   if (layout.markCount === 0 && layout.flags.length === 0) {
     return {
-      ...fail("No filled answers found. Darken the circles completely and retake."),
+      ...fail("No filled answers found. Show questions 1–100 and retake."),
       ...identity,
     };
   }

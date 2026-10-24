@@ -94,6 +94,8 @@ const SEGMENT_LABELS: Record<string, string> = {
   students: "Students",
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function crumbLabel(segment: string, previous: string | undefined) {
   if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
   if (previous === "answer-keys") return "Key";
@@ -107,8 +109,11 @@ export function getAdminBreadcrumbs(pathname: string): AdminBreadcrumb[] {
   const crumbs: AdminBreadcrumb[] = [{ label: "Dashboard", href: "/admin" }];
 
   segments.forEach((segment, index) => {
+    const previous = segments[index - 1];
+    // `/admin/answer-keys/:id` is not a page — including it trapped Back and the Key crumb on Edit.
+    if (previous === "answer-keys" && UUID.test(segment)) return;
     crumbs.push({
-      label: crumbLabel(segment, segments[index - 1]),
+      label: crumbLabel(segment, previous),
       href: `/admin/${segments.slice(0, index + 1).join("/")}`,
     });
   });
@@ -117,5 +122,8 @@ export function getAdminBreadcrumbs(pathname: string): AdminBreadcrumb[] {
 }
 
 export function getAdminParentHref(pathname: string): string | null {
+  if (/^\/admin\/answer-keys\/[^/]+\/(edit|answers)$/.test(pathname)) {
+    return "/admin/answer-keys";
+  }
   return getAdminBreadcrumbs(pathname).at(-2)?.href ?? null;
 }

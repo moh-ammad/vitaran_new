@@ -6,7 +6,16 @@ import * as omScanRepository from "../repositories/om-scan.repository.js";
 import type { OmScanSummary } from "../repositories/om-scan.repository.js";
 import * as studentRepository from "../repositories/student.repository.js";
 import { AppError } from "../utils/app-error.js";
-import { asAnswers, asExplanations, asSubjectRanges, type AnswerOption } from "../utils/answer-key-parse.js";
+import {
+  asAnswers,
+  asExplanations,
+  asMarkedAnswers,
+  asSubjectRanges,
+  isBonusKey,
+  matchesKey,
+  type AnswerOption,
+  type KeyAnswer,
+} from "../utils/answer-key-parse.js";
 import { notifyContentChanged } from "../utils/content-events.js";
 import { readOmrSheet } from "../utils/omr-sheet.js";
 import { scoreOmrAnswers, type SubjectScore } from "../utils/omr-score.js";
@@ -56,8 +65,8 @@ export type OmScanDto = {
 export type OmQuestionReview = {
   question: number;
   marked: AnswerOption | null;
-  key: AnswerOption | null;
-  result: "OK" | "WRONG" | "BLANK" | "INVALID";
+  key: KeyAnswer | null;
+  result: "OK" | "WRONG" | "BLANK" | "INVALID" | "BONUS";
   explanation: string;
   subject: Subject | null;
 };
@@ -118,7 +127,7 @@ function toDto(row: OmScanSummary, view: "class" | "subject" = "class", released
       programCode: row.student.program.code,
       programName: row.student.program.name,
     },
-    answers: asAnswers(row.answers),
+    answers: asMarkedAnswers(row.answers),
     flags: Array.isArray(row.flags) ? (row.flags as OmScanDto["flags"]) : [],
     subjectScores: row.subjectScores as SubjectScore[],
     correct: row.correct,
@@ -383,7 +392,7 @@ export async function rescoreOmScansForKey(answerKeyId: string) {
   const rows = await omScanRepository.findOmScansForKey(answerKeyId);
   if (rows.length === 0) return 0;
   for (const row of rows) {
-    const score = scoreOmrAnswers(asAnswers(row.answers), key.answers, key.subjectRanges);
+    const score = scoreOmrAnswers(asMarkedAnswers(row.answers), key.answers, key.subjectRanges);
     await omScanRepository.updateOmScan(row.id, applyScore(score));
   }
   const ranked = await omScanRepository.findOmScans({ answerKeyId });
@@ -515,7 +524,7 @@ export async function setOmResultRelease(
 function buildReview(
   answers: Record<string, AnswerOption>,
   flags: OmScanDto["flags"],
-  keyAnswers: Record<string, AnswerOption>,
+  keyAnswers: Record<string, KeyAnswer>,
   explanations: Record<string, string>,
   ranges: ReturnType<typeof asSubjectRanges>,
 ): OmQuestionReview[] {
@@ -526,7 +535,15 @@ function buildReview(
     const marked = answers[String(question)] ?? null;
     const key = keyAnswers[String(question)] ?? null;
     const invalid = flagByQ.get(question);
-    const result = invalid ? "INVALID" : !marked ? "BLANK" : marked === key ? "OK" : "WRONG";
+    const result = invalid
+      ? "INVALID"
+      : key && isBonusKey(key)
+        ? "BONUS"
+        : !marked
+          ? "BLANK"
+          : key && matchesKey(marked, key)
+            ? "OK"
+            : "WRONG";
     const range = ranges.find((row) => question >= row.from && question <= row.to);
     review.push({
       question,

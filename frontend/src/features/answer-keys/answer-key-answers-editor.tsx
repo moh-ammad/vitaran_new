@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
 import { cn } from "@/lib/utils";
-import type { AnswerKeyDetail, AnswerOption, SubjectRange } from "@/types/answer-key";
+import type { AnswerKeyDetail, AnswerOption, KeyAnswer, SubjectRange } from "@/types/answer-key";
+import { isBonusKey, keyOptions } from "@/types/answer-key";
 import { reparseAnswerKeyAction, saveAnswerKeyAnswersAction } from "./actions";
 
 const OPTIONS: AnswerOption[] = ["A", "B", "C", "D"];
@@ -23,7 +24,7 @@ function questionsIn(range: SubjectRange) {
 }
 
 function snapshot(
-  answers: Record<string, AnswerOption>,
+  answers: Record<string, KeyAnswer>,
   explanations: Record<string, string>,
   ranges: SubjectRange[],
 ) {
@@ -33,7 +34,7 @@ function snapshot(
 export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKeyAnswersEditorProps) {
   const [saving, startSaving] = useTransition();
   const [parsing, startParsing] = useTransition();
-  const [answers, setAnswers] = useState<Record<string, AnswerOption>>(() => answerKey.answers);
+  const [answers, setAnswers] = useState<Record<string, KeyAnswer>>(() => answerKey.answers);
   const [explanations, setExplanations] = useState<Record<string, string>>(() => answerKey.explanations);
   const [ranges, setRanges] = useState<SubjectRange[]>(() => answerKey.subjectRanges);
   const [baseline, setBaseline] = useState(() =>
@@ -192,9 +193,9 @@ export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKe
                     )}
                   >
                     <p className="pt-1 text-sm font-bold text-neutral-700 tabular-nums">Q{question}</p>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                       {OPTIONS.map((option) => {
-                        const selected = answers[key] === option;
+                        const selected = keyOptions(answers[key]).includes(option);
                         return (
                           <button
                             key={option}
@@ -202,7 +203,15 @@ export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKe
                             disabled={pending || readOnly}
                             onClick={() => {
                               if (readOnly) return;
-                              setAnswers((current) => ({ ...current, [key]: option }));
+                              setAnswers((current) => {
+                                const picked = new Set(keyOptions(current[key]));
+                                if (picked.has(option)) picked.delete(option);
+                                else picked.add(option);
+                                const next = { ...current };
+                                if (picked.size === 0) delete next[key];
+                                else next[key] = [...picked].join("/") as KeyAnswer;
+                                return next;
+                              });
                             }}
                             className={cn(
                               "size-8 rounded-md text-xs font-bold",
@@ -217,6 +226,32 @@ export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKe
                           </button>
                         );
                       })}
+                      <button
+                        type="button"
+                        disabled={pending || readOnly}
+                        onClick={() => {
+                          if (readOnly) return;
+                          setAnswers((current) =>
+                            isBonusKey(current[key])
+                              ? (() => {
+                                  const next = { ...current };
+                                  delete next[key];
+                                  return next;
+                                })()
+                              : { ...current, [key]: "ADD" },
+                          );
+                        }}
+                        className={cn(
+                          "h-8 rounded-md px-2 text-[11px] font-bold",
+                          isBonusKey(answers[key])
+                            ? "bg-sky-700 text-white"
+                            : "border border-neutral-200 bg-white text-neutral-700",
+                          !readOnly && !isBonusKey(answers[key]) && "hover:bg-neutral-50",
+                          readOnly && "cursor-default",
+                        )}
+                      >
+                        Add
+                      </button>
                     </div>
                     {readOnly ? (
                       <p className="whitespace-pre-wrap text-sm text-neutral-700">

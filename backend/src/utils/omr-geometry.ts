@@ -333,7 +333,8 @@ export function quadQuality(quad: Quad, imageW: number, imageH: number, focus: n
   const height = (left + right) / 2;
   if (width < 40 || height < 40) return { ok: false, reason: "Sheet too small in frame" };
   const aspect = width / height;
-  if (aspect < 0.58 || aspect > 0.86) return { ok: false, reason: "Hold the sheet portrait, full page in view" };
+  // Full A4 sheet or a 1–100 bubble crop (landscape / square).
+  if (aspect < 0.5 || aspect > 1.8) return { ok: false, reason: "Show questions 1–100, edge to edge" };
   const skew = Math.max(Math.abs(top - bottom) / width, Math.abs(left - right) / height);
   if (skew > 0.22) return { ok: false, reason: "Flatten the sheet; too much perspective" };
   const coverage = (width * height) / (imageW * imageH);

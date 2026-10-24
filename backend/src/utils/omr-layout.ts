@@ -8,27 +8,25 @@ const ROWS = GROUPS * ROWS_PER_GROUP;
 const OPTIONS = ANSWER_OPTIONS.length;
 
 /**
- * Measured on the warped 1000×1414 Vitaran sheet that produced the exact overlay.
- * Only the vertical origin moves when a photo includes more header; the grid itself does not.
+ * Measured on a warped full Vitaran sheet. A bubbles-only crop skips the header band and
+ * uses the whole frame; the four question groups are found on the photo either way.
  */
 const AREA = { x0: 0.02, x1: 0.95, y0: 0.36, y1: 0.82 };
 const COL_SPLITS = [0.215, 0.4, 0.58, 0.76];
 const GROUP_SPLITS = [0.464, 0.572, 0.688];
 const SPLIT_SEARCH_X = 0.05;
 const SPLIT_SEARCH_Y = 0.035;
-const MARK_FILL = 0.45;
-/** Below a full fill but above an empty printed ring: ticks, crosses, or a lightly shaded circle. */
-const WEAK_FILL = 0.22;
 /**
- * A darkened circle also inks the inner ring. Calibrated on phone photos: the weakest real fill
- * read ring 0.39 (ratio 0.62); synthetic dots stayed at ratio ≤0.49 and crosses at ring ≤0.33.
+ * The darkest option in a row is the answer when it stands clear of the other three, so light
+ * pencil still counts. Fills here are above the option's empty-bubble level on the same sheet.
  */
-const MARK_RING = 0.36;
-const MARK_RING_RATIO = 0.55;
-
-function isDarkenedCircle(cell: { fill: number; ring: number }) {
-  return cell.fill >= MARK_FILL && cell.ring >= MARK_RING && cell.ring >= cell.fill * MARK_RING_RATIO;
-}
+const MARK_MIN = 0.05;
+const MARK_LEAD = 0.05;
+/** A printed letter never inks more of the core than this; above it the option is just popular. */
+const LETTER_INK_MAX = 0.15;
+/** Two options this dark and this close are both filled. */
+const MARK_FILL = 0.22;
+const MARK_GAP = 0.08;
 
 export type OmFlag = { question: number; reason: string };
 
@@ -296,7 +294,7 @@ function localRowInk(img: Gray, x0: number, x1: number, yFrom: number) {
 function findGroupBands(img: Gray, x0: number, x1: number): Box[] | null {
   const W = img.width;
   const H = img.height;
-  const yFrom = Math.round(H * 0.25);
+  const yFrom = Math.round(H * 0.01);
   const rows = localRowInk(img, x0, x1, yFrom);
   const bands: Band[] = [];
   let current: Band | null = null;
@@ -314,12 +312,13 @@ function findGroupBands(img: Gray, x0: number, x1: number): Box[] | null {
 
   const isGroup = (band: Band) => {
     const h = band.y1 - band.y0;
-    return h >= H * 0.06 && h <= H * 0.16 && band.run < W * 0.08;
+    return h >= H * 0.04 && h <= H * 0.28 && band.run < W * 0.1;
   };
+  const packs: Band[][] = [];
   for (let i = 0; i < bands.length; i++) {
     const found: Band[] = [];
     for (let j = i; j < bands.length && found.length < GROUPS && isGroup(bands[j]!); j++) found.push(bands[j]!);
-    if (found.length === GROUPS) return found.map(({ y0, y1 }) => ({ x0, x1, y0, y1 }));
+    if (found.length === GROUPS) packs.push(found);
     if (found.length !== GROUPS - 1) continue;
     const [a, b, c] = found as [Band, Band, Band];
     const gap = (b.y0 - a.y1 + (c.y0 - b.y1)) / 2;
@@ -328,9 +327,18 @@ function findGroupBands(img: Gray, x0: number, x1: number): Box[] | null {
     const start = next && next.y0 - c.y1 <= gap * 2 ? next.y0 : c.y1 + gap;
     const end = Math.min(H - 1, start + height);
     if (end - start < height * 0.8) continue;
-    return [...found, { y0: start, y1: end, run: 0 }].map(({ y0, y1 }) => ({ x0, x1, y0, y1 }));
+    packs.push([...found, { y0: start, y1: end, run: 0 }]);
   }
-  return null;
+  if (packs.length === 0) return null;
+  const scored = packs.map((found) => {
+    const heights = found.map((band) => band.y1 - band.y0);
+    const mean = heights.reduce((sum, h) => sum + h, 0) / heights.length;
+    const spread = heights.reduce((sum, h) => sum + (h - mean) ** 2, 0) / heights.length;
+    const span = found[GROUPS - 1]!.y1 - found[0]!.y0;
+    return { found, score: span - spread * 4 };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]!.found.map(({ y0, y1 }) => ({ x0, x1, y0, y1 }));
 }
 
 /**
@@ -455,15 +463,28 @@ function measuredBlocks(img: Gray, bands: Box[]) {
   });
 }
 
+function pickMarked(cells: Array<{ option: AnswerOption; fill: number }>) {
+  const ranked = [...cells].sort((a, b) => b.fill - a.fill);
+  const best = ranked[0];
+  const second = ranked[1];
+  if (!best || best.fill < MARK_MIN) return { marked: [] as typeof cells };
+  if (second && second.fill >= MARK_FILL && best.fill - second.fill < MARK_GAP) {
+    return { marked: ranked.filter((cell) => cell.fill >= MARK_FILL) };
+  }
+  if (second && best.fill - second.fill < MARK_LEAD) return { marked: [] as typeof cells };
+  return { marked: [best] };
+}
+
 export function layoutOmrBubbles(rgba: Rgba): OmLayout {
   const img = inkImage(rgba);
   const W = img.width;
   const H = img.height;
+  const fullSheet = H / W > 1.2;
   const search: Box = {
     x0: Math.round(W * AREA.x0),
     x1: Math.round(W * AREA.x1),
-    y0: Math.round(H * 0.3),
-    y1: Math.round(H * 0.9),
+    y0: Math.round(H * (fullSheet ? 0.3 : 0.02)),
+    y1: Math.round(H * (fullSheet ? 0.9 : 0.98)),
   };
   const bands = findGroupBands(img, Math.round(W * AREA.x0), Math.round(W * AREA.x1));
   const measured = bands ? measuredBlocks(img, bands) : null;
@@ -500,19 +521,32 @@ export function layoutOmrBubbles(rgba: Rgba): OmLayout {
         ...ringShape(img, cx, cy, fit.width, dark),
       }));
       for (const cellRead of cells) bubbles.push({ question, ...cellRead });
-      const marked = cells.filter(isDarkenedCircle);
-      const weak = cells.filter(
-        (cellRead) => !isDarkenedCircle(cellRead) && (cellRead.fill >= WEAK_FILL || cellRead.ring >= WEAK_FILL),
-      );
-      if (marked.length === 1) answers[String(question)] = marked[0]!.option;
-      else if (marked.length > 1) flags.push({ question, reason: "More than one option is filled" });
-      else if (weak.length > 0) {
-        flags.push({
-          question,
-          reason: "Wrong method. Darken the circle completely — no ticks, crosses or light marks.",
-        });
-      }
     }
+  }
+
+  // The printed letter inside an empty bubble carries ink of its own ("B" more than "C"), and
+  // light varies across a photo. Measure each option's empty level per printed column of 20
+  // questions and judge marks above it.
+  const columnOf = (question: number) => Math.floor((question - 1) / ROWS);
+  const baseline = new Map<string, number>();
+  for (let c = 0; c < COLS; c++) {
+    for (const option of ANSWER_OPTIONS) {
+      const fills = bubbles
+        .filter((b) => b.option === option && columnOf(b.question) === c)
+        .map((b) => b.fill)
+        .sort((a, b) => a - b);
+      baseline.set(`${c}${option}`, Math.min(LETTER_INK_MAX, fills[Math.floor(fills.length * 0.25)] ?? 0));
+    }
+  }
+  const byQuestion = new Map<number, OmBubble[]>();
+  for (const bubble of bubbles) byQuestion.set(bubble.question, [...(byQuestion.get(bubble.question) ?? []), bubble]);
+  for (const [question, cells] of byQuestion) {
+    const c = columnOf(question);
+    const { marked } = pickMarked(
+      cells.map((cell) => ({ option: cell.option, fill: Math.max(0, cell.fill - (baseline.get(`${c}${cell.option}`) ?? 0)) })),
+    );
+    if (marked.length === 1) answers[String(question)] = marked[0]!.option;
+    else if (marked.length > 1) flags.push({ question, reason: "More than one option is filled" });
   }
 
   return {
@@ -545,8 +579,8 @@ function fixedBlocks(img: Gray, search: Box): Block[] {
   const area: Box = {
     x0: Math.round(W * AREA.x0),
     x1: Math.round(W * AREA.x1),
-    y0: Math.round(H * AREA.y0),
-    y1: Math.round(H * AREA.y1),
+    y0: search.y0,
+    y1: search.y1,
   };
 
   const colEdges = [

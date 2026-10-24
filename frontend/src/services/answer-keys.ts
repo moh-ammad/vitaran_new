@@ -66,9 +66,9 @@ export function deleteAnswerKey(id: string) {
 export function saveAnswerKeyAnswers(
   id: string,
   input: {
-    answers: Record<string, AnswerOption>;
+    answers: Record<string, AnswerOption | string>;
     explanations: Record<string, string>;
-    printedAnswers?: Record<string, AnswerOption>;
+    printedAnswers?: Record<string, AnswerOption | string>;
     subjectRanges: SubjectRange[];
   },
 ) {

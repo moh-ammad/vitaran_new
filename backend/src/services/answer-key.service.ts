@@ -76,7 +76,7 @@ async function parsedFromPdf(pdf: Buffer): Promise<ParsedJsonFields> {
   try {
     const parsed = await parseAnswerKeyPdf(pdf);
     if (Object.keys(parsed.answers).length === 0) {
-      throw new AppError(422, "Could not read the KEY table from page 1 of this PDF");
+      throw new AppError(422, "Could not read answers from this PDF");
     }
     return {
       answers: parsed.answers as Prisma.InputJsonValue,
@@ -88,7 +88,7 @@ async function parsedFromPdf(pdf: Buffer): Promise<ParsedJsonFields> {
   } catch (error) {
     if (error instanceof AppError) throw error;
     logger.warn({ err: error }, "Could not parse answer key PDF");
-    throw new AppError(422, "Could not read the KEY table from page 1 of this PDF");
+    throw new AppError(422, "Could not read answers from this PDF");
   }
 }
 

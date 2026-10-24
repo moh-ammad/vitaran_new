@@ -48,8 +48,8 @@ export type OmScan = {
 export type OmQuestionReview = {
   question: number;
   marked: "A" | "B" | "C" | "D" | null;
-  key: "A" | "B" | "C" | "D" | null;
-  result: "OK" | "WRONG" | "BLANK" | "INVALID";
+  key: string | null;
+  result: "OK" | "WRONG" | "BLANK" | "INVALID" | "BONUS";
   explanation: string;
   subject: Subject | null;
 };

@@ -2,6 +2,17 @@ import type { PdfDocument, Publishable, SchoolRef } from "@/types/document";
 import type { Program, SchoolType, Subject } from "@/types/school";
 
 export type AnswerOption = "A" | "B" | "C" | "D";
+/** One option, two options ("B/C"), or a bonus ("ADD"). */
+export type KeyAnswer = AnswerOption | `${AnswerOption}/${AnswerOption}` | "ADD";
+
+export function keyOptions(answer: KeyAnswer | undefined): AnswerOption[] {
+  if (!answer || answer === "ADD") return [];
+  return answer.split("/").filter((part): part is AnswerOption => part === "A" || part === "B" || part === "C" || part === "D");
+}
+
+export function isBonusKey(answer: KeyAnswer | undefined) {
+  return answer === "ADD";
+}
 
 export type SubjectRange = {
   subject: Subject;
@@ -12,8 +23,8 @@ export type SubjectRange = {
 
 export type AnswerCorrection = {
   question: number;
-  from: AnswerOption | null;
-  to: AnswerOption | null;
+  from: KeyAnswer | null;
+  to: KeyAnswer | null;
   explanation: string;
 };
 
@@ -23,9 +34,9 @@ export type AnswerKey = PdfDocument & Publishable & {
   testId: string;
   /** Set only for customized answer keys. */
   school: SchoolRef | null;
-  answers?: Record<string, AnswerOption>;
+  answers?: Record<string, KeyAnswer>;
   explanations?: Record<string, string>;
-  printedAnswers?: Record<string, AnswerOption>;
+  printedAnswers?: Record<string, KeyAnswer>;
   printedExplanations?: Record<string, string>;
   corrections?: AnswerCorrection[];
   subjectRanges?: SubjectRange[];
@@ -34,9 +45,9 @@ export type AnswerKey = PdfDocument & Publishable & {
 };
 
 export type AnswerKeyDetail = AnswerKey & {
-  answers: Record<string, AnswerOption>;
+  answers: Record<string, KeyAnswer>;
   explanations: Record<string, string>;
-  printedAnswers: Record<string, AnswerOption>;
+  printedAnswers: Record<string, KeyAnswer>;
   printedExplanations: Record<string, string>;
   corrections: AnswerCorrection[];
   subjectRanges: SubjectRange[];

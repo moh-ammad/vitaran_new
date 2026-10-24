@@ -46,10 +46,11 @@ export function ReleasePanel({ releases }: { releases: OmResultRelease[] }) {
         toast.error(result.message);
         return;
       }
+      const sheets = `${row.scanned} sheet${row.scanned === 1 ? "" : "s"}`;
       toast.success(
         published
-          ? `Test ${row.testNumber} results pushed to students and subject teachers`
-          : `Test ${row.testNumber} results hidden from students and subject teachers`,
+          ? `Pushed ${sheets} for test ID ${row.testId} (test no. ${row.testNumber}) to students and subject teachers`
+          : `Hid ${sheets} for test ID ${row.testId} (test no. ${row.testNumber}) from students and subject teachers`,
       );
     });
   }
@@ -74,7 +75,8 @@ export function ReleasePanel({ releases }: { releases: OmResultRelease[] }) {
             <li key={key} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-neutral-900">
-                  Test {row.testNumber} <span className="font-medium text-neutral-500">· ID {row.testId}</span>
+                  Test ID {row.testId}{" "}
+                  <span className="font-medium text-neutral-500">· test no. {row.testNumber}</span>
                 </p>
                 <p className="text-xs text-neutral-500">
                   {row.programName} · Class {row.classLevel}
@@ -101,7 +103,7 @@ export function ReleasePanel({ releases }: { releases: OmResultRelease[] }) {
                   checked={published}
                   disabled={busy === key}
                   onCheckedChange={(next) => toggle(row, next)}
-                  aria-label={`Push test ${row.testNumber} results`}
+                  aria-label={`Push results for test ID ${row.testId}`}
                 />
               </label>
             </li>

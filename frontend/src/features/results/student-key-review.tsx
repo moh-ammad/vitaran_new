@@ -21,6 +21,7 @@ const TAB_LABELS: Record<Subject, string> = {
 
 const RESULT_BADGE: Record<OmQuestionReview["result"], { label: string; className: string }> = {
   OK: { label: "Correct", className: "bg-emerald-50 text-emerald-800" },
+  BONUS: { label: "Bonus", className: "bg-sky-50 text-sky-800" },
   WRONG: { label: "Wrong", className: "bg-rose-50 text-rose-800" },
   BLANK: { label: "Blank", className: "bg-neutral-100 text-neutral-600" },
   INVALID: { label: "Invalid", className: "bg-amber-50 text-amber-800" },
@@ -29,7 +30,8 @@ const RESULT_BADGE: Record<OmQuestionReview["result"], { label: string; classNam
 function countsOf(rows: OmQuestionReview[]) {
   return {
     ALL: rows.length,
-    OK: rows.filter((row) => row.result === "OK").length,
+    OK: rows.filter((row) => row.result === "OK" || row.result === "BONUS").length,
+    BONUS: rows.filter((row) => row.result === "BONUS").length,
     WRONG: rows.filter((row) => row.result === "WRONG").length,
     BLANK: rows.filter((row) => row.result === "BLANK").length,
     INVALID: rows.filter((row) => row.result === "INVALID").length,
@@ -66,6 +68,7 @@ function SubjectPanel({ rows }: { rows: OmQuestionReview[] }) {
             ["ALL", "All"],
             ["WRONG", "Wrong"],
             ["OK", "Correct"],
+            ["BONUS", "Bonus"],
             ["BLANK", "Blank"],
             ["INVALID", "Invalid"],
           ] as Array<[ResultFilter, string]>
@@ -108,10 +111,12 @@ function QuestionRow({ row }: { row: OmQuestionReview }) {
   const [open, setOpen] = useState(false);
   const summary =
     row.result === "INVALID"
-      ? "Not a fully darkened circle — this mark was not counted."
-      : row.marked
-        ? `You marked ${row.marked} · Key ${row.key ?? "—"}`
-        : `Left blank · Key ${row.key ?? "—"}`;
+      ? "More than one option was filled."
+      : row.result === "BONUS"
+        ? "Bonus question — marks given."
+        : row.marked
+          ? `You marked ${row.marked} · Key ${row.key ?? "—"}`
+          : `Left blank · Key ${row.key ?? "—"}`;
 
   return (
     <li className="rounded-xl border border-brand-100 bg-white px-4 py-3.5">
@@ -119,7 +124,12 @@ function QuestionRow({ row }: { row: OmQuestionReview }) {
         <p className="text-sm font-bold text-neutral-950">Q{row.question}</p>
         <div className="flex items-center gap-1.5">
           {OPTIONS.map((option) => (
-            <Bubble key={option} option={option} marked={row.marked === option} isKey={row.key === option} />
+            <Bubble
+              key={option}
+              option={option}
+              marked={row.marked === option}
+              isKey={Boolean(row.key && row.key !== "ADD" && row.key.split("/").includes(option))}
+            />
           ))}
         </div>
         <p className="text-xs text-neutral-500">{summary}</p>

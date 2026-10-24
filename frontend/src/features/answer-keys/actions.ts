@@ -58,9 +58,9 @@ export async function setAnswerKeyPublishedAction(id: string, published: boolean
 export async function saveAnswerKeyAnswersAction(
   id: string,
   input: {
-    answers: Record<string, "A" | "B" | "C" | "D">;
+    answers: Record<string, string>;
     explanations: Record<string, string>;
-    printedAnswers?: Record<string, "A" | "B" | "C" | "D">;
+    printedAnswers?: Record<string, string>;
     subjectRanges: SubjectRange[];
   },
 ) {

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { LiveContentKind } from "./live-refresh";
 
 const LIVE_PATH = "/live";
-const REFRESH_DEBOUNCE_MS = 300;
+const REFRESH_DEBOUNCE_MS = 1_500;
 const MAX_RETRY_MS = 30_000;
 
 /**
@@ -17,7 +17,6 @@ export function useLiveContent(kind: LiveContentKind, onChange: () => void, as?:
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
-    let connectedBefore = false;
 
     const refresh = () => {
       clearTimeout(refreshTimer);
@@ -29,15 +28,17 @@ export function useLiveContent(kind: LiveContentKind, onChange: () => void, as?:
 
       source.onopen = () => {
         attempts = 0;
-        if (connectedBefore) refresh();
-        connectedBefore = true;
       };
 
       source.addEventListener("change", (event) => {
-        const data = JSON.parse((event as MessageEvent<string>).data) as {
-          kind: LiveContentKind;
-        };
-        if (data.kind === kind) refresh();
+        try {
+          const data = JSON.parse((event as MessageEvent<string>).data) as {
+            kind: LiveContentKind;
+          };
+          if (data.kind === kind) refresh();
+        } catch {
+          // Ignore a malformed live event rather than crashing the page.
+        }
       });
 
       source.onerror = () => {
