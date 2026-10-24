@@ -281,7 +281,7 @@ model AnswerKey {
   school      School?    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   /// Human-facing test ID (freeform), shared with results.
   testId      String     @map("test_id") @db.VarChar(64)
-  /// Ordinal test number (1–100).
+  /// Ordinal test number (1–30).
   testNumber  Int        @map("test_number") @db.SmallInt
   classLevel  Int        @map("class_level") @db.SmallInt
   fileName    String     @map("file_name") @db.VarChar(255)
@@ -387,7 +387,7 @@ model ResultSet {
   programKey  String        @map("program_key") @db.VarChar(130)
   /// Human-facing test ID (freeform).
   testId      String        @map("test_id") @db.VarChar(64)
-  /// Ordinal test number (1–100).
+  /// Ordinal test number (1–30).
   testNumber  Int           @map("test_number") @db.SmallInt
   /// Schools only see published results.
   published   Boolean       @default(false)

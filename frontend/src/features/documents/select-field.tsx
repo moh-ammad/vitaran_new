@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { FieldError } from "@/components/ui/field";
 import {
   Select,
@@ -17,6 +18,9 @@ type SelectFieldProps = {
   label: string;
   items: SelectItemOption[];
   placeholder?: string;
+  /** Controlled value. Prefer this when the selection can change after mount. */
+  value?: string;
+  /** Initial value for uncontrolled usage. Ignored when `value` is set. */
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   disabled?: boolean;
@@ -29,12 +33,16 @@ export function SelectField({
   label,
   items,
   placeholder,
+  value: valueProp,
   defaultValue,
   onValueChange,
   disabled,
   className,
   errors,
 }: SelectFieldProps) {
+  const [uncontrolled, setUncontrolled] = useState(defaultValue ?? "");
+  const controlled = valueProp !== undefined;
+  const value = controlled ? valueProp : uncontrolled;
   const invalid = errors?.length ? true : undefined;
 
   return (
@@ -46,9 +54,11 @@ export function SelectField({
         name={name}
         items={items}
         disabled={disabled}
-        defaultValue={defaultValue || null}
+        value={value || null}
         onValueChange={(next: string | null) => {
-          if (next) onValueChange?.(next);
+          if (!next) return;
+          if (!controlled) setUncontrolled(next);
+          onValueChange?.(next);
         }}
       >
         <SelectTrigger

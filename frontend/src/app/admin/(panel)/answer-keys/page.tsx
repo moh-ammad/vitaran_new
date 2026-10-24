@@ -1,52 +1,40 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Upload } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
-import { deleteAnswerKeyAction, setAnswerKeyPublishedAction } from "@/features/answer-keys/actions";
-import {
-  ANSWER_KEY_NOUN,
-  ANSWER_KEY_UPLOAD_PATH,
-  ANSWER_KEYS_PATH,
-} from "@/features/answer-keys/constants";
-import { DocumentTable } from "@/features/documents/document-table";
-import { hasListFilters, parseListFilters } from "@/features/documents/list-filters";
-import { ListFiltersBar } from "@/features/documents/list-filters-bar";
+import { setAnswerKeyPublishedAction } from "@/features/answer-keys/actions";
+import { AnswerKeysDrive, type DrivePath } from "@/features/answer-keys/answer-keys-drive";
+import { AnswerKeysFilters } from "@/features/answer-keys/answer-keys-filters";
+import { parseListFilters } from "@/features/documents/list-filters";
 import { listRecentAnswerKeys } from "@/services/answer-keys";
+import { listPrograms } from "@/services/programs";
 import { listSchoolOptions } from "@/services/schools";
 
 export const metadata: Metadata = { title: "Answer Keys" };
 
 export default async function AdminAnswerKeysPage({ searchParams }: PageProps<"/admin/answer-keys">) {
-  const filters = parseListFilters(await searchParams);
-  const [answerKeys, schools] = await Promise.all([listRecentAnswerKeys(filters), listSchoolOptions()]);
+  const [schools, programs] = await Promise.all([listSchoolOptions(), listPrograms()]);
+  const filters = parseListFilters(await searchParams, {
+    programCodes: programs.map((program) => program.code),
+  });
+  const answerKeys = await listRecentAnswerKeys({ ...filters, limit: 100 });
+
+  const path: DrivePath = {
+    program: filters.type === "REGULAR" ? filters.program : undefined,
+    schoolId: filters.type === "CUSTOMIZED" ? filters.schoolId : undefined,
+    testNumber: filters.testNumber,
+  };
 
   return (
     <>
       <PageHeader
         title="Answer Keys"
-        count={answerKeys.length}
-        toolbar={<ListFiltersBar filters={filters} schools={schools} />}
-        actions={
-          <Link
-            href={ANSWER_KEY_UPLOAD_PATH}
-            className={buttonVariants({ className: "h-10 rounded-lg bg-brand-900 px-4 text-white hover:bg-brand-800" })}
-          >
-            <Upload />
-            Upload answer key
-          </Link>
-        }
+        toolbar={<AnswerKeysFilters path={path} programs={programs} schools={schools} />}
       />
-      <DocumentTable
+      <AnswerKeysDrive
         items={answerKeys}
-        noun={ANSWER_KEY_NOUN}
-        basePath={ANSWER_KEYS_PATH}
-        uploadHref={ANSWER_KEY_UPLOAD_PATH}
-        showType
-        showAnswersEdit
-        filtered={hasListFilters(filters)}
+        programs={programs}
+        schools={schools}
+        path={path}
         publishAction={setAnswerKeyPublishedAction}
-        deleteAction={deleteAnswerKeyAction}
       />
     </>
   );

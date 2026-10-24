@@ -15,7 +15,7 @@ const INPUT_CLASSES = "h-11 rounded-xl px-3.5";
 type LoginFormProps = {
   action: (state: LoginFormState, formData: FormData) => Promise<LoginFormState>;
   title: string;
-  description: string;
+  description?: string;
   identifier: {
     label: string;
     type: "email" | "text";
@@ -35,7 +35,7 @@ export function LoginForm({ action, title, description, identifier }: LoginFormP
     <Card className="gap-6 rounded-3xl py-7 shadow-2xl ring-0 [--card-spacing:--spacing(7)]">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-neutral-950">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
 
       <CardContent>

@@ -15,22 +15,12 @@ export const SCHOOL_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 
 // export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
 
-/** @deprecated Prefer LearningProgram.code from the programs catalog. */
-export const PROGRAMS = [
-  "INTEGRATED",
-  "ADVANCED",
-  "REVISED_ADVANCED",
-  "OLYMPIAD",
-  "OLYMPIAD_PRIMARY",
-] as const;
-
-export const SUBJECTS = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"] as const;
-
 export type SchoolBoard = (typeof SCHOOL_BOARDS)[number];
 export type SchoolType = (typeof SCHOOL_TYPES)[number];
 export type SchoolStatus = (typeof SCHOOL_STATUSES)[number];
 export type Subject = (typeof SUBJECTS)[number];
-export type Program = (typeof PROGRAMS)[number] | string;
+/** Catalog program code from LearningProgram.code (dynamic). */
+export type Program = string;
 
 /** List / dashboard row — identity and contact, no programs or credentials. */
 export type SchoolSummary = {

@@ -33,12 +33,14 @@ export function createApp() {
       autoLogging: {
         ignore: (req) => req.url === `${API_PREFIX}/health`,
       },
+      customLogLevel: (_req, res, error) => {
+        if (error || res.statusCode >= 500) return "error";
+        if (res.statusCode >= 400) return "warn";
+        return "info";
+      },
       serializers: {
-        req: (req) => ({
-          method: req.method,
-          url: req.originalUrl ?? req.url,
-        }),
-        res: (res) => ({ statusCode: res.statusCode }),
+        req: () => undefined,
+        res: () => undefined,
       },
       customSuccessMessage: (req, res) =>
         `${req.method} ${req.originalUrl ?? req.url} ${res.statusCode}`,

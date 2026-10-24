@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { TYPE_LABELS } from "@/features/schools/constants";
 import type { ListFilters } from "@/services/list-filters";
 import type { SchoolRef } from "@/types/document";
+import type { LearningProgram } from "@/types/program";
 import { SCHOOL_TYPES, type SchoolType } from "@/types/school";
 import { testItems } from "./constants";
 import { FILTER_PARAMS, hasListFilters } from "./list-filters";
@@ -67,16 +68,26 @@ function FilterSelect({ label, value, items, onChange, className }: FilterSelect
 type ListFiltersBarProps = {
   filters: ListFilters;
   schools: FilterSchool[];
+  /** When set, shows a catalog program filter (answer keys). */
+  programs?: LearningProgram[];
 };
 
-/** Test and type dropdowns; picking "Customized" adds a dropdown of customized schools. */
-export function ListFiltersBar({ filters, schools }: ListFiltersBarProps) {
+/**
+ * Filters follow the content model: test series → program → type
+ * (and customized school when type is Customized).
+ */
+export function ListFiltersBar({ filters, schools, programs }: ListFiltersBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
+  const showPrograms = Boolean(programs?.length);
   const showSchools = filters.type === "CUSTOMIZED";
+  const programOptions = [
+    { value: ALL, label: "All programs" },
+    ...(programs ?? []).map((program) => ({ value: program.code, label: program.name })),
+  ];
   const schoolOptions = [
     { value: ALL, label: "All customized schools" },
     ...schools
@@ -114,6 +125,15 @@ export function ListFiltersBar({ filters, schools }: ListFiltersBarProps) {
         onChange={(test) => update({ test })}
         className="w-32"
       />
+      {showPrograms && (
+        <FilterSelect
+          label="Filter by program"
+          value={filters.program ?? ALL}
+          items={programOptions}
+          onChange={(program) => update({ program })}
+          className="min-w-40 max-w-56"
+        />
+      )}
       <FilterSelect
         label="Filter by school type"
         value={filters.type ?? ALL}
@@ -134,7 +154,7 @@ export function ListFiltersBar({ filters, schools }: ListFiltersBarProps) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => update({ test: null, type: null, school: null })}
+          onClick={() => update({ test: null, program: null, type: null, school: null })}
           className="h-9 border-brand-200 bg-white font-semibold text-brand-900 hover:border-brand-900 hover:bg-brand-900 hover:text-white"
         >
           <X className="size-4" />

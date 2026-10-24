@@ -21,15 +21,24 @@ export const STATUS_LABELS: Record<SchoolStatus, string> = {
 
 /** Fallback labels for seeded catalog codes; prefer LearningProgram.name when available. */
 export const PROGRAM_LABELS: Record<string, string> = {
-  INTEGRATED: "Integrated Program",
-  ADVANCED: "Advanced Program",
-  REVISED_ADVANCED: "Revised Advanced Program",
-  OLYMPIAD: "Olympiad Program",
-  OLYMPIAD_PRIMARY: "Olympiad Program Class 1 to 5",
+  INTEGRATED: "Integrated",
+  ADVANCED: "Advanced",
+  REVISED_ADVANCED: "Revised Advanced",
+  OLYMPIAD: "Olympiad",
+  OLYMPIAD_PRIMARY: "Olympiad Class 1 to 5",
 };
 
+/** Drop the word "Program" from catalog names (e.g. "Integrated Program" → "Integrated"). */
+function withoutProgramWord(label: string) {
+  return label
+    .replace(/\s+Program\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export function programLabel(code: string, name?: string | null) {
-  return name?.trim() || PROGRAM_LABELS[code] || code.replaceAll("_", " ");
+  const raw = name?.trim() || PROGRAM_LABELS[code] || code.replaceAll("_", " ");
+  return withoutProgramWord(raw);
 }
 
 /** Also the `subject` names used by the solution books. */

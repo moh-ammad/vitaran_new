@@ -194,8 +194,16 @@ function schoolAccessFilter(
   };
 }
 
-export async function listRecentAnswerKeys({ limit, testNumber, type, schoolId }: ListAnswerKeysQuery) {
-  const where: Prisma.AnswerKeyWhereInput[] = [{ testNumber, type }];
+export async function listRecentAnswerKeys({
+  limit,
+  testNumber,
+  program,
+  type,
+  schoolId,
+}: ListAnswerKeysQuery) {
+  const where: Prisma.AnswerKeyWhereInput[] = [
+    { testNumber, type, ...(program ? { programCode: program } : {}) },
+  ];
   if (schoolId) {
     const school = await schoolRepository.findSchoolById(schoolId);
     if (!school) return [];
