@@ -3,13 +3,14 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BookOpenCheck, ClipboardCheck, ScanLine, Trophy } from "lucide-react";
 import {
-  RETURN_TO_COOKIE,
   SCHOOL_HOME_PATH,
   SCHOOL_SESSION_COOKIE,
+  STUDENT_LOGIN_PATH,
   TEACHER_HOME_PATH,
   TEACHER_SESSION_COOKIE,
 } from "@/constants/auth";
 import { AuthShell } from "@/features/auth/auth-shell";
+import { googleErrorMessage } from "@/features/auth/google-errors";
 import { PortalLoginForm } from "@/features/auth/portal-login-form";
 
 export const metadata: Metadata = {
@@ -39,28 +40,14 @@ const highlights = [
   },
 ];
 
-function defaultRoleFromReturnTo(returnTo: string | undefined): "school" | "teacher" {
-  if (!returnTo) return "school";
-  if (
-    returnTo.startsWith("/teacher") ||
-    returnTo.startsWith("/answer-keys") ||
-    returnTo.startsWith("/results") ||
-    returnTo.startsWith("/teachers-resources")
-  ) {
-    return "teacher";
-  }
-  return "school";
-}
-
-export default async function PortalLoginPage() {
+export default async function PortalLoginPage({
+  searchParams,
+}: PageProps<"/school/login">) {
   // Cookie presence is enough here; the panel layouts verify the token.
-  // Avoids flashing the login form when a school/teacher session already exists.
   const cookieStore = await cookies();
   if (cookieStore.has(SCHOOL_SESSION_COOKIE)) redirect(SCHOOL_HOME_PATH);
   if (cookieStore.has(TEACHER_SESSION_COOKIE)) redirect(TEACHER_HOME_PATH);
-
-  const returnTo = cookieStore.get(RETURN_TO_COOKIE)?.value;
-  const defaultRole = defaultRoleFromReturnTo(returnTo);
+  const { error } = await searchParams;
 
   return (
     <AuthShell
@@ -70,11 +57,16 @@ export default async function PortalLoginPage() {
           Sign in to your <span className="text-gradient">portal</span>
         </>
       }
-      description="Schools manage teachers and content. Teachers access resources, answer keys, results and OMR scan."
+      description="One login for schools and teachers. Continue with Google only if that Gmail is already on the account."
       highlights={highlights}
+      switcher={{
+        href: STUDENT_LOGIN_PATH,
+        label: "Student sign in",
+        hint: "Are you a student?",
+      }}
       footnote="Use the login details shared by Vitaran or your school."
     >
-      <PortalLoginForm defaultRole={defaultRole} />
+      <PortalLoginForm googleError={googleErrorMessage(error)} />
     </AuthShell>
   );
 }

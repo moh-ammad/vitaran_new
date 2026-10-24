@@ -1,11 +1,17 @@
 import type { Subject } from "../generated/prisma/client.js";
 import * as programRepository from "../repositories/program.repository.js";
 import * as schoolRepository from "../repositories/school.repository.js";
-import type { SchoolWithPrograms } from "../repositories/school.repository.js";
+import type {
+  SchoolOptionRow,
+  SchoolSessionRow,
+  SchoolSummaryRow,
+  SchoolWithPrograms,
+} from "../repositories/school.repository.js";
 import * as teacherRepository from "../repositories/teacher.repository.js";
 import type {
   AccountAvailabilityQuery,
   CreateSchoolInput,
+  ListSchoolOptionsQuery,
   ListSchoolsQuery,
   SchoolProgramInput,
   UpdateSchoolInput,
@@ -13,6 +19,7 @@ import type {
 import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { decryptSecret, encryptSecret } from "../utils/secret-box.js";
+import { sendSchoolCredentialsEmail } from "./mail.service.js";
 
 export type SchoolProgramClassDto = {
   classLevel: number;
@@ -30,20 +37,34 @@ export type SchoolProgramDto = {
   classes: SchoolProgramClassDto[];
 };
 
-export type SchoolDto = {
+export type SchoolSummaryDto = {
   id: string;
   code: string;
   name: string;
   board: SchoolWithPrograms["board"];
   type: SchoolWithPrograms["type"];
   status: SchoolWithPrograms["status"];
-  principalName: string | null;
   contactName: string;
   contactEmail: string;
-  contactPhone: string;
-  addressLine: string;
   city: string;
   state: string;
+  createdAt: string;
+};
+
+export type SchoolOptionDto = {
+  id: string;
+  name: string;
+  code: string;
+  type: SchoolWithPrograms["type"];
+  programs: string[];
+  programLabels: Record<string, string>;
+  offerings: { code: string; name: string; classLevels: number[] }[];
+};
+
+export type SchoolDto = SchoolSummaryDto & {
+  principalName: string | null;
+  contactPhone: string;
+  addressLine: string;
   pincode: string;
   studentStrength: number | null;
   notes: string | null;
@@ -52,7 +73,6 @@ export type SchoolDto = {
   schoolPrograms: SchoolProgramDto[];
   /** Convenience: catalog codes the school is enrolled in. */
   programCodes: string[];
-  createdAt: string;
   updatedAt: string;
 };
 
@@ -90,8 +110,7 @@ function toSchoolPrograms(school: SchoolWithPrograms): SchoolProgramDto[] {
   }));
 }
 
-export function toSchoolDto(school: SchoolWithPrograms): SchoolDto {
-  const schoolPrograms = toSchoolPrograms(school);
+export function toSchoolSummaryDto(school: SchoolSummaryRow): SchoolSummaryDto {
   return {
     id: school.id,
     code: school.code,
@@ -99,13 +118,38 @@ export function toSchoolDto(school: SchoolWithPrograms): SchoolDto {
     board: school.board,
     type: school.type,
     status: school.status,
-    principalName: school.principalName,
     contactName: school.contactName,
     contactEmail: school.contactEmail,
-    contactPhone: school.contactPhone,
-    addressLine: school.addressLine,
     city: school.city,
     state: school.state,
+    createdAt: school.createdAt.toISOString(),
+  };
+}
+
+export function toSchoolOptionDto(school: SchoolOptionRow): SchoolOptionDto {
+  const offerings = school.schoolPrograms.map((row) => ({
+    code: row.program.code,
+    name: row.program.name,
+    classLevels: row.classes.map((cls) => cls.classLevel),
+  }));
+  return {
+    id: school.id,
+    name: school.name,
+    code: school.code,
+    type: school.type,
+    programs: offerings.map((row) => row.code),
+    programLabels: Object.fromEntries(offerings.map((row) => [row.code, row.name])),
+    offerings,
+  };
+}
+
+export function toSchoolDto(school: SchoolWithPrograms): SchoolDto {
+  const schoolPrograms = toSchoolPrograms(school);
+  return {
+    ...toSchoolSummaryDto(school),
+    principalName: school.principalName,
+    contactPhone: school.contactPhone,
+    addressLine: school.addressLine,
     pincode: school.pincode,
     studentStrength: school.studentStrength,
     notes: school.notes,
@@ -113,7 +157,6 @@ export function toSchoolDto(school: SchoolWithPrograms): SchoolDto {
     accountPhone: school.accountPhone,
     schoolPrograms,
     programCodes: schoolPrograms.map((row) => row.programCode),
-    createdAt: school.createdAt.toISOString(),
     updatedAt: school.updatedAt.toISOString(),
   };
 }
@@ -124,6 +167,46 @@ export function toSchoolAccountDto(school: SchoolWithPrograms): SchoolAccountDto
   const { notes, ...rest } = toSchoolDto(school);
   void notes;
   return rest;
+}
+
+/** Nav + offerings for school portal session. No address, phones, or notes. */
+export function toSchoolSessionAccountDto(school: SchoolSessionRow): SchoolAccountDto {
+  const schoolPrograms: SchoolProgramDto[] = school.schoolPrograms.map((row) => ({
+    programId: row.programId,
+    programCode: row.program.code,
+    programName: row.program.name,
+    year: row.program.year,
+    classFrom: row.program.classFrom,
+    classTo: row.program.classTo,
+    catalogSubjects: row.program.subjects,
+    classes: row.classes.map((cls) => ({
+      classLevel: cls.classLevel,
+      subjects: cls.subjects,
+    })),
+  }));
+  return {
+    id: school.id,
+    code: school.code,
+    name: school.name,
+    board: school.board,
+    type: school.type,
+    status: school.status,
+    principalName: null,
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    addressLine: "",
+    city: "",
+    state: "",
+    pincode: "",
+    studentStrength: null,
+    accountEmail: school.accountEmail,
+    accountPhone: null,
+    schoolPrograms,
+    programCodes: schoolPrograms.map((row) => row.programCode),
+    createdAt: school.createdAt.toISOString(),
+    updatedAt: school.updatedAt.toISOString(),
+  };
 }
 
 async function sealPassword(password: string) {
@@ -203,7 +286,7 @@ export async function listSchools(query: ListSchoolsQuery) {
   const { items, total } = await schoolRepository.findSchools(query);
 
   return {
-    items: items.map(toSchoolDto),
+    items: items.map(toSchoolSummaryDto),
     pagination: {
       page: query.page,
       pageSize: query.pageSize,
@@ -211,6 +294,11 @@ export async function listSchools(query: ListSchoolsQuery) {
       totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
     },
   };
+}
+
+export async function listSchoolOptions(query: ListSchoolOptionsQuery) {
+  const items = await schoolRepository.findSchoolOptions(query);
+  return items.map(toSchoolOptionDto);
 }
 
 export async function getSchool(id: string): Promise<SchoolDetailDto> {
@@ -228,7 +316,7 @@ export async function createSchool({ password, programs, code, ...input }: Creat
   await assertProgramOfferings(programs);
   const schoolCode = await assertSchoolCodeAvailable(code);
 
-  return toSchoolDto(
+  const school = toSchoolDto(
     await schoolRepository.createSchool({
       ...input,
       code: schoolCode,
@@ -236,6 +324,19 @@ export async function createSchool({ password, programs, code, ...input }: Creat
       ...(await sealPassword(password)),
     }),
   );
+
+  if (school.accountEmail) {
+    await sendSchoolCredentialsEmail({
+      to: school.accountEmail,
+      schoolName: school.name,
+      loginEmail: school.accountEmail,
+      loginPhone: school.accountPhone,
+      password,
+      reason: "created",
+    });
+  }
+
+  return school;
 }
 
 export async function updateSchool(
@@ -259,11 +360,73 @@ export async function updateSchool(
     await teacherRepository.pruneAssignmentsOutsideSchoolOfferings(id);
   }
 
-  return toSchoolDto(school);
+  const dto = toSchoolDto(school);
+
+  // Admin sets a new password → school receives it by email (forgot-password flow).
+  if (seal && password && dto.accountEmail) {
+    await sendSchoolCredentialsEmail({
+      to: dto.accountEmail,
+      schoolName: dto.name,
+      loginEmail: dto.accountEmail,
+      loginPhone: dto.accountPhone,
+      password,
+      reason: "password-reset",
+    });
+  }
+
+  return dto;
 }
 
 export async function deleteSchool(id: string): Promise<void> {
   await schoolRepository.deleteSchool(id);
+}
+
+/** Admin resends the current login email + password to the school account email. */
+export async function sendSchoolCredentials(id: string) {
+  const school = await getSchool(id);
+  if (!school.accountEmail) {
+    throw new AppError(400, "This school has no login email");
+  }
+  if (!school.password) {
+    throw new AppError(400, "Set a password before sending credentials");
+  }
+
+  const sent = await sendSchoolCredentialsEmail({
+    to: school.accountEmail,
+    schoolName: school.name,
+    loginEmail: school.accountEmail,
+    loginPhone: school.accountPhone,
+    password: school.password,
+    reason: "resend",
+  });
+  if (!sent) {
+    throw new AppError(502, "Could not send the email. Check SMTP settings and try again.");
+  }
+  return { ok: true as const, to: school.accountEmail };
+}
+
+/** Admin sets a new password and emails it to the school (forgot-password flow). */
+export async function resetSchoolPassword(id: string, password: string) {
+  const current = await schoolRepository.findSchoolById(id);
+  if (!current) throw new AppError(404, "School not found");
+  if (!current.accountEmail) {
+    throw new AppError(400, "This school has no login email");
+  }
+
+  await schoolRepository.updateSchool(id, await sealPassword(password));
+
+  const sent = await sendSchoolCredentialsEmail({
+    to: current.accountEmail,
+    schoolName: current.name,
+    loginEmail: current.accountEmail,
+    loginPhone: current.accountPhone,
+    password,
+    reason: "password-reset",
+  });
+  if (!sent) {
+    throw new AppError(502, "Password was saved but the email could not be sent. Try Send credentials.");
+  }
+  return { ok: true as const, to: current.accountEmail };
 }
 
 export async function getSchoolStats() {
@@ -272,6 +435,6 @@ export async function getSchoolStats() {
   return {
     ...stats,
     inactive: stats.total - stats.active,
-    recent: recent.map(toSchoolDto),
+    recent: recent.map(toSchoolSummaryDto),
   };
 }

@@ -16,10 +16,18 @@ const assignmentSchema = z.object({
   subject: z.enum(Subject),
 });
 
-const classTeacherSlotSchema = z.object({
-  programId: z.uuid(),
-  classLevel: z.number().int().min(1).max(12),
-});
+/** Class-level CT when no sections; section CT when sections exist. */
+const classTeacherSlotSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("class"),
+    programId: z.uuid(),
+    classLevel: z.number().int().min(1).max(12),
+  }),
+  z.object({
+    kind: z.literal("section"),
+    sectionId: z.uuid(),
+  }),
+]);
 
 const teacherFields = {
   name: z.string().trim().min(2).max(120),
@@ -38,14 +46,16 @@ const teacherFields = {
         return true;
       });
     }),
-  /** Classes this teacher should own as class teacher (at most one teacher per program+class). */
   classTeacherFor: z
     .array(classTeacherSlotSchema)
     .default([])
     .transform((slots) => {
       const seen = new Set<string>();
       return slots.filter((item) => {
-        const key = `${item.programId}:${item.classLevel}`;
+        const key =
+          item.kind === "class"
+            ? `class:${item.programId}:${item.classLevel}`
+            : `section:${item.sectionId}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -70,6 +80,12 @@ export const setTeacherStatusSchema = z.object({
   status: z.enum(TeacherStatus),
 });
 
+export const resetTeacherPasswordSchema = z.object({
+  password: z.string().min(4, "Use at least 4 characters").max(128),
+});
+
+export type ResetTeacherPasswordInput = z.infer<typeof resetTeacherPasswordSchema>;
+
 export const teacherIdParamsSchema = z.object({
   id: z.uuid(),
 });
@@ -82,15 +98,24 @@ export const listTeachersQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).default(20),
 });
 
-export const setClassTeacherSchema = z.object({
-  programId: z.uuid(),
-  classLevel: z.number().int().min(1).max(12),
-  /** Pass null/omit to clear; otherwise the sole class teacher for that class. */
-  teacherId: z.uuid().nullable(),
-});
+export const setClassTeacherSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("class"),
+    programId: z.uuid(),
+    classLevel: z.number().int().min(1).max(12),
+    teacherId: z.uuid().nullable(),
+  }),
+  z.object({
+    kind: z.literal("section"),
+    sectionId: z.uuid(),
+    teacherId: z.uuid().nullable(),
+    applyToClass: z.boolean().optional().default(false),
+  }),
+]);
 
 export type CreateTeacherInput = z.infer<typeof createTeacherSchema>;
 export type UpdateTeacherInput = z.infer<typeof updateTeacherSchema>;
 export type ListTeachersQuery = z.infer<typeof listTeachersQuerySchema>;
 export type SetTeacherStatusInput = z.infer<typeof setTeacherStatusSchema>;
 export type SetClassTeacherInput = z.infer<typeof setClassTeacherSchema>;
+export type ClassTeacherSlotInput = z.infer<typeof classTeacherSlotSchema>;

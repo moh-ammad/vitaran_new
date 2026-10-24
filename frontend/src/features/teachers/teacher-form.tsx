@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import Form from "next/form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
@@ -18,6 +19,7 @@ import {
 import { ClassSubjectGrid } from "@/features/schools/class-subject-grid";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import type { SchoolProgramOffering } from "@/types/program";
+import type { SchoolSection } from "@/types/section";
 import type { Subject } from "@/types/school";
 import type { ClassTeacherSlot, TeacherDetail } from "@/types/teacher";
 import { TEACHER_STATUS_LABELS } from "./constants";
@@ -26,10 +28,10 @@ import type { TeacherFormState, TeacherFormValues } from "./actions";
 type TeacherFormProps = {
   teacher?: TeacherDetail;
   schoolPrograms: SchoolProgramOffering[];
-  /** Existing class-teacher slots for the school. */
+  sections: SchoolSection[];
   classTeacherSlots: ClassTeacherSlot[];
-  /** Slots this teacher already owns (edit only). */
-  myClassTeacherSlots?: { programId: string; classLevel: number }[];
+  /** Encoded tokens this teacher already owns. */
+  myClassTeacherTokens?: string[];
   action: (state: TeacherFormState, formData: FormData) => Promise<TeacherFormState>;
   cancelHref: string;
   successHref: string;
@@ -39,14 +41,15 @@ function encodeAssignment(programId: string, classLevel: number, subject: Subjec
   return `${programId}:${classLevel}:${subject}`;
 }
 
-function encodeSlot(programId: string, classLevel: number) {
-  return `${programId}:${classLevel}`;
+function encodeClassSlot(programId: string, classLevel: number) {
+  return `class:${programId}:${classLevel}`;
 }
 
-function toValues(
-  teacher?: TeacherDetail,
-  mySlots: { programId: string; classLevel: number }[] = [],
-): TeacherFormValues {
+function encodeSectionSlot(sectionId: string) {
+  return `section:${sectionId}`;
+}
+
+function toValues(teacher?: TeacherDetail, myTokens: string[] = []): TeacherFormValues {
   return {
     name: teacher?.name ?? "",
     email: teacher?.email ?? "",
@@ -57,15 +60,16 @@ function toValues(
       teacher?.assignments.map((item) =>
         encodeAssignment(item.programId, item.classLevel, item.subject),
       ) ?? [],
-    classTeacherFor: mySlots.map((slot) => encodeSlot(slot.programId, slot.classLevel)),
+    classTeacherFor: myTokens,
   };
 }
 
 export function TeacherForm({
   teacher,
   schoolPrograms,
+  sections,
   classTeacherSlots,
-  myClassTeacherSlots = [],
+  myClassTeacherTokens = [],
   action,
   cancelHref,
   successHref,
@@ -81,8 +85,9 @@ export function TeacherForm({
       key={formKey}
       teacher={teacher}
       schoolPrograms={schoolPrograms}
+      sections={sections}
       classTeacherSlots={classTeacherSlots}
-      myClassTeacherSlots={myClassTeacherSlots}
+      myClassTeacherTokens={myClassTeacherTokens}
       formAction={formAction}
       pending={pending}
       state={state}
@@ -100,8 +105,9 @@ export function TeacherForm({
 function TeacherFormFields({
   teacher,
   schoolPrograms,
+  sections,
   classTeacherSlots,
-  myClassTeacherSlots = [],
+  myClassTeacherTokens = [],
   formAction,
   pending,
   state,
@@ -117,9 +123,13 @@ function TeacherFormFields({
   onSuccess: (teacherId: string) => void;
 }) {
   void successHref;
-  const values = state?.status === "error" ? state.values : toValues(teacher, myClassTeacherSlots);
+  const values =
+    state?.status === "error" ? state.values : toValues(teacher, myClassTeacherTokens);
   const [assignments, setAssignments] = useState(values.assignments);
   const [classTeacherFor, setClassTeacherFor] = useState(values.classTeacherFor);
+  const [selectedSectionByClass, setSelectedSectionByClass] = useState<Record<string, string>>(
+    {},
+  );
   const [selectedIds, setSelectedIds] = useState(() => {
     const ids = new Set<string>();
     for (const token of values.assignments) {
@@ -141,14 +151,36 @@ function TeacherFormFields({
   const { formRef, markClean, guardCancelClick, dialog } = useUnsavedChanges(isEdit && dirty);
   const errors = state?.status === "error" ? state.fieldErrors : undefined;
 
-  const occupiedByOther = useMemo(() => {
+  const occupiedClassByOther = useMemo(() => {
     const map = new Map<string, ClassTeacherSlot>();
     for (const slot of classTeacherSlots) {
+      if (slot.kind !== "class") continue;
       if (teacher && slot.teacherId === teacher.id) continue;
-      map.set(encodeSlot(slot.programId, slot.classLevel), slot);
+      map.set(`${slot.programId}:${slot.classLevel}`, slot);
     }
     return map;
   }, [classTeacherSlots, teacher]);
+
+  const occupiedSectionByOther = useMemo(() => {
+    const map = new Map<string, ClassTeacherSlot>();
+    for (const slot of classTeacherSlots) {
+      if (slot.kind !== "section") continue;
+      if (teacher && slot.teacherId === teacher.id) continue;
+      map.set(slot.sectionId, slot);
+    }
+    return map;
+  }, [classTeacherSlots, teacher]);
+
+  const sectionsByProgramClass = useMemo(() => {
+    const map = new Map<string, SchoolSection[]>();
+    for (const section of sections) {
+      const key = `${section.programId}:${section.classLevel}`;
+      const list = map.get(key) ?? [];
+      list.push(section);
+      map.set(key, list);
+    }
+    return map;
+  }, [sections]);
 
   const selectedPrograms = useMemo(
     () => schoolPrograms.filter((row) => selectedIds.has(row.programId)),
@@ -164,6 +196,21 @@ function TeacherFormFields({
     }
   }, [state, markClean, onSuccess]);
 
+  const clearCtForClass = (programId: string, classLevel: number) => {
+    const sectionIds = new Set(
+      (sectionsByProgramClass.get(`${programId}:${classLevel}`) ?? []).map((row) => row.id),
+    );
+    setClassTeacherFor((slots) =>
+      slots.filter((token) => {
+        if (token === encodeClassSlot(programId, classLevel)) return false;
+        if (token.startsWith("section:")) {
+          return !sectionIds.has(token.slice("section:".length));
+        }
+        return true;
+      }),
+    );
+  };
+
   const setToken = (programId: string, classLevel: number, subject: Subject, checked: boolean) => {
     const token = encodeAssignment(programId, classLevel, subject);
     setAssignments((prev) => {
@@ -171,11 +218,7 @@ function TeacherFormFields({
         ? [...prev.filter((item) => item !== token), token]
         : prev.filter((item) => item !== token);
       const stillHasClass = next.some((item) => item.startsWith(`${programId}:${classLevel}:`));
-      if (!stillHasClass) {
-        setClassTeacherFor((slots) =>
-          slots.filter((slot) => slot !== encodeSlot(programId, classLevel)),
-        );
-      }
+      if (!stillHasClass) clearCtForClass(programId, classLevel);
       return next;
     });
   };
@@ -190,7 +233,7 @@ function TeacherFormFields({
 
   return (
     <>
-      <form
+      <Form
         ref={formRef}
         action={formAction}
         noValidate
@@ -221,6 +264,9 @@ function TeacherFormFields({
                 label,
               }))}
               defaultValue={values.status}
+              onValueChange={() => {
+                if (isEdit) setProfileDirty(true);
+              }}
             >
               <SelectTrigger id="status" className="w-full">
                 <SelectValue />
@@ -269,7 +315,8 @@ function TeacherFormFields({
           <div>
             <h3 className="text-sm font-bold text-neutral-950">Programs & classes *</h3>
             <p className="mt-0.5 text-xs text-neutral-500">
-              Select programs, then check subjects per class.
+              No sections → subjects, then class teacher. With sections → section, then subjects, then
+              class teacher.
             </p>
           </div>
 
@@ -299,8 +346,17 @@ function TeacherFormFields({
                         setAssignments((prev) =>
                           prev.filter((token) => !token.startsWith(`${row.programId}:`)),
                         );
+                        const programSectionIds = new Set(
+                          sections.filter((s) => s.programId === row.programId).map((s) => s.id),
+                        );
                         setClassTeacherFor((prev) =>
-                          prev.filter((slot) => !slot.startsWith(`${row.programId}:`)),
+                          prev.filter((token) => {
+                            if (token.startsWith(`class:${row.programId}:`)) return false;
+                            if (token.startsWith("section:")) {
+                              return !programSectionIds.has(token.slice("section:".length));
+                            }
+                            return true;
+                          }),
                         );
                       }
                     }}
@@ -328,20 +384,53 @@ function TeacherFormFields({
                 onToggleSubject={(classLevel, subject, checked) =>
                   setToken(offering.programId, classLevel, subject, checked)
                 }
+                sectionsForClass={(classLevel) => {
+                  const list =
+                    sectionsByProgramClass.get(`${offering.programId}:${classLevel}`) ?? [];
+                  return list.map((section) => ({
+                    id: section.id,
+                    name: section.name,
+                    available: !occupiedSectionByOther.has(section.id),
+                    checked: classTeacherFor.includes(encodeSectionSlot(section.id)),
+                  }));
+                }}
+                selectedSectionId={(classLevel) => {
+                  const key = `${offering.programId}:${classLevel}`;
+                  const list = sectionsByProgramClass.get(key) ?? [];
+                  return selectedSectionByClass[key] ?? list[0]?.id ?? null;
+                }}
+                onSelectSection={(classLevel, sectionId) => {
+                  const key = `${offering.programId}:${classLevel}`;
+                  setSelectedSectionByClass((prev) => ({ ...prev, [key]: sectionId }));
+                }}
+                onToggleSectionTeacher={(sectionId, checked) => {
+                  const token = encodeSectionSlot(sectionId);
+                  setClassTeacherFor((prev) =>
+                    checked
+                      ? [...prev.filter((item) => item !== token), token]
+                      : prev.filter((item) => item !== token),
+                  );
+                }}
                 classTeacherToggle={{
                   isVisible: (classLevel) => {
                     const hasSubject = assignments.some((token) =>
                       token.startsWith(`${offering.programId}:${classLevel}:`),
                     );
                     if (!hasSubject) return false;
-                    return !occupiedByOther.has(encodeSlot(offering.programId, classLevel));
+                    const hasSections =
+                      (sectionsByProgramClass.get(`${offering.programId}:${classLevel}`) ?? [])
+                        .length > 0;
+                    if (hasSections) return false;
+                    return !occupiedClassByOther.has(`${offering.programId}:${classLevel}`);
                   },
                   isChecked: (classLevel) =>
-                    classTeacherFor.includes(encodeSlot(offering.programId, classLevel)),
+                    classTeacherFor.includes(encodeClassSlot(offering.programId, classLevel)),
                   onToggle: (classLevel, checked) => {
-                    const key = encodeSlot(offering.programId, classLevel);
+                    const key = encodeClassSlot(offering.programId, classLevel);
                     setClassTeacherFor((prev) =>
-                      checked ? [...prev.filter((item) => item !== key), key] : prev.filter((item) => item !== key),
+                      checked
+                        ? [...prev.filter((item) => item !== key), key]
+                        : prev.filter((item) => item !== key),
                     );
                   },
                 }}
@@ -360,12 +449,14 @@ function TeacherFormFields({
           >
             Cancel
           </Link>
-          <Button type="submit" disabled={pending}>
-            {pending ? <Loader2 className="animate-spin" /> : <Save />}
-            {isEdit ? "Save changes" : "Create teacher"}
-          </Button>
+          {(!isEdit || dirty) && (
+            <Button type="submit" disabled={pending}>
+              {pending ? <Loader2 className="animate-spin" /> : <Save />}
+              {isEdit ? "Save changes" : "Create teacher"}
+            </Button>
+          )}
         </footer>
-      </form>
+      </Form>
       {dialog}
     </>
   );

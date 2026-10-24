@@ -1,4 +1,5 @@
 import type { SchoolAccount } from "./school";
+import type { StudentAccount } from "./student";
 import type { TeacherAccount } from "./teacher";
 
 export type AdminProfile = {
@@ -23,3 +24,14 @@ export type TeacherLoginResult = {
   expiresAt: string;
   teacher: TeacherAccount;
 };
+
+export type StudentLoginResult = {
+  token: string;
+  expiresAt: string;
+  student: StudentAccount;
+};
+
+export type GoogleLoginResult =
+  | (SchoolLoginResult & { role: "school" })
+  | (TeacherLoginResult & { role: "teacher" })
+  | (StudentLoginResult & { role: "student" });

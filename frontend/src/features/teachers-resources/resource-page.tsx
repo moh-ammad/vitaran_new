@@ -16,8 +16,8 @@ type ResourcePageProps = {
   /** Subjects the viewer has been given; books in other subjects are never sent either. */
   subjectIds: Subject[];
   /**
-   * Teacher isolation: only exact class+subject pairs.
-   * Prefer this over a loose classLevels filter when assignments exist.
+   * Exact program + class + subject access (school offerings or teacher assignments).
+   * When present, books must match all three — not subject alone.
    */
   assignments?: TeacherAssignment[];
   label: string;
@@ -28,12 +28,16 @@ type ResourcePageProps = {
 
 function bookAllowed(
   book: SolutionBook,
+  programId: string,
   subjectIds: Subject[],
   assignments?: TeacherAssignment[],
 ) {
   if (assignments && assignments.length > 0) {
     return assignments.some(
-      (item) => SUBJECT_LABELS[item.subject] === book.subject && item.classLevel === book.grade,
+      (item) =>
+        item.programCode === programId &&
+        SUBJECT_LABELS[item.subject] === book.subject &&
+        item.classLevel === book.grade,
     );
   }
   const allowedSubjects = new Set(subjectIds.map((id) => SUBJECT_LABELS[id]));
@@ -51,18 +55,26 @@ export function ResourcePage({
   emptyMessage,
   compact,
 }: ResourcePageProps) {
+  // Only tabs that have at least one offering/assignment for that program.
+  const visibleProgramIds =
+    assignments && assignments.length > 0
+      ? programIds.filter((id) => assignments.some((row) => row.programCode === id))
+      : programIds;
+
   const allowedBooks = Object.fromEntries(
     programs
-      .filter((program) => programIds.includes(program.id))
+      .filter((program) => visibleProgramIds.includes(program.id))
       .map((program) => [
         program.title,
-        (books[program.title] ?? []).filter((book) => bookAllowed(book, subjectIds, assignments)),
+        (books[program.title] ?? []).filter((book) =>
+          bookAllowed(book, program.id, subjectIds, assignments),
+        ),
       ]),
   );
 
   const tabs = (
     <ProgramTabs
-      programIds={programIds}
+      programIds={visibleProgramIds}
       books={allowedBooks}
       label={label}
       emptyMessage={emptyMessage}

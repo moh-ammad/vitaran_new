@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --env-file=.env src/server.ts",
     "build": "prisma generate && tsc",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
@@ -25,9 +25,13 @@
     "helmet": "^8.3.0",
     "jose": "^6.2.12",
     "multer": "^2.4.0",
+    "nodemailer": "^10.2.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.23.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
+    "sharp": "^0.35.5",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -36,6 +40,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.3.0",
     "@types/node": "^26.6.3",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "eslint": "^10.11.0",
     "pino-pretty": "^13.1.3",

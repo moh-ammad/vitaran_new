@@ -99,6 +99,12 @@ export const schoolIdParamsSchema = z.object({
   id: z.uuid(),
 });
 
+export const resetSchoolPasswordSchema = z.object({
+  password: z.string().min(4, "Use at least 4 characters").max(128),
+});
+
+export type ResetSchoolPasswordInput = z.infer<typeof resetSchoolPasswordSchema>;
+
 export const accountAvailabilityQuerySchema = z.object({
   email,
   excludeId: z.uuid().optional(),
@@ -115,8 +121,14 @@ export const listSchoolsQuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
+export const listSchoolOptionsQuerySchema = z.object({
+  type: z.enum(SchoolType).optional(),
+  status: z.enum(SchoolStatus).optional(),
+});
+
 export type CreateSchoolInput = z.infer<typeof createSchoolSchema>;
 export type UpdateSchoolInput = z.infer<typeof updateSchoolSchema>;
 export type ListSchoolsQuery = z.infer<typeof listSchoolsQuerySchema>;
+export type ListSchoolOptionsQuery = z.infer<typeof listSchoolOptionsQuerySchema>;
 export type AccountAvailabilityQuery = z.infer<typeof accountAvailabilityQuerySchema>;
 export type SchoolProgramInput = z.infer<typeof schoolProgramSchema>;

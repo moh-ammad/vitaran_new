@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { useInPageBackHandler } from "@/components/layout/in-page-back";
 
 type PortalBackButtonProps = {
   getParentHref: (pathname: string) => string | null;
@@ -18,32 +18,20 @@ export function PortalBackButton({
 }: PortalBackButtonProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const visited = useRef<string[]>([]);
-  const poppedState = useRef(false);
+  const inPageBack = useInPageBackHandler();
   const roots = new Set([homeHref, ...(homeHrefs ?? [])]);
 
-  useEffect(() => {
-    const onPopState = () => {
-      poppedState.current = true;
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
-  useEffect(() => {
-    const trail = visited.current;
-    if (poppedState.current && trail.at(-2) === pathname) trail.pop();
-    else if (trail.at(-1) !== pathname) trail.push(pathname);
-    poppedState.current = false;
-  }, [pathname]);
-
-  if (roots.has(pathname)) return null;
+  // Nested in-page views (e.g. classes roster) still show Back even on a nav root URL.
+  if (roots.has(pathname) && !inPageBack) return null;
 
   const parentHref = getParentHref(pathname) ?? homeHref;
 
   const goBack = () => {
-    if (visited.current.length > 1) router.back();
-    else router.push(parentHref);
+    if (inPageBack) {
+      inPageBack();
+      return;
+    }
+    router.push(parentHref);
   };
 
   return (

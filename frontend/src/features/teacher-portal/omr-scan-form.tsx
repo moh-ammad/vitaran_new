@@ -1,10 +1,18 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Form from "next/form";
 import { Camera, CheckCircle2, Loader2, ScanLine, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { capitalizeWords } from "@/features/schools/schema";
 
@@ -40,28 +48,29 @@ export function OmrScanForm({ tests, teacherName }: OmrScanFormProps) {
 
   const classes = selected?.classLevels ?? [];
 
-  return (
-    <form
-      className="mx-auto max-w-2xl space-y-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!selected || !classLevel || !file) {
-          toast.error("Pick a test, class, and OMR sheet image.");
-          return;
-        }
+  function submitScan() {
+    if (!selected || !classLevel || !file) {
+      toast.error("Pick a test, class, and OMR sheet image.");
+      return;
+    }
 
-        startTransition(async () => {
-          // Client-side capture for now — processing pipeline comes next.
-          await new Promise((resolve) => setTimeout(resolve, 600));
-          setDone({
-            testNumber: selected.testNumber,
-            classLevel: Number(classLevel),
-            fileName: file.name,
-          });
-          toast.success("OMR sheet received");
-          setFile(null);
-        });
-      }}
+    startTransition(async () => {
+      // Client-side capture for now — processing pipeline comes next.
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      setDone({
+        testNumber: selected.testNumber,
+        classLevel: Number(classLevel),
+        fileName: file.name,
+      });
+      toast.success("OMR sheet received");
+      setFile(null);
+    });
+  }
+
+  return (
+    <Form
+      action={submitScan}
+      className="mx-auto max-w-2xl space-y-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8"
     >
       <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
         <p className="text-xs font-semibold tracking-wider text-brand-700 uppercase">OMR Scan</p>
@@ -81,25 +90,32 @@ export function OmrScanForm({ tests, teacherName }: OmrScanFormProps) {
         <>
           <Field>
             <FieldLabel htmlFor="omr-test">Test ID</FieldLabel>
-            <select
-              id="omr-test"
-              className="h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm font-semibold text-neutral-950 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+            <Select
+              items={tests.map((item) => ({
+                value: `${item.programCode}:${item.testNumber}`,
+                label: `Test ID ${item.testNumber} · ${capitalizeWords(item.programName)}`,
+              }))}
               value={testKey}
-              onChange={(event) => {
-                setTestKey(event.target.value);
+              onValueChange={(value) => {
+                setTestKey(String(value ?? ""));
                 setClassLevel("");
                 setDone(null);
               }}
             >
-              {tests.map((item) => (
-                <option
-                  key={`${item.programCode}:${item.testNumber}`}
-                  value={`${item.programCode}:${item.testNumber}`}
-                >
-                  Test ID {item.testNumber} · {capitalizeWords(item.programName)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="omr-test" className="h-11 w-full font-semibold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {tests.map((item) => (
+                  <SelectItem
+                    key={`${item.programCode}:${item.testNumber}`}
+                    value={`${item.programCode}:${item.testNumber}`}
+                  >
+                    Test ID {item.testNumber} · {capitalizeWords(item.programName)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
 
           <Field>
@@ -194,6 +210,6 @@ export function OmrScanForm({ tests, teacherName }: OmrScanFormProps) {
           </div>
         </div>
       )}
-    </form>
+    </Form>
   );
 }

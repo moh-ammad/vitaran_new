@@ -1,20 +1,23 @@
-import { BookOpen, KeyRound, ScanLine, Trophy } from "lucide-react";
+import { BookOpen, KeyRound, ScanLine, Trophy, Users } from "lucide-react";
 import { PageHeader } from "@/features/admin/page-header";
 import { StatCard } from "@/features/admin/dashboard-parts";
 import { ChipRow, QuickLinks } from "@/features/admin/quick-links";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
 import { capitalizeWords } from "@/features/schools/schema";
-import { verifyTeacherSession } from "@/features/teacher-auth/session";
+import { getTeacherDashboard } from "@/services/teachers";
+import type { Subject } from "@/types/school";
 
 export default async function TeacherDashboardPage() {
-  const teacher = await verifyTeacherSession();
-
-  const subjectIds = [...new Set(teacher.assignments.map((row) => row.subject))];
-  const classLevels = [...new Set(teacher.assignments.map((row) => row.classLevel))].sort(
-    (a, b) => a - b,
-  );
+  const stats = await getTeacherDashboard();
 
   const links = [
+    {
+      label: "Students",
+      href: "/teacher/students",
+      icon: Users,
+      count: stats.students,
+      hint: `${stats.students} in your classes`,
+    },
     {
       label: "Resources",
       href: "/teacher/resources",
@@ -25,13 +28,15 @@ export default async function TeacherDashboardPage() {
       label: "Answer keys",
       href: "/teacher/answer-keys",
       icon: KeyRound,
-      hint: "For your classes",
+      count: stats.answerKeys,
+      hint: `${stats.answerKeys} published`,
     },
     {
       label: "Results",
       href: "/teacher/results",
       icon: Trophy,
-      hint: "For your classes",
+      count: stats.results,
+      hint: `${stats.results} published`,
     },
     {
       label: "OMR Scan",
@@ -44,21 +49,26 @@ export default async function TeacherDashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Hi, ${capitalizeWords(teacher.name)}`}
-        description={`${teacher.school.name} · ${teacher.school.code}`}
+        title={`Hi, ${capitalizeWords(stats.name)}`}
+        description={`${stats.schoolName} · ${stats.schoolCode}`}
       />
 
       <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <ChipRow
             title="Classes"
-            items={classLevels.map((level) => `Class ${level}`)}
+            items={stats.classLevels.map((level) => `Class ${level}`)}
             empty="No classes assigned yet."
           />
           <ChipRow
             title="Subjects"
-            items={subjectIds.map((subject) => SUBJECT_LABELS[subject])}
+            items={stats.subjects.map((subject) => SUBJECT_LABELS[subject as Subject] ?? subject)}
             empty="No subjects assigned yet."
+          />
+          <ChipRow
+            title="Class teacher of"
+            items={stats.classTeacherLabels}
+            empty="Not a class teacher for any section."
           />
         </div>
       </section>
@@ -67,11 +77,12 @@ export default async function TeacherDashboardPage() {
         <QuickLinks items={[...links]} className="grid-cols-2" />
       </div>
 
-      <div className="mt-4 hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
         {links.map((item) => (
           <StatCard
             key={item.href}
             label={item.label}
+            value={"count" in item ? item.count : undefined}
             hint={item.hint}
             icon={item.icon}
             href={item.href}

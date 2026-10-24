@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { CheckCircle2, KeyRound, Plus, School, Trophy, Upload } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -19,15 +20,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Meter, Panel, StatCard, SummaryTile } from "@/features/admin/dashboard-parts";
+import {
+  DashboardSkeleton,
+  Meter,
+  Panel,
+  StatCard,
+  SummaryTile,
+} from "@/features/admin/dashboard-parts";
 import { PageHeader } from "@/features/admin/page-header";
 import { RESULT_UPLOAD_PATH } from "@/features/results/constants";
 import { BOARD_LABELS, programLabel } from "@/features/schools/constants";
 import { SchoolStatusBadge } from "@/features/schools/school-status-badge";
 import { SchoolTypeBadge } from "@/features/schools/school-type-badge";
-import { getAnswerKeyStats } from "@/services/answer-keys";
-import { getResultStats } from "@/services/results";
-import { getSchoolStats } from "@/services/schools";
+import { getAdminDashboard } from "@/services/schools";
 import { formatDate } from "@/utils/format";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -42,14 +47,7 @@ const VIEW_ALL =
 
 const hiddenCount = ({ total, published }: { total: number; published: number }) => total - published;
 
-export default async function AdminDashboardPage() {
-  const [stats, answerKeys, results] = await Promise.all([
-    getSchoolStats(),
-    getAnswerKeyStats(),
-    getResultStats(),
-  ]);
-  const activeShare = stats.total === 0 ? 0 : Math.round((stats.active / stats.total) * 100);
-
+export default function AdminDashboardPage() {
   return (
     <>
       <PageHeader
@@ -77,7 +75,19 @@ export default async function AdminDashboardPage() {
           </>
         }
       />
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardContent />
+      </Suspense>
+    </>
+  );
+}
 
+async function DashboardContent() {
+  const { schools: stats, answerKeys, results } = await getAdminDashboard();
+  const activeShare = stats.total === 0 ? 0 : Math.round((stats.active / stats.total) * 100);
+
+  return (
+    <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total schools"

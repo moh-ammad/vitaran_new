@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/features/admin/page-header";
-import { RESULTS_PATH, resultSetHref } from "@/features/results/constants";
+import { RESULTS_PATH } from "@/features/results/constants";
 import { ResultForm } from "@/features/results/result-form";
 import { getResultSet } from "@/services/results";
 import { listSchoolOptions } from "@/services/schools";
@@ -17,9 +17,9 @@ export default async function EditResultPage({ params }: PageProps<"/admin/resul
     <>
       <PageHeader
         title="Edit results"
-        description="Change the details, replace a class's sheet, add missing classes or remove one."
+        description="Replace a class sheet with a new Excel file, then save."
       />
-      <ResultForm schools={schools} resultSet={resultSet} backHref={resultSetHref(RESULTS_PATH, id)} />
+      <ResultForm schools={schools} resultSet={resultSet} backHref={RESULTS_PATH} />
     </>
   );
 }

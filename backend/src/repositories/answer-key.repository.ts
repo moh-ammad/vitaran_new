@@ -15,11 +15,27 @@ export const answerKeySummarySelect = {
   publishedAt: true,
   createdAt: true,
   updatedAt: true,
+  answers: true,
+  explanations: true,
+  printedAnswers: true,
+  printedExplanations: true,
+  subjectRanges: true,
   school: { select: { id: true, name: true, code: true } },
+} satisfies Prisma.AnswerKeySelect;
+
+export const answerKeyDetailSelect = {
+  ...answerKeySummarySelect,
+  answers: true,
+  explanations: true,
+  subjectRanges: true,
 } satisfies Prisma.AnswerKeySelect;
 
 export type AnswerKeySummary = Prisma.AnswerKeyGetPayload<{
   select: typeof answerKeySummarySelect;
+}>;
+
+export type AnswerKeyDetail = Prisma.AnswerKeyGetPayload<{
+  select: typeof answerKeyDetailSelect;
 }>;
 
 export function findRecentAnswerKeys(where: Prisma.AnswerKeyWhereInput, limit: number) {
@@ -44,7 +60,22 @@ export function countAnswerKeys(where?: Prisma.AnswerKeyWhereInput) {
 }
 
 export function findAnswerKeyById(id: string) {
-  return prisma.answerKey.findUnique({ where: { id }, select: answerKeySummarySelect });
+  return prisma.answerKey.findUnique({ where: { id }, select: answerKeyDetailSelect });
+}
+
+export function findAnswerKeyByTestId(testId: string, exceptId?: string) {
+  return prisma.answerKey.findFirst({
+    where: { testId, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    select: answerKeyDetailSelect,
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+export function findVisibleAnswerKey(id: string, access: Prisma.AnswerKeyWhereInput) {
+  return prisma.answerKey.findFirst({
+    where: { id, ...access },
+    select: answerKeyDetailSelect,
+  });
 }
 
 export function findAnswerKeyFile(where: Prisma.AnswerKeyWhereInput) {
@@ -55,11 +86,11 @@ export function findAnswerKeyFile(where: Prisma.AnswerKeyWhereInput) {
 }
 
 export function createAnswerKey(data: Prisma.AnswerKeyUncheckedCreateInput) {
-  return prisma.answerKey.create({ data, select: answerKeySummarySelect });
+  return prisma.answerKey.create({ data, select: answerKeyDetailSelect });
 }
 
 export function updateAnswerKey(id: string, data: Prisma.AnswerKeyUncheckedUpdateInput) {
-  return prisma.answerKey.update({ where: { id }, data, select: answerKeySummarySelect });
+  return prisma.answerKey.update({ where: { id }, data, select: answerKeyDetailSelect });
 }
 
 /** Publishing isn't an edit, so `updatedAt` is kept as it was. Returns null when the key is gone. */

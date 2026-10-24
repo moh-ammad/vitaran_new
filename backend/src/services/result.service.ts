@@ -17,12 +17,28 @@ import {
 import { AppError } from "../utils/app-error.js";
 import { notifyContentChanged } from "../utils/content-events.js";
 import { ExcelParseError, parseResultSheet, type CellValue } from "../utils/excel.js";
+import * as answerKeyRepository from "../repositories/answer-key.repository.js";
+import * as studentRepository from "../repositories/student.repository.js";
+import type { Subject } from "../generated/prisma/enums.js";
+import { asSubjectRanges } from "../utils/answer-key-parse.js";
+import type { SubjectScore } from "../utils/omr-score.js";
+import { findVisibleOmScans, type OmScanViewer } from "./om-scan.service.js";
+import {
+  canonicalizePaperMaxes,
+  findRowForStudent,
+  overlayOmrOnRows,
+  parseScoreRow,
+  projectSheetForTeacher,
+} from "../utils/result-sheet-scope.js";
 import {
   resultSetAccessFilter,
+  resultSetMatchesProgram,
+  resultSetVisibleToTeacher,
   resultSheetClassFilter,
   type ContentActor,
 } from "./content-access.js";
 import { toSchoolRef, type SchoolAccountDto } from "./school.service.js";
+import type { StudentAccountDto } from "./student.service.js";
 
 const KIND = "results";
 
@@ -166,6 +182,9 @@ export async function getResultSet(id: string, actor?: ContentActor | SchoolAcco
     ...(contentActor && resultSetAccessFilter(contentActor)),
   });
   if (!resultSet) throw new AppError(404, "Result not found");
+  if (contentActor?.kind === "teacher" && !resultSetVisibleToTeacher(contentActor.teacher, resultSet)) {
+    throw new AppError(404, "Result not found");
+  }
   const dto = withActorSheetFilter(toResultSetDto(resultSet), contentActor);
   if (contentActor?.kind === "teacher" && dto.classes.length === 0) {
     throw new AppError(404, "Result not found");
@@ -217,17 +236,80 @@ function assertSheetClassAllowed(classLevel: number, actor?: ContentActor) {
   }
 }
 
+async function paperRangesForTest(testId: string) {
+  const key = await answerKeyRepository.findAnswerKeyByTestId(testId);
+  return asSubjectRanges(key?.subjectRanges);
+}
+
+/** Unpublished OMR scores stay out of result sheets for anyone but admin and the class teacher. */
+async function overlayOmrForTest(
+  schoolId: string,
+  testId: string,
+  columns: string[],
+  rows: CellValue[][],
+  viewer: OmScanViewer,
+) {
+  const scans = await findVisibleOmScans(schoolId, testId, viewer);
+  return overlayOmrOnRows(
+    columns,
+    rows,
+    scans.map((scan) => ({
+      rollNo: scan.rollNo,
+      subjectScores: scan.subjectScores as SubjectScore[],
+      total: scan.total,
+      maxTotal: scan.maxTotal,
+    })),
+  );
+}
+
 export async function getResultSheet(params: ResultSheetParams, actor?: ContentActor | SchoolAccountDto) {
   const contentActor = toContentActor(actor);
   assertSheetClassAllowed(params.classLevel, contentActor);
   const sheet = await resultRepository.findResultSheet(sheetWhere(params, contentActor));
   if (!sheet) throw new AppError(404, "Result not found");
 
-  const { rows, columns, updatedAt, ...rest } = sheet;
+  const resultSet = await resultRepository.findResultSet({
+    id: params.id,
+    ...(contentActor && resultSetAccessFilter(contentActor)),
+  });
+  const ranges = resultSet ? await paperRangesForTest(resultSet.testId) : [];
+
+  const { rows, columns, updatedAt, caption, ...rest } = sheet;
+  let parsedColumns = columns as string[];
+  let parsedRows = await overlayOmrForTest(
+    resultSet?.school.id ?? "",
+    resultSet?.testId ?? "",
+    columns as string[],
+    rows.map(({ values }) => values as CellValue[]),
+    !contentActor
+      ? { kind: "admin" }
+      : contentActor.kind === "teacher"
+        ? { kind: "teacher", teacher: contentActor.teacher }
+        : { kind: "released" },
+  );
+  let parsedCaption = caption;
+  if (contentActor?.kind === "teacher") {
+    const roster = await studentRepository.listSchoolRoster(contentActor.teacher.schoolId);
+    const scoped = projectSheetForTeacher(parsedColumns, parsedRows, contentActor.teacher, roster);
+    parsedColumns = scoped.columns;
+    parsedRows = scoped.rows;
+    const paper = canonicalizePaperMaxes(parsedColumns, parsedRows, parsedCaption, ranges);
+    return {
+      ...rest,
+      caption: paper.caption,
+      columns: paper.columns,
+      rows: paper.rows,
+      rowCount: paper.rows.length,
+      classLabel: scoped.classLabel,
+      updatedAt: updatedAt.toISOString(),
+    };
+  }
+  const paper = canonicalizePaperMaxes(parsedColumns, parsedRows, parsedCaption, ranges);
   return {
     ...rest,
-    columns: columns as string[],
-    rows: rows.map(({ values }) => values as CellValue[]),
+    caption: paper.caption,
+    columns: paper.columns,
+    rows: paper.rows,
     updatedAt: updatedAt.toISOString(),
   };
 }
@@ -245,13 +327,103 @@ export async function getResultSheetFile(
 
 export async function listVisibleResultSets(actor: ContentActor) {
   const sets = await resultRepository.findResultSets(resultSetAccessFilter(actor));
-  return sets
-    .map((set) => withActorSheetFilter(toResultSetDto(set), actor))
-    .filter((set) => set.classes.length > 0 || actor.kind === "school");
+  const visible = sets.filter((set) =>
+    actor.kind === "school" ? true : resultSetVisibleToTeacher(actor.teacher, set),
+  );
+  if (actor.kind !== "teacher") {
+    return visible.map((set) => withActorSheetFilter(toResultSetDto(set), actor));
+  }
+
+  const roster = await studentRepository.listSchoolRoster(actor.teacher.schoolId);
+  const dtos = [];
+  for (const set of visible) {
+    const dto = withActorSheetFilter(toResultSetDto(set), actor);
+    const classes = [];
+    for (const item of dto.classes) {
+      const sheet = await resultRepository.findResultSheet({
+        classLevel: item.classLevel,
+        resultSet: { id: set.id },
+      });
+      if (!sheet) continue;
+      const scoped = projectSheetForTeacher(
+        sheet.columns as string[],
+        sheet.rows.map(({ values }) => values as CellValue[]),
+        actor.teacher,
+        roster,
+      );
+      if (scoped.rows.length === 0) continue;
+      classes.push({ ...item, rowCount: scoped.rows.length, label: scoped.classLabel });
+    }
+    if (classes.length === 0) continue;
+    dtos.push({ ...dto, classes });
+  }
+  return dtos;
 }
 
 export async function countVisibleResultSets(actor: ContentActor) {
+  if (actor.kind === "teacher") return (await listVisibleResultSets(actor)).length;
   return resultRepository.countResultSets(resultSetAccessFilter(actor));
+}
+
+export type StudentResultRowDto = {
+  resultSetId: string;
+  testId: string;
+  testNumber: number;
+  programName: string;
+  classLevel: number;
+  sectionName: string | null;
+  caption: string[];
+  subjects: Array<{ subject: Subject; score: number; max: number | null }>;
+  total: number | null;
+  maxTotal: number | null;
+  percentage: number | null;
+  updatedAt: string;
+};
+
+export async function listStudentResultRows(student: StudentAccountDto): Promise<StudentResultRowDto[]> {
+  const sets = await resultRepository.findResultSets({ schoolId: student.schoolId, published: true });
+  const rows: StudentResultRowDto[] = [];
+  for (const set of sets) {
+    if (!resultSetMatchesProgram(set, [{ programCode: student.programCode, programName: student.programName }])) {
+      continue;
+    }
+    if (!set.sheets.some((sheet) => sheet.classLevel === student.classLevel)) continue;
+    const sheet = await resultRepository.findResultSheet({
+      classLevel: student.classLevel,
+      resultSet: { id: set.id },
+    });
+    if (!sheet) continue;
+    const paper = canonicalizePaperMaxes(
+      sheet.columns as string[],
+      await overlayOmrForTest(
+        student.schoolId,
+        set.testId,
+        sheet.columns as string[],
+        sheet.rows.map(({ values }) => values as CellValue[]),
+        { kind: "released" },
+      ),
+      sheet.caption,
+      await paperRangesForTest(set.testId),
+    );
+    const row = findRowForStudent(paper.columns, paper.rows, student);
+    if (!row) continue;
+    const scores = parseScoreRow(paper.columns, row);
+    rows.push({
+      resultSetId: set.id,
+      testId: set.testId,
+      testNumber: set.testNumber,
+      programName: set.programName ?? student.programName,
+      classLevel: student.classLevel,
+      sectionName: student.sectionName,
+      caption: paper.caption,
+      subjects: scores.subjects,
+      total: scores.total,
+      maxTotal: scores.maxTotal,
+      percentage: scores.percentage,
+      updatedAt: sheet.updatedAt.toISOString(),
+    });
+  }
+  return rows.sort((a, b) => a.testNumber - b.testNumber);
 }
 
 export async function listSchoolResultSets(school: SchoolAccountDto) {

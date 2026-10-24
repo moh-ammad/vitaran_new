@@ -128,7 +128,9 @@ export function SchoolResults({
                       className="group flex items-center justify-between gap-3 rounded-xl border border-brand-100 bg-white px-4 py-3 transition-colors hover:border-brand-900 hover:bg-brand-50"
                     >
                       <span>
-                        <span className="block text-sm font-bold text-neutral-950">Class {item.classLevel}</span>
+                        <span className="block text-sm font-bold text-neutral-950">
+                          {item.label || `Class ${item.classLevel}`}
+                        </span>
                         <span className="text-xs text-neutral-500">{item.rowCount} students</span>
                       </span>
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 group-hover:text-brand-900">

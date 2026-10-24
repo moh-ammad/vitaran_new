@@ -5,11 +5,12 @@ import { notFound } from "next/navigation";
 import { BookOpen, Clock, Contact, Pencil, School } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CredentialMailBar } from "@/features/auth/credential-mail-bar";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
-import { CopyButton } from "@/features/schools/copy-button";
 import { TEACHER_STATUS_LABELS } from "@/features/teachers/constants";
-import { getAdminTeacher } from "@/services/teachers";
+import { getAdminTeacher, listAdminClassTeacherSlots } from "@/services/teachers";
 import { formatDateTime } from "@/utils/format";
+import { capitalizeWords } from "@/features/schools/schema";
 
 export const metadata: Metadata = { title: "Teacher Details" };
 
@@ -54,6 +55,8 @@ export default async function AdminTeacherDetailsPage({
   const teacher = await getAdminTeacher(id);
   if (!teacher) notFound();
 
+  const classTeacherSlots = await listAdminClassTeacherSlots(teacher.schoolId);
+  const mySections = classTeacherSlots.filter((slot) => slot.teacherId === teacher.id);
   const programs = [...new Set(teacher.assignments.map((row) => row.programName))];
 
   return (
@@ -128,6 +131,28 @@ export default async function AdminTeacherDetailsPage({
                 </ul>
               )}
             </Field>
+            <Field label="Class teacher of" span={3}>
+              {mySections.length === 0 ? null : (
+                <ul className="mt-1 space-y-1.5">
+                  {mySections.map((slot) => (
+                    <li
+                      key={
+                        slot.kind === "section"
+                          ? slot.sectionId
+                          : `class:${slot.programId}:${slot.classLevel}`
+                      }
+                      className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-1.5 text-sm"
+                    >
+                      {slot.kind === "section"
+                        ? `Class ${slot.classLevel}-${slot.sectionName}`
+                        : `Class ${slot.classLevel}`}
+                      <span className="text-neutral-400"> · </span>
+                      {capitalizeWords(slot.programName)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Field>
           </Panel>
 
           <Panel title="Record" icon={<Clock />}>
@@ -137,32 +162,14 @@ export default async function AdminTeacherDetailsPage({
         </div>
       </div>
 
-      <footer className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm text-neutral-500 shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]">
-        <span>
-          Login email: <span className="font-semibold text-neutral-950">{teacher.email}</span>
-        </span>
-        <span aria-hidden>·</span>
-        <span>
-          Phone: <span className="font-semibold text-neutral-950">{teacher.phone}</span>
-        </span>
-        <span aria-hidden>·</span>
-        <span className="inline-flex items-center gap-1">
-          Password:
-          {teacher.password ? (
-            <>
-              <span className="font-mono font-semibold text-neutral-950">{teacher.password}</span>
-              <CopyButton value={teacher.password} label="Password" />
-            </>
-          ) : (
-            <Link
-              href={`/admin/teachers/${teacher.id}/edit`}
-              className="font-semibold text-neutral-950 underline underline-offset-4"
-            >
-              Set password
-            </Link>
-          )}
-        </span>
-      </footer>
+      <CredentialMailBar
+        loginEmail={teacher.email}
+        loginPhone={teacher.phone}
+        password={teacher.password || null}
+        setPasswordHref={`/admin/teachers/${teacher.id}/edit`}
+        recipientLabel="teacher"
+        target={{ kind: "admin-teacher", id: teacher.id }}
+      />
     </div>
   );
 }

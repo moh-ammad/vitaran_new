@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -130,14 +131,15 @@ export function ListFiltersBar({ filters, schools }: ListFiltersBarProps) {
         />
       )}
       {hasListFilters(filters) && (
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => update({ test: null, type: null, school: null })}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900 transition-colors hover:border-brand-900 hover:bg-brand-900 hover:text-white"
+          className="h-9 border-brand-200 bg-white font-semibold text-brand-900 hover:border-brand-900 hover:bg-brand-900 hover:text-white"
         >
           <X className="size-4" />
           Clear filters
-        </button>
+        </Button>
       )}
       {pending && <Loader2 className="size-4 animate-spin text-brand-700" aria-label="Updating" />}
     </div>

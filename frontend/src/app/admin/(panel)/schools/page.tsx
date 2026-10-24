@@ -45,6 +45,7 @@ export default async function SchoolsPage({ searchParams }: PageProps<"/admin/sc
       <PageHeader
         title="Schools"
         description="All partner schools registered with Vitaran Learning."
+        count={pagination.total}
         actions={registerButton}
       />
 

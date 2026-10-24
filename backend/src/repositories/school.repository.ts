@@ -8,6 +8,7 @@ import {
 import type { ListSchoolsQuery, SchoolProgramInput } from "../schemas/school.schema.js";
 
 const RECENT_SCHOOLS_LIMIT = 5;
+const SCHOOL_OPTIONS_LIMIT = 200;
 
 export const schoolProgramInclude = {
   schoolPrograms: {
@@ -20,6 +21,73 @@ export const schoolProgramInclude = {
 } satisfies Prisma.SchoolInclude;
 
 export type SchoolWithPrograms = Prisma.SchoolGetPayload<{ include: typeof schoolProgramInclude }>;
+
+/** Table / dashboard rows — no programs, address, or credentials. */
+export const schoolSummarySelect = {
+  id: true,
+  code: true,
+  name: true,
+  board: true,
+  type: true,
+  status: true,
+  contactName: true,
+  contactEmail: true,
+  city: true,
+  state: true,
+  createdAt: true,
+} satisfies Prisma.SchoolSelect;
+
+export type SchoolSummaryRow = Prisma.SchoolGetPayload<{ select: typeof schoolSummarySelect }>;
+
+/** Picker rows — program codes and class levels only. */
+export const schoolOptionSelect = {
+  id: true,
+  name: true,
+  code: true,
+  type: true,
+  schoolPrograms: {
+    orderBy: { program: { name: "asc" } },
+    select: {
+      program: { select: { code: true, name: true } },
+      classes: { orderBy: { classLevel: "asc" }, select: { classLevel: true } },
+    },
+  },
+} satisfies Prisma.SchoolSelect;
+
+export type SchoolOptionRow = Prisma.SchoolGetPayload<{ select: typeof schoolOptionSelect }>;
+
+/** Session / JWT — offerings for RBAC and forms, no address or credentials. */
+export const schoolSessionSelect = {
+  id: true,
+  code: true,
+  name: true,
+  board: true,
+  type: true,
+  status: true,
+  accountEmail: true,
+  passwordHash: true,
+  createdAt: true,
+  updatedAt: true,
+  schoolPrograms: {
+    orderBy: { program: { name: "asc" } },
+    select: {
+      programId: true,
+      program: {
+        select: {
+          code: true,
+          name: true,
+          year: true,
+          classFrom: true,
+          classTo: true,
+          subjects: true,
+        },
+      },
+      classes: { orderBy: { classLevel: "asc" }, select: { classLevel: true, subjects: true } },
+    },
+  },
+} satisfies Prisma.SchoolSelect;
+
+export type SchoolSessionRow = Prisma.SchoolGetPayload<{ select: typeof schoolSessionSelect }>;
 
 function buildWhere(query: ListSchoolsQuery): Prisma.SchoolWhereInput {
   const where: Prisma.SchoolWhereInput = {};
@@ -50,7 +118,7 @@ export async function findSchools(query: ListSchoolsQuery) {
   const [items, total] = await prisma.$transaction([
     prisma.school.findMany({
       where,
-      include: schoolProgramInclude,
+      select: schoolSummarySelect,
       orderBy: [{ [query.sortBy]: query.sortOrder }, { serial: "desc" }],
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
@@ -63,6 +131,10 @@ export async function findSchools(query: ListSchoolsQuery) {
 
 export function findSchoolById(id: string) {
   return prisma.school.findUnique({ where: { id }, include: schoolProgramInclude });
+}
+
+export function findSchoolSessionById(id: string) {
+  return prisma.school.findUnique({ where: { id }, select: schoolSessionSelect });
 }
 
 export function findSchoolByCode(code: string, excludeId?: string) {
@@ -179,10 +251,24 @@ export function deleteSchool(id: string) {
   return prisma.school.delete({ where: { id } });
 }
 
-export async function getSchoolStats() {
-  const catalog = await prisma.learningProgram.findMany({ orderBy: { name: "asc" } });
+export async function findSchoolOptions(query: { type?: SchoolType; status?: SchoolStatus }) {
+  return prisma.school.findMany({
+    where: {
+      ...(query.type && { type: query.type }),
+      ...(query.status && { status: query.status }),
+    },
+    select: schoolOptionSelect,
+    orderBy: { name: "asc" },
+    take: SCHOOL_OPTIONS_LIMIT,
+  });
+}
 
-  const [total, active, customized, byBoard, programCounts, recent] = await Promise.all([
+export async function getSchoolStats() {
+  const [catalog, total, active, customized, byBoard, programGroups, recent] = await Promise.all([
+    prisma.learningProgram.findMany({
+      select: { id: true, code: true, name: true },
+      orderBy: { name: "asc" },
+    }),
     prisma.school.count(),
     prisma.school.count({ where: { status: SchoolStatus.ACTIVE } }),
     prisma.school.count({ where: { type: SchoolType.CUSTOMIZED } }),
@@ -191,17 +277,20 @@ export async function getSchoolStats() {
       _count: { _all: true },
       orderBy: { _count: { board: "desc" } },
     }),
-    Promise.all(
-      catalog.map((program) =>
-        prisma.schoolProgram.count({ where: { programId: program.id } }),
-      ),
-    ),
+    prisma.schoolProgram.groupBy({
+      by: ["programId"],
+      _count: { _all: true },
+    }),
     prisma.school.findMany({
-      include: schoolProgramInclude,
+      select: schoolSummarySelect,
       orderBy: { createdAt: "desc" },
       take: RECENT_SCHOOLS_LIMIT,
     }),
   ]);
+
+  const enrolledByProgramId = Object.fromEntries(
+    programGroups.map((row) => [row.programId, row._count._all]),
+  );
 
   return {
     total,
@@ -212,10 +301,10 @@ export async function getSchoolStats() {
       board: row.board as SchoolBoard,
       count: row._count._all,
     })),
-    byProgram: catalog.map((program, index) => ({
+    byProgram: catalog.map((program) => ({
       program: program.code,
       programName: program.name,
-      count: programCounts[index] ?? 0,
+      count: enrolledByProgramId[program.id] ?? 0,
     })),
     recent,
   };

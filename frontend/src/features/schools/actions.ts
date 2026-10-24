@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
-import { ADMIN_BASE_PATH } from "@/constants/auth";
+import { ADMIN_BASE_PATH, SCHOOL_BASE_PATH, TEACHER_BASE_PATH } from "@/constants/auth";
 import { ApiError } from "@/services/api-client";
 import * as schoolService from "@/services/schools";
 import type { SchoolInput } from "@/types/school";
@@ -18,6 +18,19 @@ import {
   type SchoolFormState,
   type SchoolFormValues,
 } from "./schema";
+
+/** Program/class checks drive Classes, Resources, answer keys, and teacher views. */
+function revalidateSchoolPortalViews() {
+  revalidatePath(ADMIN_BASE_PATH, "layout");
+  revalidatePath(SCHOOL_BASE_PATH, "layout");
+  revalidatePath(`${SCHOOL_BASE_PATH}/classes`);
+  revalidatePath(`${SCHOOL_BASE_PATH}/resources`);
+  revalidatePath(`${SCHOOL_BASE_PATH}/answer-keys`);
+  revalidatePath(`${SCHOOL_BASE_PATH}/teachers`);
+  revalidatePath(TEACHER_BASE_PATH, "layout");
+  revalidatePath(`${TEACHER_BASE_PATH}/resources`);
+  revalidatePath(`${TEACHER_BASE_PATH}/answer-keys`);
+}
 
 function fieldErrorsFromApi(details: unknown) {
   if (!Array.isArray(details)) return undefined;
@@ -62,7 +75,7 @@ async function saveSchool(
 
   try {
     const school = await save(toSchoolInput(parsed.data));
-    revalidatePath(ADMIN_BASE_PATH, "layout");
+    revalidateSchoolPortalViews();
     return { status: "success", schoolId: school.id, submittedAt: Date.now() };
   } catch (error) {
     unstable_rethrow(error);
@@ -126,15 +139,42 @@ export async function deleteSchoolAction(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
     await schoolService.deleteSchool(schoolId);
-    revalidatePath(ADMIN_BASE_PATH, "layout");
+    revalidateSchoolPortalViews();
     return { ok: true };
   } catch (error) {
     unstable_rethrow(error);
 
     if (error instanceof ApiError && error.status === 404) {
-      revalidatePath(ADMIN_BASE_PATH, "layout");
+      revalidateSchoolPortalViews();
       return { ok: false, message: "This school was already deleted." };
     }
     return { ok: false, message: "We couldn't delete the school. Please try again." };
+  }
+}
+
+export async function sendSchoolCredentialsAction(schoolId: string) {
+  try {
+    const result = await schoolService.sendSchoolCredentials(schoolId);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not send credentials." };
+  }
+}
+
+export async function resetSchoolPasswordAction(schoolId: string, password: string) {
+  try {
+    const result = await schoolService.resetSchoolPassword(schoolId, password);
+    revalidatePath(`${ADMIN_BASE_PATH}/schools/${schoolId}`);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not reset password." };
   }
 }

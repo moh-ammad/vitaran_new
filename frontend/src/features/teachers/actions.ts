@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
-import { ADMIN_BASE_PATH, SCHOOL_BASE_PATH } from "@/constants/auth";
+import { ADMIN_BASE_PATH, SCHOOL_BASE_PATH, TEACHER_BASE_PATH } from "@/constants/auth";
 import { ApiError } from "@/services/api-client";
 import * as teacherService from "@/services/teachers";
 import type {
@@ -20,10 +20,17 @@ const assignmentSchema = z.object({
   subject: z.enum(SUBJECTS),
 });
 
-const classTeacherSlotSchema = z.object({
-  programId: z.uuid(),
-  classLevel: z.coerce.number().int().min(1).max(12),
-});
+const classTeacherSlotSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("class"),
+    programId: z.uuid(),
+    classLevel: z.coerce.number().int().min(1).max(12),
+  }),
+  z.object({
+    kind: z.literal("section"),
+    sectionId: z.uuid(),
+  }),
+]);
 
 const teacherSchema = z.object({
   name: z
@@ -88,13 +95,26 @@ function parseAssignments(raw: string[]): TeacherAssignmentInput[] {
     .filter((item) => item.programId && item.classLevel && item.subject);
 }
 
+/** Tokens: `class:programId:classLevel` or `section:sectionId`. */
 function parseClassTeacherSlots(raw: string[]): ClassTeacherSlotInput[] {
-  return raw
-    .map((value) => {
-      const [programId, classLevel] = value.split(":");
-      return { programId, classLevel: Number(classLevel) };
-    })
-    .filter((item) => item.programId && item.classLevel);
+  const slots: ClassTeacherSlotInput[] = [];
+  for (const value of raw.map((item) => item.trim()).filter(Boolean)) {
+    if (value.startsWith("section:")) {
+      const sectionId = value.slice("section:".length);
+      if (sectionId) slots.push({ kind: "section", sectionId });
+      continue;
+    }
+    if (value.startsWith("class:")) {
+      const [, programId, classLevel] = value.split(":");
+      if (programId && classLevel) {
+        slots.push({ kind: "class", programId, classLevel: Number(classLevel) });
+      }
+      continue;
+    }
+    // Legacy bare section id
+    slots.push({ kind: "section", sectionId: value });
+  }
+  return slots;
 }
 
 function toInput(values: TeacherFormValues, requirePassword: boolean): TeacherInput | null {
@@ -197,10 +217,18 @@ export async function updateSchoolTeacherAction(
   );
 }
 
+/** Keep status toggles snappy — only the pages that must reflect the change. */
+function revalidateAfterTeacherStatusChange() {
+  revalidatePath(`${SCHOOL_BASE_PATH}/classes`);
+  revalidatePath(`${SCHOOL_BASE_PATH}/teachers`);
+  revalidatePath(`${ADMIN_BASE_PATH}/teachers`);
+  revalidatePath(TEACHER_BASE_PATH);
+}
+
 export async function setSchoolTeacherStatusAction(teacherId: string, status: TeacherStatus) {
   try {
     await teacherService.setSchoolTeacherStatus(teacherId, status);
-    revalidatePath(SCHOOL_BASE_PATH, "layout");
+    revalidateAfterTeacherStatusChange();
     return { ok: true as const };
   } catch {
     return { ok: false as const, message: "Could not update teacher status." };
@@ -210,7 +238,7 @@ export async function setSchoolTeacherStatusAction(teacherId: string, status: Te
 export async function deleteSchoolTeacherAction(teacherId: string) {
   try {
     await teacherService.deleteSchoolTeacher(teacherId);
-    revalidatePath(SCHOOL_BASE_PATH, "layout");
+    revalidateAfterTeacherStatusChange();
     return { ok: true as const };
   } catch {
     return { ok: false as const, message: "Could not delete teacher." };
@@ -247,17 +275,23 @@ export async function setAdminTeacherStatusAction(teacherId: string, status: Tea
   try {
     await teacherService.setAdminTeacherStatus(teacherId, status);
     revalidatePath(ADMIN_BASE_PATH, "layout");
+    revalidateAfterTeacherStatusChange();
     return { ok: true as const };
   } catch {
     return { ok: false as const, message: "Could not update teacher status." };
   }
 }
 
-export async function setClassTeacherAction(input: {
-  programId: string;
-  classLevel: number;
-  teacherId: string | null;
-}) {
+export async function setClassTeacherAction(
+  input:
+    | { kind: "class"; programId: string; classLevel: number; teacherId: string | null }
+    | {
+        kind: "section";
+        sectionId: string;
+        teacherId: string | null;
+        applyToClass?: boolean;
+      },
+) {
   try {
     await teacherService.setSchoolClassTeacher(input);
     revalidatePath(`${SCHOOL_BASE_PATH}/classes`, "layout");
@@ -269,5 +303,59 @@ export async function setClassTeacherAction(input: {
       return { ok: false as const, message: error.message };
     }
     return { ok: false as const, message: "Could not save class teacher." };
+  }
+}
+
+export async function sendSchoolTeacherCredentialsAction(teacherId: string) {
+  try {
+    const result = await teacherService.sendSchoolTeacherCredentials(teacherId);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not send credentials." };
+  }
+}
+
+export async function resetSchoolTeacherPasswordAction(teacherId: string, password: string) {
+  try {
+    const result = await teacherService.resetSchoolTeacherPassword(teacherId, password);
+    revalidatePath(`${SCHOOL_BASE_PATH}/teachers/${teacherId}`);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not reset password." };
+  }
+}
+
+export async function sendAdminTeacherCredentialsAction(teacherId: string) {
+  try {
+    const result = await teacherService.sendAdminTeacherCredentials(teacherId);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not send credentials." };
+  }
+}
+
+export async function resetAdminTeacherPasswordAction(teacherId: string, password: string) {
+  try {
+    const result = await teacherService.resetAdminTeacherPassword(teacherId, password);
+    revalidatePath(`${ADMIN_BASE_PATH}/teachers/${teacherId}`);
+    return { ok: true as const, to: result.to };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) {
+      return { ok: false as const, message: error.message };
+    }
+    return { ok: false as const, message: "Could not reset password." };
   }
 }

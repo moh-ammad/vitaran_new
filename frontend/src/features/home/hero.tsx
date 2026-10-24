@@ -37,13 +37,13 @@ export function Hero() {
               Contact us
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
-            <a
-              href="#services"
+            <Link
+              href="/#services"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             >
               <PlayCircle className="size-4" />
               Explore services
-            </a>
+            </Link>
           </div>
 
           <ul className="mt-12 flex flex-wrap gap-x-8 gap-y-3 text-sm text-brand-300">

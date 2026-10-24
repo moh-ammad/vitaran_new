@@ -2,12 +2,13 @@ import "server-only";
 import { ApiError } from "@/services/api-client";
 import { adminApi } from "@/services/admin-api";
 import { schoolApi } from "@/services/school-api";
+import { teacherApi } from "@/services/teacher-api";
+import type { SchoolSection } from "@/types/section";
 import type {
-  ClassTeacherRow,
   ClassTeacherSlot,
-  SchoolClassRow,
   SchoolDashboardStats,
   Teacher,
+  TeacherDashboardStats,
   TeacherDetail,
   TeacherInput,
   TeacherList,
@@ -71,8 +72,26 @@ export function deleteAdminTeacher(id: string) {
   return adminApi<void>(`${ADMIN_BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+export function sendAdminTeacherCredentials(id: string) {
+  return adminApi<{ ok: true; to: string }>(
+    `${ADMIN_BASE}/${encodeURIComponent(id)}/send-credentials`,
+    { method: "POST" },
+  );
+}
+
+export function resetAdminTeacherPassword(id: string, password: string) {
+  return adminApi<{ ok: true; to: string }>(
+    `${ADMIN_BASE}/${encodeURIComponent(id)}/reset-password`,
+    { method: "POST", body: { password } },
+  );
+}
+
 export function getSchoolDashboard() {
   return schoolApi<SchoolDashboardStats>(`${SCHOOL_BASE}/dashboard`);
+}
+
+export function getTeacherDashboard() {
+  return teacherApi<TeacherDashboardStats>("/teacher/students/dashboard");
 }
 
 export function listSchoolTeachers(params?: Omit<ListParams, "schoolId">) {
@@ -110,8 +129,22 @@ export function deleteSchoolTeacher(id: string) {
   return schoolApi<void>(`${SCHOOL_BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+export function sendSchoolTeacherCredentials(id: string) {
+  return schoolApi<{ ok: true; to: string }>(
+    `${SCHOOL_BASE}/${encodeURIComponent(id)}/send-credentials`,
+    { method: "POST" },
+  );
+}
+
+export function resetSchoolTeacherPassword(id: string, password: string) {
+  return schoolApi<{ ok: true; to: string }>(
+    `${SCHOOL_BASE}/${encodeURIComponent(id)}/reset-password`,
+    { method: "POST", body: { password } },
+  );
+}
+
 export function listSchoolClasses() {
-  return schoolApi<SchoolClassRow[]>(`${SCHOOL_BASE}/classes`);
+  return schoolApi<SchoolSection[]>(`${SCHOOL_BASE}/classes`);
 }
 
 export function listSchoolClassTeacherSlots() {
@@ -124,12 +157,17 @@ export function listAdminClassTeacherSlots(schoolId: string) {
   );
 }
 
-export function setSchoolClassTeacher(input: {
-  programId: string;
-  classLevel: number;
-  teacherId: string | null;
-}) {
-  return schoolApi<ClassTeacherRow | null>(`${SCHOOL_BASE}/class-teacher`, {
+export function setSchoolClassTeacher(
+  input:
+    | { kind: "class"; programId: string; classLevel: number; teacherId: string | null }
+    | {
+        kind: "section";
+        sectionId: string;
+        teacherId: string | null;
+        applyToClass?: boolean;
+      },
+) {
+  return schoolApi<unknown>(`${SCHOOL_BASE}/class-teacher`, {
     method: "PUT",
     body: input,
   });

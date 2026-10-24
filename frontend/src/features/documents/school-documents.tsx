@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CalendarClock, Download, Eye, FileText } from "lucide-react";
+import Link from "next/link";
+import { CalendarClock, Download, Eye, FileText, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { programs } from "@/features/teachers-resources/content";
 import type { PdfDocument } from "@/types/document";
 import { classLabel, formatDateTime } from "@/utils/format";
 import {
+  documentAnswersHref,
   documentDownloadHref,
   documentFileHref,
   formatFileSize,
@@ -208,23 +210,34 @@ function DocumentRow({
       </div>
 
       <div className="flex gap-2">
-        <a
+        <Link
+          href={documentAnswersHref(basePath, document.id)}
+          className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-white px-3.5 text-sm font-semibold text-brand-900 transition-colors hover:border-brand-900 hover:bg-brand-50 md:flex-none"
+        >
+          <ListChecks className="size-4" />
+          Key corrections
+        </Link>
+        <Link
           href={documentFileHref(basePath, document.id)}
           target="_blank"
           rel="noopener noreferrer"
+          prefetch={false}
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-white px-3.5 text-sm font-semibold text-brand-900 transition-colors hover:border-brand-900 hover:bg-brand-50 md:flex-none"
         >
           <Eye className="size-4" />
-          View
-        </a>
-        <a
+          PDF
+        </Link>
+        <Link
           href={documentDownloadHref(basePath, document.id)}
           download={document.fileName}
+          target="_blank"
+          rel="noopener noreferrer"
+          prefetch={false}
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-900 px-3.5 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:scale-[0.98] md:flex-none"
         >
           <Download className="size-4" />
           Download
-        </a>
+        </Link>
       </div>
     </li>
   );

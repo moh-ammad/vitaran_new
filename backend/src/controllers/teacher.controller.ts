@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import type {
   CreateTeacherInput,
   ListTeachersQuery,
+  ResetTeacherPasswordInput,
   SetClassTeacherInput,
   SetTeacherStatusInput,
   UpdateTeacherInput,
@@ -73,6 +74,23 @@ export const deleteTeacher: RequestHandler<IdParams> = async (req, res) => {
   const school = res.locals.school as SchoolAccountDto | undefined;
   await teacherService.deleteTeacher(req.params.id, school?.id);
   res.status(204).end();
+};
+
+export const sendTeacherCredentials: RequestHandler<IdParams> = async (req, res) => {
+  const school = res.locals.school as SchoolAccountDto | undefined;
+  sendSuccess(res, await teacherService.sendTeacherCredentials(req.params.id, school?.id));
+};
+
+export const resetTeacherPassword: RequestHandler<
+  IdParams,
+  unknown,
+  ResetTeacherPasswordInput
+> = async (req, res) => {
+  const school = res.locals.school as SchoolAccountDto | undefined;
+  sendSuccess(
+    res,
+    await teacherService.resetTeacherPassword(req.params.id, req.body.password, school?.id),
+  );
 };
 
 export const getSchoolTeacherStats: RequestHandler = async (_req, res) => {

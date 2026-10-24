@@ -34,6 +34,16 @@ export type Teacher = {
 
 export type TeacherDetail = Teacher & { password: string };
 
+export type ClassTeacherSection = {
+  kind: "class" | "section";
+  sectionId?: string;
+  sectionName?: string;
+  classLevel: number;
+  programId: string;
+  programCode: string;
+  programName: string;
+};
+
 export type TeacherAccount = {
   id: string;
   name: string;
@@ -42,6 +52,7 @@ export type TeacherAccount = {
   status: TeacherStatus;
   schoolId: string;
   assignments: TeacherAssignment[];
+  classTeacherSections: ClassTeacherSection[];
   school: {
     id: string;
     name: string;
@@ -58,10 +69,9 @@ export type TeacherAssignmentInput = {
   subject: Subject;
 };
 
-export type ClassTeacherSlotInput = {
-  programId: string;
-  classLevel: number;
-};
+export type ClassTeacherSlotInput =
+  | { kind: "class"; programId: string; classLevel: number }
+  | { kind: "section"; sectionId: string };
 
 export type TeacherInput = {
   name: string;
@@ -69,29 +79,31 @@ export type TeacherInput = {
   phone: string;
   status: TeacherStatus;
   assignments: TeacherAssignmentInput[];
-  /** Program+class slots where this teacher is the class teacher. */
   classTeacherFor?: ClassTeacherSlotInput[];
   password?: string;
 };
 
-export type ClassTeacherSlot = {
-  programId: string;
-  programCode: string;
-  programName: string;
-  classLevel: number;
-  teacherId: string;
-  teacherName: string;
-};
-
-export type SchoolClassRow = {
-  programId: string;
-  programCode: string;
-  programName: string;
-  year: number;
-  classLevel: number;
-  subjects: Subject[];
-  classTeacher: ClassTeacherRow | null;
-};
+export type ClassTeacherSlot =
+  | {
+      kind: "class";
+      programId: string;
+      programCode: string;
+      programName: string;
+      classLevel: number;
+      teacherId: string;
+      teacherName: string;
+    }
+  | {
+      kind: "section";
+      sectionId: string;
+      programId: string;
+      programCode: string;
+      programName: string;
+      classLevel: number;
+      sectionName: string;
+      teacherId: string;
+      teacherName: string;
+    };
 
 export type TeacherList = {
   items: Teacher[];
@@ -104,11 +116,28 @@ export type TeacherList = {
 };
 
 export type SchoolDashboardStats = {
+  schoolName: string;
+  schoolCode: string;
   teachers: { total: number; active: number };
   answerKeys: number;
   results: number;
   programs: number;
   subjects: number;
+  classes: number;
+  programLabels: { code: string; name: string }[];
+  subjectIds: string[];
+};
+
+export type TeacherDashboardStats = {
+  name: string;
+  schoolName: string;
+  schoolCode: string;
+  students: number;
+  answerKeys: number;
+  results: number;
+  classLevels: number[];
+  subjects: string[];
+  classTeacherLabels: string[];
 };
 
 export type ClassTeacherRow = {

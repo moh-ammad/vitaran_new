@@ -14,6 +14,8 @@ export type PdfDocument = {
   fileSize: number;
   createdAt: string;
   updatedAt: string;
+  /** Parsed option count when this document is an answer key. */
+  answerCount?: number;
 };
 
 /** Schools only see what the admin has published. */

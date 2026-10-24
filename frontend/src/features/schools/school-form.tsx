@@ -8,6 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import Form from "next/form";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Save } from "lucide-react";
@@ -33,7 +34,6 @@ import {
   SCHOOL_BOARDS,
   SCHOOL_STATUSES,
   SCHOOL_TYPES,
-  SUBJECTS,
   type SchoolDetail,
 } from "@/types/school";
 import type { LearningProgram } from "@/types/program";
@@ -48,7 +48,6 @@ import {
   BOARD_LABELS,
   INDIAN_STATES,
   STATUS_LABELS,
-  SUBJECT_LABELS,
   TYPE_LABELS,
 } from "./constants";
 import { schoolProgramsToTokens } from "./offerings";
@@ -87,8 +86,6 @@ const boardItems = SCHOOL_BOARDS.map((value) => ({ value, label: BOARD_LABELS[va
 const typeItems = SCHOOL_TYPES.map((value) => ({ value, label: TYPE_LABELS[value] }));
 const statusItems = SCHOOL_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }));
 const stateItems = INDIAN_STATES.map((value) => ({ value, label: value }));
-const programOptions = PROGRAMS.map((value) => ({ value, label: PROGRAM_LABELS[value] }));
-const subjectOptions = SUBJECTS.map((value) => ({ value, label: SUBJECT_LABELS[value] }));
 
 const emailInput = { type: "email", getHint: getEmailHint } as const;
 
@@ -316,15 +313,6 @@ function SchoolFormWizard({
       updateDirty();
     });
 
-  const saveCheckboxSoon = (field: CheckboxGroupProps["name"]) =>
-    setTimeout(() => {
-      saveDraft();
-      updateDirty();
-      if (errors[field]) {
-        setClientErrors((prev) => ({ ...prev, [field]: validate(readValues())[field] }));
-      }
-    });
-
   const scrollToFirstInvalid = () =>
     requestAnimationFrame(() => {
       const invalidField = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
@@ -423,7 +411,7 @@ function SchoolFormWizard({
 
   return (
     <>
-    <form
+    <Form
       ref={formRef}
       action={action}
       onSubmit={handleSubmit}
@@ -479,25 +467,25 @@ function SchoolFormWizard({
                 <Field data-invalid={invalid("name")} className="md:col-span-2 lg:col-span-4">
                   <FieldLabel htmlFor="name" className="capitalize">School name *</FieldLabel>
                   <Input {...fieldProps("name")} {...capitalized} autoComplete="organization" placeholder="e.g. Delhi Public School, Banjara Hills" />
-                  {error("name")}
-                </Field>
+              {error("name")}
+            </Field>
 
-                <Field data-invalid={invalid("board")}>
-                  <FieldLabel htmlFor="board">Board *</FieldLabel>
+            <Field data-invalid={invalid("board")}>
+              <FieldLabel htmlFor="board">Board *</FieldLabel>
                   <Select name="board" items={boardItems} defaultValue={values.board ?? null} onValueChange={saveDraftSoon}>
-                    <SelectTrigger id="board" className="w-full" aria-invalid={invalid("board")}>
-                      <SelectValue placeholder="Select a board" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {boardItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {error("board")}
-                </Field>
+                <SelectTrigger id="board" className="w-full" aria-invalid={invalid("board")}>
+                  <SelectValue placeholder="Select a board" />
+                </SelectTrigger>
+                <SelectContent>
+                  {boardItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {error("board")}
+            </Field>
 
                 <Field data-invalid={invalid("type")}>
                   <FieldLabel htmlFor="type">Type *</FieldLabel>
@@ -514,36 +502,36 @@ function SchoolFormWizard({
                     </SelectContent>
                   </Select>
                   {error("type")}
-                </Field>
+            </Field>
 
-                <Field data-invalid={invalid("status")}>
-                  <FieldLabel htmlFor="status">Status *</FieldLabel>
+            <Field data-invalid={invalid("status")}>
+              <FieldLabel htmlFor="status">Status *</FieldLabel>
                   <Select name="status" items={statusItems} defaultValue={values.status ?? "ACTIVE"} onValueChange={saveDraftSoon}>
-                    <SelectTrigger id="status" className="w-full" aria-invalid={invalid("status")}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {error("status")}
-                </Field>
+                <SelectTrigger id="status" className="w-full" aria-invalid={invalid("status")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {error("status")}
+            </Field>
 
                 <Field data-invalid={invalid("principalName")} className="lg:col-span-3">
-                  <FieldLabel htmlFor="principalName">Principal name</FieldLabel>
+              <FieldLabel htmlFor="principalName">Principal name</FieldLabel>
                   <Input {...fieldProps("principalName")} {...capitalized} placeholder="Optional" />
-                  {error("principalName")}
-                </Field>
+              {error("principalName")}
+            </Field>
 
                 <Field data-invalid={invalid("studentStrength")} className="lg:col-span-3">
-                  <FieldLabel htmlFor="studentStrength">Student strength</FieldLabel>
-                  <Input {...fieldProps("studentStrength")} inputMode="numeric" placeholder="e.g. 1200" />
-                  {error("studentStrength")}
-                </Field>
+              <FieldLabel htmlFor="studentStrength">Student strength</FieldLabel>
+              <Input {...fieldProps("studentStrength")} inputMode="numeric" placeholder="e.g. 1200" />
+              {error("studentStrength")}
+            </Field>
               </div>
 
               <FormSection title="Sign-in details">
@@ -562,11 +550,11 @@ function SchoolFormWizard({
                   <Field data-invalid={invalid("accountPhone")}>
                     <FieldLabel htmlFor="accountPhone">School phone number *</FieldLabel>
                     <HintedInput {...fieldProps("accountPhone")} {...phoneInput} error={error("accountPhone")} autoComplete="off" />
-                  </Field>
+                </Field>
                   <Field data-invalid={invalid("password")}>
                     <FieldLabel htmlFor="password">
                       {isEdit ? "Password" : "Password *"}
-                    </FieldLabel>
+              </FieldLabel>
                     <Input
                       {...fieldProps("password")}
                       type="text"
@@ -603,13 +591,13 @@ function SchoolFormWizard({
             <div {...panel(2)}>
               <FormSection title="Contact person">
                 <div className="grid gap-4 md:grid-cols-3">
-                  <Field data-invalid={invalid("contactName")}>
-                    <FieldLabel htmlFor="contactName">Full name *</FieldLabel>
+            <Field data-invalid={invalid("contactName")}>
+              <FieldLabel htmlFor="contactName">Full name *</FieldLabel>
                     <Input {...fieldProps("contactName")} {...capitalized} autoComplete="name" />
-                    {error("contactName")}
-                  </Field>
-                  <Field data-invalid={invalid("contactEmail")}>
-                    <FieldLabel htmlFor="contactEmail">Email *</FieldLabel>
+              {error("contactName")}
+            </Field>
+            <Field data-invalid={invalid("contactEmail")}>
+              <FieldLabel htmlFor="contactEmail">Email *</FieldLabel>
                     <HintedInput
                       {...fieldProps("contactEmail")}
                       {...emailInput}
@@ -618,68 +606,68 @@ function SchoolFormWizard({
                       autoComplete="email"
                       placeholder="name@example.com"
                     />
-                  </Field>
-                  <Field data-invalid={invalid("contactPhone")}>
-                    <FieldLabel htmlFor="contactPhone">Phone *</FieldLabel>
+            </Field>
+            <Field data-invalid={invalid("contactPhone")}>
+              <FieldLabel htmlFor="contactPhone">Phone *</FieldLabel>
                     <HintedInput {...fieldProps("contactPhone")} {...phoneInput} error={error("contactPhone")} autoComplete="tel" />
-                  </Field>
+            </Field>
                 </div>
               </FormSection>
 
               <FormSection title="Address">
                 <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-                  <Field data-invalid={invalid("addressLine")} className="md:col-span-3">
-                    <FieldLabel htmlFor="addressLine">Street address *</FieldLabel>
+            <Field data-invalid={invalid("addressLine")} className="md:col-span-3">
+              <FieldLabel htmlFor="addressLine">Street address *</FieldLabel>
                     <Input {...fieldProps("addressLine")} {...capitalized} autoComplete="street-address" />
-                    {error("addressLine")}
-                  </Field>
-                  <Field data-invalid={invalid("city")}>
-                    <FieldLabel htmlFor="city">City *</FieldLabel>
+              {error("addressLine")}
+            </Field>
+            <Field data-invalid={invalid("city")}>
+              <FieldLabel htmlFor="city">City *</FieldLabel>
                     <Input {...fieldProps("city")} {...capitalized} autoComplete="address-level2" />
-                    {error("city")}
-                  </Field>
-                  <Field data-invalid={invalid("state")}>
-                    <FieldLabel htmlFor="state">State *</FieldLabel>
+              {error("city")}
+            </Field>
+            <Field data-invalid={invalid("state")}>
+              <FieldLabel htmlFor="state">State *</FieldLabel>
                     <Select name="state" items={stateItems} defaultValue={values.state || null} onValueChange={saveDraftSoon}>
-                      <SelectTrigger id="state" className="w-full" aria-invalid={invalid("state")}>
-                        <SelectValue placeholder="Select a state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stateItems.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {error("state")}
-                  </Field>
-                  <Field data-invalid={invalid("pincode")}>
-                    <FieldLabel htmlFor="pincode">Pincode *</FieldLabel>
-                    <Input {...fieldProps("pincode")} inputMode="numeric" maxLength={6} autoComplete="postal-code" />
-                    {error("pincode")}
-                  </Field>
+                <SelectTrigger id="state" className="w-full" aria-invalid={invalid("state")}>
+                  <SelectValue placeholder="Select a state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stateItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {error("state")}
+            </Field>
+            <Field data-invalid={invalid("pincode")}>
+              <FieldLabel htmlFor="pincode">Pincode *</FieldLabel>
+              <Input {...fieldProps("pincode")} inputMode="numeric" maxLength={6} autoComplete="postal-code" />
+              {error("pincode")}
+            </Field>
                 </div>
               </FormSection>
 
               <FormSection title="Internal notes">
-                <Field data-invalid={invalid("notes")}>
+          <Field data-invalid={invalid("notes")}>
                   <Textarea {...fieldProps("notes")} rows={3} aria-label="Internal notes" placeholder="Optional. Not visible to the school." />
-                  {error("notes")}
-                </Field>
+            {error("notes")}
+          </Field>
               </FormSection>
             </div>
           </div>
 
           {isEdit ? (
             <footer className="sticky bottom-0 z-10 flex min-h-17 items-center justify-between gap-2 border-t border-neutral-200 bg-white/95 px-5 py-3 backdrop-blur md:px-8">
-              <Link
+          <Link
                 href={cancelHref}
                 className={buttonVariants({ variant: "ghost" })}
                 onClick={unsaved.guardCancelClick(cancelHref)}
-              >
-                Cancel
-              </Link>
+          >
+            Cancel
+          </Link>
               {dirty && (
                 <Button
                   type="submit"
@@ -711,16 +699,16 @@ function SchoolFormWizard({
               )}
               {isLast && (
                 <Button type="submit" data-intent="submit" disabled={pending}>
-                  {pending ? <Loader2 className="animate-spin" /> : <Save />}
+            {pending ? <Loader2 className="animate-spin" /> : <Save />}
                   Register school
-                </Button>
+          </Button>
               )}
             </div>
           </footer>
           )}
         </div>
-      </div>
-    </form>
+        </div>
+    </Form>
     {unsaved.dialog}
     </>
   );
@@ -734,38 +722,6 @@ function SectionHeading({ children }: { children: ReactNode }) {
     >
       {children}
     </h3>
-  );
-}
-
-type CheckboxGroupProps = {
-  name: "programs" | "subjects";
-  options: { value: string; label: string }[];
-  checked?: string[];
-  invalid?: boolean;
-  onChange: (name: CheckboxGroupProps["name"]) => void;
-};
-
-function CheckboxGroup({ name, options, checked = [], invalid, onChange }: CheckboxGroupProps) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {options.map(({ value, label }) => (
-        <FieldLabel key={value} htmlFor={`${name}-${value}`}>
-          <Field orientation="horizontal" data-invalid={invalid} className="py-1">
-            <Checkbox
-              id={`${name}-${value}`}
-              name={name}
-              value={value}
-              defaultChecked={checked.includes(value)}
-              aria-invalid={invalid}
-              onCheckedChange={() => onChange(name)}
-            />
-            <FieldContent>
-              <span className="text-sm font-medium">{label}</span>
-            </FieldContent>
-          </Field>
-        </FieldLabel>
-      ))}
-    </div>
   );
 }
 

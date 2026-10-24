@@ -16,6 +16,7 @@ export const documentFileHref = (basePath: string, id: string) => `${basePath}/$
 export const documentDownloadHref = (basePath: string, id: string) =>
   `${documentFileHref(basePath, id)}?download=1`;
 export const documentEditHref = (basePath: string, id: string) => `${basePath}/${id}/edit`;
+export const documentAnswersHref = (basePath: string, id: string) => `${basePath}/${id}/answers`;
 
 /** Saves within the same second as the upload aren't edits. */
 export const wasEdited = ({ createdAt, updatedAt }: { createdAt: string; updatedAt: string }) =>

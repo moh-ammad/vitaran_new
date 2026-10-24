@@ -5,7 +5,10 @@ import {
   getAccountAvailability,
   getSchool,
   getSchoolStats,
+  listSchoolOptions,
   listSchools,
+  resetSchoolPassword,
+  sendSchoolCredentials,
   updateSchool,
 } from "../controllers/school.controller.js";
 import { requireAdmin } from "../middleware/authenticate.js";
@@ -13,7 +16,9 @@ import { validate } from "../middleware/validate.js";
 import {
   accountAvailabilityQuerySchema,
   createSchoolSchema,
+  listSchoolOptionsQuerySchema,
   listSchoolsQuerySchema,
+  resetSchoolPasswordSchema,
   schoolIdParamsSchema,
   updateSchoolSchema,
 } from "../schemas/school.schema.js";
@@ -24,6 +29,11 @@ schoolRouter.use(requireAdmin);
 
 schoolRouter.get("/", validate(listSchoolsQuerySchema, "query"), listSchools);
 schoolRouter.get("/stats", getSchoolStats);
+schoolRouter.get(
+  "/options",
+  validate(listSchoolOptionsQuerySchema, "query"),
+  listSchoolOptions,
+);
 schoolRouter.get(
   "/account-availability",
   validate(accountAvailabilityQuerySchema, "query"),
@@ -36,6 +46,17 @@ schoolRouter.patch(
   validate(schoolIdParamsSchema, "params"),
   validate(updateSchoolSchema),
   updateSchool,
+);
+schoolRouter.post(
+  "/:id/send-credentials",
+  validate(schoolIdParamsSchema, "params"),
+  sendSchoolCredentials,
+);
+schoolRouter.post(
+  "/:id/reset-password",
+  validate(schoolIdParamsSchema, "params"),
+  validate(resetSchoolPasswordSchema),
+  resetSchoolPassword,
 );
 schoolRouter.delete(
   "/:id",

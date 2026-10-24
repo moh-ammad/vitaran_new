@@ -43,6 +43,7 @@ export default async function AdminAnswerKeysPage({ searchParams }: PageProps<"/
         basePath={ANSWER_KEYS_PATH}
         uploadHref={ANSWER_KEY_UPLOAD_PATH}
         showType
+        showAnswersEdit
         filtered={hasListFilters(filters)}
         publishAction={setAnswerKeyPublishedAction}
         deleteAction={deleteAnswerKeyAction}

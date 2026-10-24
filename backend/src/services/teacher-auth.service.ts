@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { env } from "../config/env.js";
 import { SchoolStatus, TeacherStatus } from "../generated/prisma/enums.js";
 import * as teacherRepository from "../repositories/teacher.repository.js";
+import type { TeacherRecord } from "../repositories/teacher.repository.js";
 import type { SchoolLoginInput } from "../schemas/auth.schema.js";
 import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
@@ -51,12 +52,22 @@ export async function loginTeacher(input: SchoolLoginInput): Promise<TeacherLogi
     throw new AppError(401, "Invalid email, phone or password");
   }
 
+  return issueTeacherLogin(teacher, secret);
+}
+
+/** Password or Google — same JWT. Caller already proved the account. */
+export async function issueTeacherLogin(
+  teacher: TeacherRecord,
+  secret = getSecret(),
+): Promise<TeacherLoginResult> {
   if (teacher.status !== TeacherStatus.ACTIVE) {
     throw new AppError(403, "This teacher account is inactive");
   }
-
   if (teacher.school.status !== SchoolStatus.ACTIVE) {
     throw new AppError(403, "This school account is inactive");
+  }
+  if (!teacher.passwordHash) {
+    throw new AppError(401, "Invalid email, phone or password");
   }
 
   const expiresAt = new Date(Date.now() + env.SCHOOL_JWT_EXPIRES_IN_DAYS * DAY_MS);

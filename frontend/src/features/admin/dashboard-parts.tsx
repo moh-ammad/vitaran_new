@@ -103,3 +103,44 @@ export function SummaryTile({ label, value }: { label: string; value: number }) 
     </div>
   );
 }
+
+function Pulse({ className }: { className?: string }) {
+  return <div className={cn("animate-pulse rounded-md bg-neutral-200/80", className)} />;
+}
+
+export function PanelFallback() {
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label="Loading">
+      <div className="h-8 w-48 animate-pulse rounded-md bg-neutral-200/80" />
+      <div className="h-40 animate-pulse rounded-2xl bg-neutral-200/60" />
+      <div className="h-40 animate-pulse rounded-2xl bg-neutral-200/60" />
+    </div>
+  );
+}
+
+export function DashboardSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading dashboard">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className={cn(SURFACE, "flex flex-col gap-3 p-5")}>
+            <Pulse className="h-4 w-24" />
+            <Pulse className="h-8 w-16" />
+            <Pulse className="h-3 w-36" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {Array.from({ length: 2 }, (_, index) => (
+          <div key={index} className={cn(SURFACE, "space-y-3 p-4")}>
+            <Pulse className="h-4 w-40" />
+            <Pulse className="h-3 w-56" />
+            <Pulse className="h-2 w-full" />
+            <Pulse className="h-2 w-full" />
+            <Pulse className="h-2 w-3/4" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

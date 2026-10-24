@@ -2,7 +2,9 @@ import type { RequestHandler } from "express";
 import type {
   AccountAvailabilityQuery,
   CreateSchoolInput,
+  ListSchoolOptionsQuery,
   ListSchoolsQuery,
+  ResetSchoolPasswordInput,
   UpdateSchoolInput,
 } from "../schemas/school.schema.js";
 import * as schoolService from "../services/school.service.js";
@@ -14,6 +16,13 @@ export const listSchools: RequestHandler = async (req, res) => {
   sendSuccess(
     res,
     await schoolService.listSchools(req.query as unknown as ListSchoolsQuery),
+  );
+};
+
+export const listSchoolOptions: RequestHandler = async (req, res) => {
+  sendSuccess(
+    res,
+    await schoolService.listSchoolOptions(req.query as unknown as ListSchoolOptionsQuery),
   );
 };
 
@@ -53,4 +62,16 @@ export const updateSchool: RequestHandler<
 export const deleteSchool: RequestHandler<IdParams> = async (req, res) => {
   await schoolService.deleteSchool(req.params.id);
   res.status(204).end();
+};
+
+export const sendSchoolCredentials: RequestHandler<IdParams> = async (req, res) => {
+  sendSuccess(res, await schoolService.sendSchoolCredentials(req.params.id));
+};
+
+export const resetSchoolPassword: RequestHandler<
+  IdParams,
+  unknown,
+  ResetSchoolPasswordInput
+> = async (req, res) => {
+  sendSuccess(res, await schoolService.resetSchoolPassword(req.params.id, req.body.password));
 };

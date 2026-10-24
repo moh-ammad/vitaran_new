@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Form from "next/form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
@@ -64,7 +65,7 @@ export function ProgramForm({ program, action }: ProgramFormProps) {
 
   return (
     <>
-    <form
+    <Form
       ref={formRef}
       action={formAction}
       className="space-y-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8"
@@ -204,7 +205,7 @@ export function ProgramForm({ program, action }: ProgramFormProps) {
           {isEdit ? "Save changes" : "Create program"}
         </Button>
       </footer>
-    </form>
+    </Form>
     {dialog}
     </>
   );

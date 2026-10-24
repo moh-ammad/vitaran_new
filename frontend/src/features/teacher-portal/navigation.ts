@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ScanLine,
   Trophy,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export const teacherNavGroups: TeacherNavGroup[] = [
   {
     label: "Teaching",
     items: [
+      { title: "Students", href: "/teacher/students", icon: Users },
       { title: "Resources", href: "/teacher/resources", icon: BookOpen },
       { title: "Answer Keys", href: "/teacher/answer-keys", icon: KeyRound },
       { title: "Results", href: "/teacher/results", icon: Trophy },
@@ -51,11 +53,25 @@ export function isTeacherNavActive(href: string, pathname: string): boolean {
 }
 
 const SEGMENT_LABELS: Record<string, string> = {
+  students: "Students",
   resources: "Resources",
   "answer-keys": "Answer Keys",
+  answers: "Key corrections",
+  edit: "Edit",
   results: "Results",
   "omr-scan": "OMR Scan",
 };
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function crumbLabel(segment: string, previous: string | undefined) {
+  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
+  if (previous === "answer-keys") return "Key";
+  if (previous === "omr-scan" && isUuid(segment)) return "Scorecard";
+  return "Details";
+}
 
 export type TeacherBreadcrumb = { label: string; href: string };
 
@@ -65,7 +81,7 @@ export function getTeacherBreadcrumbs(pathname: string): TeacherBreadcrumb[] {
 
   segments.forEach((segment, index) => {
     crumbs.push({
-      label: SEGMENT_LABELS[segment] ?? "Details",
+      label: crumbLabel(segment, segments[index - 1]),
       href: `/teacher/${segments.slice(0, index + 1).join("/")}`,
     });
   });
@@ -78,5 +94,7 @@ export function getTeacherParentHref(pathname: string): string | null {
   const dashboard = "/teacher";
   if (pathname === dashboard) return null;
   if (allItems.some((item) => item.href === pathname)) return dashboard;
+  // `/answer-keys/:id` redirects to `/answers`, so Back must skip that stub.
+  if (/\/answer-keys\/[^/]+\/answers$/.test(pathname)) return pathname.replace(/\/[^/]+\/answers$/, "");
   return getTeacherBreadcrumbs(pathname).at(-2)?.href ?? dashboard;
 }

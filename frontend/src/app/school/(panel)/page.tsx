@@ -4,13 +4,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
 import { StatCard } from "@/features/admin/dashboard-parts";
 import { SUBJECT_LABELS, programLabel } from "@/features/schools/constants";
-import { uniqueSubjectsFromOfferings } from "@/features/schools/offerings";
 import { capitalizeWords } from "@/features/schools/schema";
-import { verifySchoolSession } from "@/features/school-auth/session";
 import { programs } from "@/features/teachers-resources/content";
 import { solutionBooks } from "@/features/teachers-resources/solution-books";
 import { getSchoolDashboard } from "@/services/teachers";
 import { cn } from "@/lib/utils";
+import type { Subject } from "@/types/school";
 
 function countResources(programCodes: string[], subjectIds: string[]) {
   const subjects = new Set(subjectIds.map((id) => SUBJECT_LABELS[id as keyof typeof SUBJECT_LABELS]));
@@ -23,16 +22,17 @@ function countResources(programCodes: string[], subjectIds: string[]) {
 }
 
 export default async function SchoolDashboardPage() {
-  const [school, stats] = await Promise.all([verifySchoolSession(), getSchoolDashboard()]);
-  const subjects = uniqueSubjectsFromOfferings(school.schoolPrograms);
-  const resources = countResources(school.programCodes, subjects);
-  const classCount = school.schoolPrograms.reduce((total, row) => total + row.classes.length, 0);
+  const stats = await getSchoolDashboard();
+  const resources = countResources(
+    stats.programLabels.map((row) => row.code),
+    stats.subjectIds,
+  );
 
   return (
     <>
       <PageHeader
         title="Dashboard"
-        description={`${capitalizeWords(school.name)} · ${school.code}`}
+        description={`${capitalizeWords(stats.schoolName)} · ${stats.schoolCode}`}
         actions={
           <Link href="/school/teachers/new" className={cn(buttonVariants())}>
             Add teacher
@@ -50,7 +50,7 @@ export default async function SchoolDashboardPage() {
         />
         <StatCard
           label="Classes"
-          value={classCount}
+          value={stats.classes}
           hint={`${stats.programs} programs`}
           icon={School2}
           href="/school/classes"
@@ -83,13 +83,13 @@ export default async function SchoolDashboardPage() {
           <h2 className="text-sm font-bold text-neutral-950">Your programs</h2>
           <p className="mt-1 text-xs text-neutral-500">Assigned by Vitaran for this school.</p>
           <ul className="mt-4 flex flex-wrap gap-2">
-            {school.schoolPrograms.length > 0 ? (
-              school.schoolPrograms.map((program) => (
+            {stats.programLabels.length > 0 ? (
+              stats.programLabels.map((program) => (
                 <li
-                  key={program.programId}
+                  key={program.code}
                   className="rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800"
                 >
-                  {capitalizeWords(programLabel(program.programCode, program.programName))}
+                  {capitalizeWords(programLabel(program.code, program.name))}
                 </li>
               ))
             ) : (
@@ -102,13 +102,13 @@ export default async function SchoolDashboardPage() {
           <h2 className="text-sm font-bold text-neutral-950">Your subjects</h2>
           <p className="mt-1 text-xs text-neutral-500">Teachers can only be assigned these subjects.</p>
           <ul className="mt-4 flex flex-wrap gap-2">
-            {subjects.length > 0 ? (
-              subjects.map((subject) => (
+            {stats.subjectIds.length > 0 ? (
+              stats.subjectIds.map((subject) => (
                 <li
                   key={subject}
                   className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-semibold text-neutral-800"
                 >
-                  {SUBJECT_LABELS[subject]}
+                  {SUBJECT_LABELS[subject as Subject] ?? subject}
                 </li>
               ))
             ) : (

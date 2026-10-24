@@ -1,8 +1,10 @@
 "use server";
 
-import { ADMIN_BASE_PATH } from "@/constants/auth";
+import { revalidatePath } from "next/cache";
+import { ADMIN_BASE_PATH, SCHOOL_BASE_PATH, TEACHER_BASE_PATH } from "@/constants/auth";
 import { deleteDocument, publishDocument, saveDocument } from "@/features/documents/save";
 import * as resultService from "@/services/results";
+import { SCHOOL_RESULTS_PATH, TEACHER_RESULTS_PATH } from "./constants";
 import {
   CLASS_FILE_FIELDS,
   RESULT_FIELDS,
@@ -14,14 +16,20 @@ import {
 
 const NOUN = "result";
 
-/** Results also show on school pages and the dashboard, so refresh the whole admin. */
-const REVALIDATE_PATH = ADMIN_BASE_PATH;
+/** Admin + school/teacher portals must see replaces/publishes without a hard refresh. */
+function revalidateResultViews() {
+  revalidatePath(ADMIN_BASE_PATH, "layout");
+  revalidatePath(SCHOOL_RESULTS_PATH);
+  revalidatePath(TEACHER_RESULTS_PATH);
+  revalidatePath(SCHOOL_BASE_PATH, "layout");
+  revalidatePath(TEACHER_BASE_PATH, "layout");
+}
 
 const options = {
   fields: RESULT_FIELDS,
   fileFields: CLASS_FILE_FIELDS,
   schema: resultSetSchema,
-  revalidate: REVALIDATE_PATH,
+  revalidate: ADMIN_BASE_PATH,
   noun: NOUN,
 };
 
@@ -39,11 +47,13 @@ export async function uploadResultAction(
   _state: ResultFormState,
   formData: FormData,
 ): Promise<ResultFormState> {
-  return saveDocument<ResultField, ResultSetInput>({
+  const result = await saveDocument<ResultField, ResultSetInput>({
     ...options,
     formData,
     save: (input) => resultService.uploadResultSet(toApiForm(input)),
   });
+  if (result?.status === "success") revalidateResultViews();
+  return result;
 }
 
 export async function updateResultAction(
@@ -51,17 +61,31 @@ export async function updateResultAction(
   _state: ResultFormState,
   formData: FormData,
 ): Promise<ResultFormState> {
-  return saveDocument<ResultField, ResultSetInput>({
+  const result = await saveDocument<ResultField, ResultSetInput>({
     ...options,
     formData,
     save: (input) => resultService.updateResultSet(id, toApiForm(input)),
   });
+  if (result?.status === "success") revalidateResultViews();
+  return result;
 }
 
 export async function setResultPublishedAction(id: string, published: boolean) {
-  return publishDocument(() => resultService.setResultSetPublished(id, published), REVALIDATE_PATH, NOUN);
+  const result = await publishDocument(
+    () => resultService.setResultSetPublished(id, published),
+    ADMIN_BASE_PATH,
+    NOUN,
+  );
+  if (result.ok) revalidateResultViews();
+  return result;
 }
 
 export async function deleteResultAction(id: string) {
-  return deleteDocument(() => resultService.deleteResultSet(id), REVALIDATE_PATH, NOUN);
+  const result = await deleteDocument(
+    () => resultService.deleteResultSet(id),
+    ADMIN_BASE_PATH,
+    NOUN,
+  );
+  if (result.ok) revalidateResultViews();
+  return result;
 }

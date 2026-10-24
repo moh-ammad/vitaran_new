@@ -50,6 +50,11 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P1001") {
+      sendError(res, 503, "Database is temporarily unavailable. Please try again shortly.");
+      return;
+    }
+
     if (error.code === "P2025") {
       sendError(res, 404, "Resource not found");
       return;
@@ -57,6 +62,17 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
 
     if (error.code === "P2002") {
       sendError(res, 409, "A record with these details already exists");
+      return;
+    }
+
+    if (error.code === "P2011") {
+      const column =
+        typeof error.meta?.constraint === "string"
+          ? error.meta.constraint
+          : Array.isArray(error.meta?.constraint)
+            ? error.meta.constraint.join(", ")
+            : "a required field";
+      sendError(res, 400, `Missing required data (${column}). Check the form and try again.`);
       return;
     }
   }

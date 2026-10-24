@@ -3,10 +3,15 @@ import { SignJWT, jwtVerify } from "jose";
 import { env } from "../config/env.js";
 import { SchoolStatus } from "../generated/prisma/enums.js";
 import * as schoolRepository from "../repositories/school.repository.js";
+import type { SchoolWithPrograms } from "../repositories/school.repository.js";
 import type { SchoolLoginInput } from "../schemas/auth.schema.js";
 import { AppError } from "../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
-import { toSchoolAccountDto, type SchoolAccountDto } from "./school.service.js";
+import {
+  toSchoolAccountDto,
+  toSchoolSessionAccountDto,
+  type SchoolAccountDto,
+} from "./school.service.js";
 
 const JWT_ALGORITHM = "HS256";
 const JWT_ISSUER = "vitaran-api";
@@ -53,8 +58,19 @@ export async function loginSchool(input: SchoolLoginInput): Promise<SchoolLoginR
     throw new AppError(401, "Invalid email, phone or password");
   }
 
+  return issueSchoolLogin(school, secret);
+}
+
+/** Password or Google — same JWT. Caller already proved the account. */
+export async function issueSchoolLogin(
+  school: SchoolWithPrograms,
+  secret = getSecret(),
+): Promise<SchoolLoginResult> {
   if (school.status !== SchoolStatus.ACTIVE) {
     throw new AppError(403, "This school account is inactive");
+  }
+  if (!school.passwordHash) {
+    throw new AppError(401, "Invalid email, phone or password");
   }
 
   const expiresAt = new Date(Date.now() + env.SCHOOL_JWT_EXPIRES_IN_DAYS * DAY_MS);
@@ -88,7 +104,7 @@ export async function verifySchoolToken(token: string): Promise<SchoolAccountDto
       throw new Error("Not a school token");
     }
 
-    const school = await schoolRepository.findSchoolById(payload.sub);
+    const school = await schoolRepository.findSchoolSessionById(payload.sub);
 
     if (
       !school?.passwordHash ||
@@ -98,7 +114,7 @@ export async function verifySchoolToken(token: string): Promise<SchoolAccountDto
       throw new Error("School session revoked");
     }
 
-    return toSchoolAccountDto(school);
+    return toSchoolSessionAccountDto(school);
   } catch (_error) {
     throw new AppError(401, "Invalid or expired session");
   }

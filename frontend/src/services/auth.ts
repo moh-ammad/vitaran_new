@@ -3,10 +3,13 @@ import { apiClient } from "@/services/api-client";
 import type {
   AdminLoginResult,
   AdminProfile,
+  GoogleLoginResult,
   SchoolLoginResult,
+  StudentLoginResult,
   TeacherLoginResult,
 } from "@/types/auth";
 import type { SchoolAccount } from "@/types/school";
+import type { StudentAccount } from "@/types/student";
 import type { TeacherAccount } from "@/types/teacher";
 
 const authHeader = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -59,4 +62,53 @@ export async function fetchCurrentTeacher(token: string): Promise<TeacherAccount
     cache: "no-store",
   });
   return teacher;
+}
+
+/** `identifier` is the student's roll number or parent/guardian email. */
+export function loginStudent(credentials: { identifier: string; password: string }) {
+  return apiClient<StudentLoginResult>("/auth/student/login", {
+    method: "POST",
+    body: credentials,
+    cache: "no-store",
+  });
+}
+
+/** Exchange a Google ID token for the existing portal JWT. Never creates accounts. */
+export function loginWithGoogle(idToken: string, portal: "school" | "student") {
+  return apiClient<GoogleLoginResult>("/auth/google", {
+    method: "POST",
+    body: { idToken, portal },
+    cache: "no-store",
+  });
+}
+
+export async function fetchCurrentStudent(token: string): Promise<StudentAccount> {
+  const { student } = await apiClient<{ student: StudentAccount }>("/auth/student/me", {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return student;
+}
+
+export function requestForgotPasswordOtp(input: { email: string } | { rollNo: string }) {
+  return apiClient<{
+    ok: true;
+    message: string;
+    email: string;
+    emailMasked: string;
+    rollNo?: string;
+  }>("/auth/forgot-password", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export function verifyForgotPasswordOtp(email: string, otp: string) {
+  return apiClient<{ ok: true; role: "school" | "teacher" | "student"; message: string }>(
+    "/auth/forgot-password/verify",
+    {
+      method: "POST",
+      body: { email, otp },
+    },
+  );
 }

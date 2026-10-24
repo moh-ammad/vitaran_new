@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -34,7 +34,10 @@ export function TeachersTable({
   showSchool,
 }: TeachersTableProps) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  /** Optimistic status so the switch flips immediately. */
+  const [statusById, setStatusById] = useState<Record<string, TeacherStatus>>({});
+  const [, startTransition] = useTransition();
 
   if (teachers.length === 0) {
     return (
@@ -71,7 +74,9 @@ export function TeachersTable({
         </TableHeader>
         <TableBody>
           {teachers.map((teacher) => {
-            const active = teacher.status === "ACTIVE";
+            const status = statusById[teacher.id] ?? teacher.status;
+            const active = status === "ACTIVE";
+            const busy = pendingId === teacher.id;
             return (
               <TableRow
                 key={teacher.id}
@@ -117,20 +122,33 @@ export function TeachersTable({
                 <TableCell>
                   <div className="flex items-center gap-2.5">
                     <Switch
+                      className="cursor-pointer"
                       checked={active}
-                      disabled={pending}
+                      disabled={busy}
                       onCheckedChange={(checked) => {
+                        const previous = status;
+                        const next: TeacherStatus = checked ? "ACTIVE" : "INACTIVE";
+                        setStatusById((prev) => ({ ...prev, [teacher.id]: next }));
+                        setPendingId(teacher.id);
                         startTransition(async () => {
-                          const next = checked ? "ACTIVE" : "INACTIVE";
-                          const result = await onToggleStatus(teacher.id, next);
-                          if (!result.ok) {
-                            toast.error(result.message ?? "Update failed");
-                            return;
+                          try {
+                            const result = await onToggleStatus(teacher.id, next);
+                            if (!result.ok) {
+                              setStatusById((prev) => ({ ...prev, [teacher.id]: previous }));
+                              toast.error(result.message ?? "Update failed");
+                              return;
+                            }
+                            toast.success(
+                              `${teacher.name} is now ${TEACHER_STATUS_LABELS[next].toLowerCase()}`,
+                            );
+                            // Refresh in the background — don't block the switch on RSC.
+                            router.refresh();
+                          } catch {
+                            setStatusById((prev) => ({ ...prev, [teacher.id]: previous }));
+                            toast.error("Update failed");
+                          } finally {
+                            setPendingId(null);
                           }
-                          toast.success(
-                            `${teacher.name} is now ${TEACHER_STATUS_LABELS[next].toLowerCase()}`,
-                          );
-                          router.refresh();
                         });
                       }}
                     />
@@ -142,7 +160,7 @@ export function TeachersTable({
                           : "bg-neutral-100 text-neutral-600",
                       )}
                     >
-                      {TEACHER_STATUS_LABELS[teacher.status]}
+                      {TEACHER_STATUS_LABELS[status]}
                     </span>
                   </div>
                 </TableCell>

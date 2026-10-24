@@ -32,7 +32,7 @@ export function requirePdf(body: unknown): Buffer {
 
 /** Column values for a newly uploaded PDF. */
 export function toPdfData(pdf: Buffer, fileName: string) {
-  return { fileName, fileSize: pdf.length, data: new Uint8Array(pdf) };
+  return { fileName, fileSize: pdf.length, data: Buffer.from(pdf) };
 }
 
 export function sendPdf(res: Response, { fileName, data }: { fileName: string; data: Uint8Array }) {

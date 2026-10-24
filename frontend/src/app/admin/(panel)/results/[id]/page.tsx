@@ -21,7 +21,6 @@ export default async function ResultPage({ params, searchParams }: PageProps<"/a
       sheet={sheet}
       basePath={RESULTS_PATH}
       showSchool
-      backHref={RESULTS_PATH}
       actions={
         <Link
           href={resultEditHref(id)}

@@ -2,12 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   ADMIN_BASE_PATH,
   ADMIN_LOGIN_PATH,
+  ADMIN_LOGOUT_PATH,
   ADMIN_SESSION_COOKIE,
   RETURN_TO_COOKIE,
   SCHOOL_BASE_PATH,
   SCHOOL_HOME_PATH,
   SCHOOL_LOGIN_PATH,
   SCHOOL_SESSION_COOKIE,
+  STUDENT_HOME_PATH,
+  STUDENT_LOGIN_PATH,
+  STUDENT_SESSION_COOKIE,
   TEACHER_BASE_PATH,
   TEACHER_HOME_PATH,
   TEACHER_SESSION_COOKIE,
@@ -23,6 +27,8 @@ function redirectToLogin(request: NextRequest, loginPath: string) {
   }
 
   const response = NextResponse.redirect(new URL(loginPath, request.nextUrl));
+  response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+  response.headers.set("Pragma", "no-cache");
   response.cookies.set(RETURN_TO_COOKIE, pathname + search, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -30,6 +36,12 @@ function redirectToLogin(request: NextRequest, loginPath: string) {
     path: "/",
     maxAge: 60 * 10,
   });
+  return response;
+}
+
+function adminResponse(response: NextResponse) {
+  response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+  response.headers.set("Pragma", "no-cache");
   return response;
 }
 
@@ -57,10 +69,16 @@ export function proxy(request: NextRequest) {
   const hasTeacher = request.cookies.has(TEACHER_SESSION_COOKIE);
 
   if (pathname.startsWith(ADMIN_BASE_PATH)) {
-    if (pathname === ADMIN_LOGIN_PATH || request.cookies.has(ADMIN_SESSION_COOKIE)) {
-      return NextResponse.next();
+    if (
+      pathname === ADMIN_LOGIN_PATH ||
+      pathname === ADMIN_LOGOUT_PATH ||
+      request.cookies.has(ADMIN_SESSION_COOKIE)
+    ) {
+      return adminResponse(NextResponse.next());
     }
-    return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl));
+    return adminResponse(
+      NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.nextUrl)),
+    );
   }
 
   // Already signed in → never show the portal login form.
@@ -70,6 +88,13 @@ export function proxy(request: NextRequest) {
     }
     if (hasTeacher) {
       return NextResponse.redirect(new URL(TEACHER_HOME_PATH, request.nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname === STUDENT_LOGIN_PATH || pathname === "/student/login") {
+    if (request.cookies.has(STUDENT_SESSION_COOKIE)) {
+      return NextResponse.redirect(new URL(STUDENT_HOME_PATH, request.nextUrl));
     }
     return NextResponse.next();
   }

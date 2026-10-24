@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import type {
   ListAnswerKeysQuery,
+  SaveAnswerKeyAnswersInput,
   SchoolTestsQuery,
   UpdateAnswerKeyQuery,
   UploadAnswerKeyQuery,
@@ -59,6 +60,16 @@ export const listSchoolAnswerKeys: RequestHandler = async (_req, res) => {
   sendSuccess(res, await answerKeyService.listSchoolAnswerKeys(res.locals.school as SchoolAccountDto));
 };
 
+export const getSchoolAnswerKey: RequestHandler<IdParams> = async (req, res) => {
+  sendSuccess(
+    res,
+    await answerKeyService.getVisibleAnswerKey(req.params.id, {
+      kind: "school",
+      school: res.locals.school as SchoolAccountDto,
+    }),
+  );
+};
+
 export const getSchoolAnswerKeyFile: RequestHandler<IdParams> = async (req, res) => {
   sendPdf(
     res,
@@ -69,6 +80,11 @@ export const getSchoolAnswerKeyFile: RequestHandler<IdParams> = async (req, res)
 export const listTeacherAnswerKeys: RequestHandler = async (_req, res) => {
   const actor: ContentActor = { kind: "teacher", teacher: res.locals.teacher as TeacherAccountDto };
   sendSuccess(res, await answerKeyService.listVisibleAnswerKeys(actor));
+};
+
+export const getTeacherAnswerKey: RequestHandler<IdParams> = async (req, res) => {
+  const actor: ContentActor = { kind: "teacher", teacher: res.locals.teacher as TeacherAccountDto };
+  sendSuccess(res, await answerKeyService.getVisibleAnswerKey(req.params.id, actor));
 };
 
 export const getTeacherAnswerKeyFile: RequestHandler<IdParams> = async (req, res) => {
@@ -84,4 +100,15 @@ export const setAnswerKeyPublished: RequestHandler<IdParams> = async (req, res) 
 export const deleteAnswerKey: RequestHandler<IdParams> = async (req, res) => {
   await answerKeyService.deleteAnswerKey(req.params.id);
   res.status(204).end();
+};
+
+export const saveAnswerKeyAnswers: RequestHandler<IdParams, unknown, SaveAnswerKeyAnswersInput> = async (
+  req,
+  res,
+) => {
+  sendSuccess(res, await answerKeyService.saveAnswerKeyAnswers(req.params.id, req.body));
+};
+
+export const reparseAnswerKey: RequestHandler<IdParams> = async (req, res) => {
+  sendSuccess(res, await answerKeyService.reparseAnswerKey(req.params.id));
 };
