@@ -2,27 +2,20 @@ import { SUBJECT_LABELS } from "@/features/schools/constants";
 import { cn } from "@/lib/utils";
 import type { OmScan, OmScanResult } from "@/types/om-scan";
 
-export function OmScorecard({ scan, read }: { scan: OmScan; read?: OmScanResult["read"] }) {
+export function OmScorecard({ scan }: { scan: OmScan; read?: OmScanResult["read"] }) {
   const { student } = scan;
-  const examDate = read?.examDate || scan.examDate;
   return (
-    <div className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold tracking-wider text-brand-700 uppercase">
-            {scan.view === "subject"
-              ? `${scan.subjectScores.map((row) => SUBJECT_LABELS[row.subject]).join(" · ") || "Subject"} scorecard`
-              : "Scorecard"}
-          </p>
-          <h2 className="text-xl font-bold text-neutral-950">{student.name}</h2>
+    <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:space-y-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-bold text-neutral-950 sm:text-xl">{student.name}</h2>
           <p className="text-sm text-neutral-600">
-            Roll {student.rollNo} · {student.programName} · Class {student.classLevel}
-            {student.sectionName ? `-${student.sectionName}` : ""} · Test ID {scan.testId}
+            {student.rollNo} · {student.classLevel}
+            {student.sectionName ? `-${student.sectionName}` : ""}
           </p>
-          {examDate ? <p className="mt-1 text-xs text-neutral-500">Exam date {formatExamDate(examDate)}</p> : null}
         </div>
-        <div className="text-right">
-          <p className="text-3xl font-bold tabular-nums text-brand-900">
+        <div className="shrink-0 text-right">
+          <p className="text-2xl font-bold tabular-nums text-brand-900 sm:text-3xl">
             {scan.total}
             <span className="text-base font-semibold text-neutral-500">/{scan.maxTotal}</span>
           </p>
@@ -70,11 +63,6 @@ export function OmScorecard({ scan, read }: { scan: OmScan; read?: OmScanResult[
       )}
     </div>
   );
-}
-
-function formatExamDate(value: string) {
-  const [year, month, day] = value.split("-");
-  return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
