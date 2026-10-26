@@ -28,7 +28,7 @@ export function PublishSwitch({ published, label, onToggle }: PublishSwitchProps
   };
 
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2">
+    <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap">
       <Switch
         checked={optimistic}
         onCheckedChange={toggle}
@@ -38,7 +38,7 @@ export function PublishSwitch({ published, label, onToggle }: PublishSwitchProps
       />
       <span
         className={cn(
-          "w-14 text-xs font-semibold",
+          "text-xs font-semibold",
           optimistic ? "text-brand-900" : "text-neutral-400",
         )}
       >

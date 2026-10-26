@@ -7,10 +7,7 @@ export default async function TeacherOmrScanPage() {
 
   return (
     <>
-      <PageHeader
-        title="OMR Scan"
-        description="Enter roll no, test ID and date, then scan. Results stay with you until you push them to students."
-      />
+      <PageHeader title="OMR Scan" />
       <OmrScanBoard initial={scans} releases={releases} />
     </>
   );

@@ -31,8 +31,8 @@ export const getPhoneHint = (value: string) =>
 export const toPhoneDigits = (value: string) => value.replace(/\D/g, "").slice(0, 10);
 
 /** Uppercases the first letter of every word, leaving the rest as typed (e.g. "DPS"). */
-export const capitalizeWords = (value: string) =>
-  value.replace(/(^|\s)(\p{L})/gu, (_match, space: string, letter: string) => space + letter.toUpperCase());
+export const capitalizeWords = (value: string | null | undefined) =>
+  (value ?? "").replace(/(^|\s)(\p{L})/gu, (_match, space: string, letter: string) => space + letter.toUpperCase());
 
 const offeringToken = z
   .string()

@@ -17,7 +17,7 @@ import { omResultReleaseSchema, omScanIdentitySchema, omScanTargetQuerySchema } 
 import { AppError } from "../utils/app-error.js";
 import { z } from "zod";
 
-const IMAGE_MAX = 8 * 1024 * 1024;
+const IMAGE_MAX = 16 * 1024 * 1024;
 
 const readImage = multer({
   storage: multer.memoryStorage(),

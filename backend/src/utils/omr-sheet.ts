@@ -1,21 +1,21 @@
 import sharp from "sharp";
 import { createWorker, PSM, type Worker } from "tesseract.js";
-import type { AnswerOption } from "./answer-key-parse.js";
 import {
   applyHomography,
-  asGray,
   asRgba,
   CANONICAL_HEIGHT,
   CANONICAL_WIDTH,
   destToSrcHomography,
   findPaperQuad,
+  findRegistrationQuad,
+  grayFromRgba,
   quadQuality,
   sharpness,
   warpQuad,
   type Quad,
   type Rgba,
 } from "./omr-geometry.js";
-import { layoutOmrBubbles, type OmBubble, type OmFlag } from "./omr-layout.js";
+import { layoutOmrBubbles, type OmBubble, type OmFlag, type OmLayout } from "./omr-layout.js";
 
 export type { OmBubble, OmFlag } from "./omr-layout.js";
 
@@ -29,7 +29,7 @@ export type OmRead = {
   examDate: string;
   testId: string;
   testCandidates: string[];
-  answers: Record<string, AnswerOption>;
+  answers: Record<string, string>;
   flags: OmFlag[];
   markCount: number;
   bubbles: OmBubble[];
@@ -368,7 +368,7 @@ async function readHeaderFields(fields: PhotoFields) {
   };
 }
 
-function warpTarget(rgba: Rgba) {
+function warpTarget(rgba: { width: number; height: number }) {
   const aspect = rgba.width / Math.max(1, rgba.height);
   if (aspect >= 0.58 && aspect <= 0.86) {
     return { width: CANONICAL_WIDTH, height: CANONICAL_HEIGHT };
@@ -376,6 +376,10 @@ function warpTarget(rgba: Rgba) {
   const height = Math.round(CANONICAL_WIDTH / aspect);
   return { width: CANONICAL_WIDTH, height: Math.max(500, Math.min(1800, height)) };
 }
+
+const UPRIGHT_GRID_CENTRE = 0.46;
+/** Q1 sits ~45% down the corner-dot rectangle; anything above 30% is a wrong dot pair. */
+const SHEET_GRID_TOP_MIN = 0.3;
 
 const EMPTY_HEADER = {
   rollNo: "",
@@ -387,10 +391,71 @@ const EMPTY_HEADER = {
   testCandidates: [] as string[],
 };
 
-async function photoFields(image: Buffer, rgba: Rgba, frame: GridFrame, quad: Quad): Promise<PhotoFields> {
-  const png = await sharp(image).rotate().png().toBuffer();
-  const meta = await sharp(png).metadata();
-  return { png, width: meta.width ?? rgba.width, height: meta.height ?? rgba.height, frame, quad };
+async function photoFields(image: Buffer, rgba: Rgba, frame: GridFrame, quad: Quad, turn: number): Promise<PhotoFields> {
+  const upright = await sharp(image).rotate().toBuffer();
+  const png = await sharp(upright)
+    .rotate(turn || undefined)
+    .resize({ width: rgba.width, height: rgba.height, fit: "fill" })
+    .png()
+    .toBuffer();
+  return { png, width: rgba.width, height: rgba.height, frame, quad };
+}
+
+/**
+ * Phone photos on a white desk hide the page edge. The printed crimson dots are the warp that
+ * keeps A–D on the right bubbles; paper-edge and the whole frame are fallbacks.
+ */
+export async function locateGrid(rgba: Rgba, focus: number) {
+  const dots = findRegistrationQuad(rgba);
+  const paper = findPaperQuad(rgba);
+  const wholePhoto: Quad = [
+    { x: 0, y: 0 },
+    { x: rgba.width - 1, y: 0 },
+    { x: rgba.width - 1, y: rgba.height - 1 },
+    { x: 0, y: rgba.height - 1 },
+  ];
+  const a4 = { width: CANONICAL_WIDTH, height: CANONICAL_HEIGHT };
+  const near = (a: Quad, b: Quad) => a.every((p, i) => Math.hypot(p.x - b[i]!.x, p.y - b[i]!.y) < 12);
+  // `sheet`: the quad is the printed corner-dot rectangle, so the grid must sit below the header.
+  const attempts: Array<{ quad: Quad; size: { width: number; height: number }; sheet: boolean }> = [];
+  if (dots) attempts.push({ quad: dots, size: a4, sheet: true });
+  if (paper && quadQuality(paper, rgba.width, rgba.height, focus).ok && (!dots || !near(paper, dots))) {
+    attempts.push({ quad: paper, size: quadTarget(paper), sheet: false });
+  }
+  attempts.push({ quad: wholePhoto, size: warpTarget(rgba), sheet: false });
+
+  const run = async (attempt: (typeof attempts)[number]) => {
+    const warped = await warpQuad(rgba, attempt.quad, attempt.size.width, attempt.size.height);
+    const layout = layoutOmrBubbles(warped.rgba);
+    // The side dots beside Q2–Q3 can pass for the top pair; then the grid lands in the header.
+    if (attempt.sheet && layout.measured) {
+      const top = Math.min(...layout.bubbles.map((b) => b.y)) / warped.rgba.height;
+      if (top < SHEET_GRID_TOP_MIN) layout.measured = false;
+    }
+    return { quad: attempt.quad, warped, layout };
+  };
+  const clean = (layout: OmLayout) =>
+    layout.measured && layout.flags.every((f) => !f.reason.startsWith("Could not locate"));
+
+  let best = await run(attempts[0]!);
+  for (const attempt of attempts.slice(1)) {
+    if (clean(best.layout)) break;
+    const retry = await run(attempt);
+    const better =
+      Number(retry.layout.measured) - Number(best.layout.measured) ||
+      best.layout.flags.length - retry.layout.flags.length ||
+      retry.layout.markCount - best.layout.markCount;
+    if (better > 0) best = retry;
+  }
+  return { rgba, usedQuad: best.quad, warped: best.warped, layout: best.layout };
+}
+
+/** Warp size that keeps the quad's own proportions; a bubbles-only photo is not stretched to A4. */
+function quadTarget(quad: Quad) {
+  const [tl, tr, br, bl] = quad;
+  const width = (Math.hypot(tr.x - tl.x, tr.y - tl.y) + Math.hypot(br.x - bl.x, br.y - bl.y)) / 2;
+  const height = (Math.hypot(bl.x - tl.x, bl.y - tl.y) + Math.hypot(br.x - tr.x, br.y - tr.y)) / 2;
+  return warpTarget({ width: Math.max(1, width), height: Math.max(1, height) });
 }
 
 /**
@@ -416,39 +481,42 @@ export async function readOmrSheet(image: Buffer, options: { identity?: boolean 
     warpedPng: null,
   });
 
-  const rgba = await asRgba(image);
-  const graySrc = await asGray(image);
-  const focus = sharpness(graySrc);
-  if (focus < 18) return fail("Image is blurry; hold still");
+  const first = await asRgba(image);
+  const focus = sharpness(grayFromRgba(first));
+  if (focus < 12) return fail("Image is blurry; hold still");
 
-  // White paper on a white desk hides the page edge; the whole frame is then the fallback.
-  // A bubbles-only crop (questions 1–100, no header) is warped at its own aspect.
-  const paper = findPaperQuad(rgba);
-  const wholePhoto: Quad = [
-    { x: 0, y: 0 },
-    { x: rgba.width - 1, y: 0 },
-    { x: rgba.width - 1, y: rgba.height - 1 },
-    { x: 0, y: rgba.height - 1 },
-  ];
-  const quads = paper && quadQuality(paper, rgba.width, rgba.height, focus).ok ? [paper, wholePhoto] : [wholePhoto];
-  const target = warpTarget(rgba);
-  let usedQuad = quads[0]!;
-  let warped = await warpQuad(rgba, usedQuad, target.width, target.height);
-  let layout = layoutOmrBubbles(warped.rgba);
-  for (const quad of quads.slice(1)) {
-    if (layout.measured && layout.flags.every((f) => !f.reason.startsWith("Could not locate"))) break;
-    const retryWarp = await warpQuad(rgba, quad, target.width, target.height);
-    const retry = layoutOmrBubbles(retryWarp.rgba);
-    if (retry.measured && retry.markCount >= layout.markCount) {
-      usedQuad = quad;
-      warped = retryWarp;
-      layout = retry;
+  // The photo is read as it arrives. Only when no grid is found, or the grid sits in the top half
+  // of a full sheet (an upside-down page), are the other three turns tried.
+  // Upright full sheet: grid centre ~0.6 of the warp. Upside down: ~0.4. Bubbles-only crop: ~0.5.
+  const gridCentre = (attempt: Awaited<ReturnType<typeof locateGrid>>) => {
+    if (!attempt.layout.measured || !gridFrame(attempt.layout.bubbles)) return -1;
+    const ys = attempt.layout.bubbles.map((b) => b.y);
+    return (Math.min(...ys) + Math.max(...ys)) / 2 / attempt.warped.rgba.height;
+  };
+  let found = await locateGrid(first, focus);
+  let foundCentre = gridCentre(found);
+  let turn: 0 | 90 | 180 | 270 = 0;
+  if (foundCentre < UPRIGHT_GRID_CENTRE) {
+    const others: Array<90 | 180 | 270> = foundCentre >= 0 || first.width <= first.height ? [180, 90, 270] : [90, 270, 180];
+    for (const next of others) {
+      const attempt = await locateGrid(await asRgba(image, next), focus);
+      const centre = gridCentre(attempt);
+      if (centre > foundCentre + 0.05) {
+        found = attempt;
+        foundCentre = centre;
+        turn = next;
+      }
+      if (foundCentre >= UPRIGHT_GRID_CENTRE) break;
     }
   }
+  const { rgba, usedQuad, warped, layout } = found;
   if (!layout.measured) return fail("Could not find the answer grid. Show questions 1–100, edge to edge.");
   const frame = gridFrame(layout.bubbles);
   if (!frame) return fail("Could not find the answer grid. Show questions 1–100, edge to edge.");
-  const header = options.identity === false ? EMPTY_HEADER : await readHeaderFields(await photoFields(image, rgba, frame, usedQuad));
+  const header =
+    options.identity === false
+      ? EMPTY_HEADER
+      : await readHeaderFields(await photoFields(image, rgba, frame, usedQuad, turn));
   const identity = {
     rollNo: header.rollNo,
     rollCandidates: header.rollCandidates,

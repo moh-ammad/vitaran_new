@@ -20,13 +20,15 @@ const SPLIT_SEARCH_Y = 0.035;
  * The darkest option in a row is the answer when it stands clear of the other three, so light
  * pencil still counts. Fills here are above the option's empty-bubble level on the same sheet.
  */
-const MARK_MIN = 0.05;
-const MARK_LEAD = 0.05;
+const MARK_MIN = 0.09;
+const MARK_LEAD = 0.07;
 /** A printed letter never inks more of the core than this; above it the option is just popular. */
 const LETTER_INK_MAX = 0.15;
-/** Two options this dark and this close are both filled. */
+/** Every option this dark, and at least this share of the darkest option's fill, is filled. */
 const MARK_FILL = 0.22;
-const MARK_GAP = 0.08;
+const MARK_RATIO = 0.6;
+/** Light pencil still counts when the ring is inked evenly; JPEG noise on empty rings is below this. */
+const MARK_EVEN = 0.16;
 
 export type OmFlag = { question: number; reason: string };
 
@@ -43,7 +45,8 @@ export type OmBubble = {
 };
 
 export type OmLayout = {
-  answers: Record<string, AnswerOption>;
+  /** Filled options, A–D packed ("A", "ACD"). Empty questions are omitted. */
+  answers: Record<string, string>;
   flags: OmFlag[];
   markCount: number;
   bubbles: OmBubble[];
@@ -291,7 +294,7 @@ function localRowInk(img: Gray, x0: number, x1: number, yFrom: number) {
  * The four printed question groups are bands of bubbles separated by clear paper.
  * Their height and position change with how the photo was taken, so measure them on every sheet.
  */
-function findGroupBands(img: Gray, x0: number, x1: number): Box[] | null {
+function findGroupBands(img: Gray, x0: number, x1: number, rowGap: number): { found: Box[][]; guessed: Box[][] } {
   const W = img.width;
   const H = img.height;
   const yFrom = Math.round(H * 0.01);
@@ -301,7 +304,7 @@ function findGroupBands(img: Gray, x0: number, x1: number): Box[] | null {
   rows.forEach((row, i) => {
     const y = yFrom + i;
     if (row.ink <= 6) return;
-    if (current && y - current.y1 <= 4) {
+    if (current && y - current.y1 <= rowGap) {
       current.y1 = y;
       current.run = Math.max(current.run, row.run);
     } else {
@@ -315,6 +318,7 @@ function findGroupBands(img: Gray, x0: number, x1: number): Box[] | null {
     return h >= H * 0.04 && h <= H * 0.28 && band.run < W * 0.1;
   };
   const packs: Band[][] = [];
+  const guesses: Band[][] = [];
   for (let i = 0; i < bands.length; i++) {
     const found: Band[] = [];
     for (let j = i; j < bands.length && found.length < GROUPS && isGroup(bands[j]!); j++) found.push(bands[j]!);
@@ -327,18 +331,24 @@ function findGroupBands(img: Gray, x0: number, x1: number): Box[] | null {
     const start = next && next.y0 - c.y1 <= gap * 2 ? next.y0 : c.y1 + gap;
     const end = Math.min(H - 1, start + height);
     if (end - start < height * 0.8) continue;
-    packs.push([...found, { y0: start, y1: end, run: 0 }]);
+    guesses.push([...found, { y0: start, y1: end, run: 0 }]);
   }
-  if (packs.length === 0) return null;
-  const scored = packs.map((found) => {
-    const heights = found.map((band) => band.y1 - band.y0);
-    const mean = heights.reduce((sum, h) => sum + h, 0) / heights.length;
-    const spread = heights.reduce((sum, h) => sum + (h - mean) ** 2, 0) / heights.length;
-    const span = found[GROUPS - 1]!.y1 - found[0]!.y0;
-    return { found, score: span - spread * 4 };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0]!.found.map(({ y0, y1 }) => ({ x0, x1, y0, y1 }));
+  const rank = (list: Band[][]) =>
+    list
+      .map((pack) => {
+        const heights = pack.map((band) => band.y1 - band.y0);
+        const gaps = pack.slice(1).map((band, k) => band.y0 - pack[k]!.y1);
+        const span = pack[GROUPS - 1]!.y1 - pack[0]!.y0;
+        return { pack, score: span - variance(heights) * 4 - variance(gaps) * 4 };
+      })
+      .sort((a, b) => b.score - a.score)
+      .map(({ pack }) => pack.map(({ y0, y1 }) => ({ x0, x1, y0, y1 })));
+  return { found: rank(packs), guessed: rank(guesses) };
+}
+
+function variance(values: number[]) {
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  return values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
 }
 
 /**
@@ -440,6 +450,10 @@ function measuredBlocks(img: Gray, bands: Box[]) {
   const pitch = steps.length ? median(steps) : width * 1.25;
 
   return cells.map(({ c, g, cell, ink, dark }): Block => {
+    const xRuns = bubbleRuns(img, cell, ink).filter(
+      (run) => run.width >= width * 0.7 && run.width <= width * 1.45,
+    );
+    const xsFromRuns = spacedCentres(xRuns, OPTIONS, pitch);
     const xComb = fitComb(
       xProfile(img, cell, ink),
       OPTIONS,
@@ -448,31 +462,66 @@ function measuredBlocks(img: Gray, bands: Box[]) {
       cell.x1 - cell.x0 - width * 1.4,
       cell.x1 - cell.x0,
     );
-    if (!xComb) return { c, g, cell, ink, dark, fit: null, xs: null, ys: null };
-    const xs = xComb.centres.map((x) => cell.x0 + x);
+    const found = xsFromRuns ?? (xComb ? xComb.centres.map((x) => cell.x0 + x) : null);
+    if (!found) return { c, g, cell, ink, dark, fit: null, xs: null, ys: null };
+    const usedPitch = xsFromRuns
+      ? median(found.slice(1).map((x, i) => x - found[i]!))
+      : xComb!.pitch;
+    // D is the last bubble of the printed column. A smudged or over-filled D drops out of the
+    // runs and the question number reads as A, so every option lands one bubble to the left.
+    const lastX = found[OPTIONS - 1]!;
+    const shift = Math.round((cell.x1 - lastX - width * 0.55) / usedPitch);
+    const bubbleThere =
+      shift >= 1 &&
+      shift <= 2 &&
+      bubbleRuns(img, cell, ink).some((run) => Math.abs(run.centre - (lastX + shift * usedPitch)) <= usedPitch * 0.35);
+    const xs = bubbleThere ? found.map((x) => x + shift * usedPitch) : found;
     const optionBox: Box = {
       ...cell,
-      x0: Math.round(xs[0]! - xComb.pitch * 0.45),
-      x1: Math.round(xs[OPTIONS - 1]! + xComb.pitch * 0.45),
+      x0: Math.round(xs[0]! - usedPitch * 0.45),
+      x1: Math.round(xs[OPTIONS - 1]! + usedPitch * 0.45),
     };
     const rowPitch = (cell.y1 - cell.y0) / ROWS_PER_GROUP;
+    const yRuns = inkRuns(yProfile(img, optionBox, ink), Math.max(2, Math.max(...yProfile(img, optionBox, ink)) * 0.1), 3)
+      .map((run) => ({ centre: optionBox.y0 + (run.start + run.end) / 2, width: run.end - run.start + 1 }))
+      .filter((run) => run.width >= 3);
+    const ysFromRuns = spacedCentres(yRuns, ROWS_PER_GROUP, rowPitch);
     const yComb = fitComb(yProfile(img, optionBox, ink), ROWS_PER_GROUP, rowPitch * 0.8, rowPitch * 1.1);
-    const ys = yComb ? yComb.centres.map((y) => cell.y0 + y) : null;
-    const fit: OptionFit = { xs, width: xComb.pitch * 0.82, pitch: xComb.pitch };
+    const ys = ysFromRuns ?? (yComb ? yComb.centres.map((y) => optionBox.y0 + y) : null);
+    const fit: OptionFit = { xs, width: usedPitch * 0.82, pitch: usedPitch };
     return { c, g, cell, ink, dark, fit, xs, ys };
   });
 }
 
-function pickMarked(cells: Array<{ option: AnswerOption; fill: number }>) {
+function spacedCentres(runs: Array<{ centre: number; width: number }>, count: number, pitch: number) {
+  if (runs.length < count) return null;
+  let best: { centres: number[]; score: number } | null = null;
+  for (let i = 0; i + count <= runs.length; i++) {
+    const slice = runs.slice(i, i + count);
+    const steps = slice.slice(1).map((run, k) => run.centre - slice[k]!.centre);
+    if (steps.some((step) => step < pitch * 0.7 || step > pitch * 1.4)) continue;
+    const mean = steps.reduce((sum, step) => sum + step, 0) / steps.length;
+    const spread = steps.reduce((sum, step) => sum + (step - mean) ** 2, 0);
+    const score = i - spread;
+    if (!best || score > best.score) best = { centres: slice.map((run) => run.centre), score };
+  }
+  return best?.centres ?? null;
+}
+
+function pickMarked(cells: Array<{ option: AnswerOption; fill: number; even: number }>) {
   const ranked = [...cells].sort((a, b) => b.fill - a.fill);
   const best = ranked[0];
   const second = ranked[1];
   if (!best || best.fill < MARK_MIN) return { marked: [] as typeof cells };
-  if (second && second.fill >= MARK_FILL && best.fill - second.fill < MARK_GAP) {
-    return { marked: ranked.filter((cell) => cell.fill >= MARK_FILL) };
-  }
-  if (second && best.fill - second.fill < MARK_LEAD) return { marked: [] as typeof cells };
-  return { marked: [best] };
+  const solid = ranked.filter(
+    (cell) => cell.fill >= MARK_MIN && (cell.fill >= MARK_FILL || cell.even >= MARK_EVEN),
+  );
+  const filled = solid.filter((cell) => cell.fill >= MARK_FILL && cell.fill >= best.fill * MARK_RATIO);
+  if (filled.length > 1) return { marked: filled };
+  const pick = solid[0];
+  if (!pick) return { marked: [] as typeof cells };
+  if (second && pick.fill - second.fill < MARK_LEAD && pick.fill < MARK_FILL) return { marked: [] as typeof cells };
+  return { marked: [pick] };
 }
 
 export function layoutOmrBubbles(rgba: Rgba): OmLayout {
@@ -486,13 +535,24 @@ export function layoutOmrBubbles(rgba: Rgba): OmLayout {
     y0: Math.round(H * (fullSheet ? 0.3 : 0.02)),
     y1: Math.round(H * (fullSheet ? 0.9 : 0.98)),
   };
-  const bands = findGroupBands(img, Math.round(W * AREA.x0), Math.round(W * AREA.x1));
-  const measured = bands ? measuredBlocks(img, bands) : null;
+  // Crisp scans with faint outlines leave clear paper between bubble rows, so groups are also
+  // merged across a wider gap (still well under the gap between groups). Four groups seen on
+  // the sheet beat a guessed fourth, and a candidate only counts once all five columns are found.
+  const groupX0 = Math.round(W * AREA.x0);
+  const groupX1 = Math.round(W * AREA.x1);
+  const tight = findGroupBands(img, groupX0, groupX1, 4);
+  const wide = findGroupBands(img, groupX0, groupX1, Math.max(8, Math.round(H * 0.008)));
+  const candidates = [...tight.found, ...wide.found, ...tight.guessed, ...wide.guessed];
+  let measured: Block[] | null = null;
+  for (const bands of candidates.slice(0, 12)) {
+    measured = measuredBlocks(img, bands);
+    if (measured) break;
+  }
   const blocks = measured ?? fixedBlocks(img, search);
   const sheetPitch = median(blocks.flatMap((block) => (block.fit?.pitch != null ? [block.fit.pitch] : []))) || W * 0.03;
 
   const bubbles: OmBubble[] = [];
-  const answers: Record<string, AnswerOption> = {};
+  const answers: Record<string, string> = {};
   const flags: OmFlag[] = [];
   const radii: number[] = [];
 
@@ -501,7 +561,7 @@ export function layoutOmrBubbles(rgba: Rgba): OmLayout {
     const rows = ys ?? (xs && fit ? rowCentres(img, { ...cell, x0: Math.round(xs[0]! - fit.width) }, ink) : null);
     if (process.env.OMR_DEBUG) {
       console.log(
-        `col ${c} group ${g} pitch ${fit?.pitch?.toFixed(1) ?? `sheet ${sheetPitch.toFixed(1)}`} width ${fit?.width} opts [${xs?.map((x) => x.toFixed(0)).join(",")}] rows [${rows?.map((y) => y.toFixed(0)).join(",")}] ${measured ? "measured" : "fallback"}`,
+        `col ${c} group ${g} cell ${cell.x0}-${cell.x1} pitch ${fit?.pitch?.toFixed(1) ?? `sheet ${sheetPitch.toFixed(1)}`} width ${fit?.width} opts [${xs?.map((x) => x.toFixed(0)).join(",")}] rows [${rows?.map((y) => y.toFixed(0)).join(",")}] ${measured ? "measured" : "fallback"}`,
       );
     }
     for (let r = 0; r < ROWS_PER_GROUP; r++) {
@@ -543,10 +603,17 @@ export function layoutOmrBubbles(rgba: Rgba): OmLayout {
   for (const [question, cells] of byQuestion) {
     const c = columnOf(question);
     const { marked } = pickMarked(
-      cells.map((cell) => ({ option: cell.option, fill: Math.max(0, cell.fill - (baseline.get(`${c}${cell.option}`) ?? 0)) })),
+      cells.map((cell) => ({
+        option: cell.option,
+        fill: Math.max(0, cell.fill - (baseline.get(`${c}${cell.option}`) ?? 0)),
+        even: cell.even,
+      })),
     );
-    if (marked.length === 1) answers[String(question)] = marked[0]!.option;
-    else if (marked.length > 1) flags.push({ question, reason: "More than one option is filled" });
+    if (marked.length > 0) {
+      answers[String(question)] = ANSWER_OPTIONS.filter((option) =>
+        marked.some((cell) => cell.option === option),
+      ).join("");
+    }
   }
 
   return {

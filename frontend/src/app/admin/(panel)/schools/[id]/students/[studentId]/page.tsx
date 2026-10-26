@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 
-type Props = { params: Promise<{ studentId: string }> };
+type Props = { params: Promise<{ id: string }> };
 
-/** Legacy school-scoped detail → flat student URL. */
-export default async function LegacyAdminStudentDetailRedirect({ params }: Props) {
-  const { studentId } = await params;
-  redirect(`/admin/schools/students/${studentId}`);
+export default async function AdminSchoolStudentDetailRedirect({ params }: Props) {
+  const { id } = await params;
+  redirect(`/admin/schools/students?schoolId=${encodeURIComponent(id)}`);
 }

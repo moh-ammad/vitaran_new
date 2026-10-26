@@ -242,7 +242,7 @@ function FormFields({ schools, programs, answerKey, values, errors, message, pen
               id="testId"
               name="testId"
               placeholder="e.g. T-2026-01"
-              defaultValue={values.testId}
+              value={current.testId ?? ""}
               onChange={(event) => setField("testId", event.currentTarget.value)}
               aria-invalid={errors.testId?.length ? true : undefined}
               maxLength={64}

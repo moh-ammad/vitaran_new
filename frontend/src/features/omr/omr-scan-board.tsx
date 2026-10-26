@@ -27,41 +27,41 @@ export function OmrScanBoard({ initial, releases }: { initial: OmScan[]; release
     setLatest(result.scan);
     setLatestRead(result.read);
     setScans((prev) => {
-      const next = prev.filter((row) => row.id !== result.scan.id && !(row.student.id === result.scan.student.id && row.testId === result.scan.testId));
+      const next = prev.filter(
+        (row) =>
+          row.id !== result.scan.id &&
+          !(row.student.id === result.scan.student.id && row.testId === result.scan.testId),
+      );
       return [result.scan, ...next];
     });
     setTestId(result.scan.testId);
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <LiveRefresh kind="results" />
       <ReleasePanel releases={releases} />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
         <OmrScanner onScanned={onScanned} />
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {latest && <OmScorecard scan={latest} read={latestRead} />}
-          {tests.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+          {tests.length > 1 && (
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
               {tests.map((id) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => setTestId(id)}
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${
                     testId === id ? "border-brand-900 bg-brand-900 text-white" : "border-neutral-200 bg-white"
                   }`}
                 >
-                  Test ID {id}
+                  {id}
                 </button>
               ))}
             </div>
           )}
-          {scans.length === 0 && !canScan ? (
-            <p className="rounded-2xl border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
-              Results appear here once the class teacher pushes them.
-            </p>
-          ) : (
+          {scans.length === 0 && !canScan ? null : (
             <ClassRanking scans={scans} testId={testId || undefined} />
           )}
         </div>

@@ -118,7 +118,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
           />
           <Chip label="Programs" value={school.schoolPrograms.length} />
           <Link
-            href={`/admin/schools/${school.id}/students`}
+            href={`/admin/schools/students?schoolId=${school.id}`}
             className="min-w-18 rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-center transition-colors hover:bg-white/20"
           >
             <p className="text-[9px] font-semibold tracking-wider text-white/50 uppercase">
@@ -217,7 +217,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
               {wholeClasses.map((row) => (
                 <li key={row.id}>
                   <Link
-                    href={`/admin/schools/${school.id}/students`}
+                    href={`/admin/schools/students?schoolId=${school.id}`}
                     className="block rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-1.5 text-sm transition-colors hover:border-brand-300 hover:bg-brand-50"
                   >
                     <span className="font-semibold text-neutral-950">Class {row.classLevel}</span>
@@ -231,7 +231,7 @@ export default async function SchoolDetailsPage({ params }: PageProps<"/admin/sc
               {sections.map((section) => (
                 <li key={section.id}>
                   <Link
-                    href={`/admin/schools/${school.id}/students`}
+                    href={`/admin/schools/students?schoolId=${school.id}`}
                     className="block rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-1.5 text-sm transition-colors hover:border-brand-300 hover:bg-brand-50"
                   >
                     <span className="font-semibold text-neutral-950">

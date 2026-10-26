@@ -34,7 +34,7 @@ export default async function AdminPanelLayout({
           <AdminSidebar admin={admin} />
           <SidebarInset className="min-w-0 bg-neutral-50">
             <AdminHeader />
-            <div className="w-full flex-1 p-4 sm:p-5 lg:px-6 lg:py-6">
+            <div className="w-full min-w-0 flex-1 px-3 py-4 sm:px-4 lg:px-4 lg:py-5">
               <AdminPageBack />
               <Suspense fallback={<PanelFallback />}>{children}</Suspense>
             </div>

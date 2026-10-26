@@ -24,7 +24,7 @@ import type { SchoolProgramOffering } from "@/types/program";
 import type { SchoolSection } from "@/types/section";
 import type { StudentDetail } from "@/types/student";
 
-type StudentFormAction = (
+export type StudentFormAction = (
   state: StudentFormState,
   formData: FormData,
 ) => Promise<StudentFormState>;

@@ -34,6 +34,10 @@ export async function apiClient<T>(
     requestHeaders.set("Accept", "application/json");
   }
 
+  if (!requestHeaders.has("ngrok-skip-browser-warning")) {
+    requestHeaders.set("ngrok-skip-browser-warning", "1");
+  }
+
   // Files and multipart forms are sent as-is; everything else is JSON.
   const isBinary = body instanceof Blob || body instanceof FormData;
 

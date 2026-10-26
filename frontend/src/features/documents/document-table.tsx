@@ -40,7 +40,8 @@ const ROW_ACTION =
 const NUMBER_PILL =
   "inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-brand-100 bg-brand-50 px-2 text-xs font-semibold text-brand-900 tabular-nums";
 
-const HEAD = "h-10 text-[11px] font-semibold tracking-wider text-neutral-500 uppercase";
+const HEAD = "h-10 px-2 text-[11px] font-semibold tracking-wider text-neutral-500 uppercase";
+const CELL = "min-w-0 px-2 py-2.5 align-middle";
 
 type DocumentRow = PdfDocument & Publishable & {
   type?: SchoolType;
@@ -78,21 +79,35 @@ export function DocumentTable({
   deleteAction,
 }: DocumentTableProps) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-[0_1px_2px_rgb(25_28_95/0.04),0_12px_32px_-16px_rgb(25_28_95/0.18)]">
+    <section className="w-full overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-[0_1px_2px_rgb(25_28_95/0.04),0_12px_32px_-16px_rgb(25_28_95/0.18)]">
       {items.length > 0 ? (
-        <Table>
+        <Table className="w-full table-fixed" containerClassName="overflow-x-hidden">
+          <colgroup>
+            <col className="w-12" />
+            <col className="w-20" />
+            <col className="w-14" />
+            <col className="hidden w-40 lg:table-column" />
+            {showType ? <col className="w-24" /> : null}
+            <col className="hidden w-28 md:table-column" />
+            <col className="hidden w-[5.5rem] xl:table-column" />
+            <col className="hidden w-[5.5rem] xl:table-column" />
+            <col />
+            <col className="w-36" />
+            <col className="w-40" />
+          </colgroup>
           <TableHeader className="bg-neutral-50/80">
             <TableRow className="border-brand-100 hover:bg-transparent">
-              <TableHead className={cn(HEAD, "w-16 pl-6 text-center")}>Test</TableHead>
-              <TableHead className={cn(HEAD, "w-16 text-center")}>Class</TableHead>
+              <TableHead className={cn(HEAD, "pl-3")}>Test</TableHead>
+              <TableHead className={HEAD}>Test ID</TableHead>
+              <TableHead className={cn(HEAD, "text-center")}>Class</TableHead>
               <TableHead className={cn(HEAD, "hidden lg:table-cell")}>Program</TableHead>
               {showType && <TableHead className={HEAD}>Type</TableHead>}
               <TableHead className={cn(HEAD, "hidden md:table-cell")}>School</TableHead>
-              <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Uploaded</TableHead>
-              <TableHead className={cn(HEAD, "hidden sm:table-cell")}>Updated</TableHead>
+              <TableHead className={cn(HEAD, "hidden xl:table-cell")}>Uploaded</TableHead>
+              <TableHead className={cn(HEAD, "hidden xl:table-cell")}>Updated</TableHead>
               <TableHead className={HEAD}>{capitalize(noun)}</TableHead>
               <TableHead className={HEAD}>Schools</TableHead>
-              <TableHead className={cn(HEAD, "pr-6 text-right")}>
+              <TableHead className={cn(HEAD, "pr-2 text-right")}>
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -100,43 +115,50 @@ export function DocumentTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.id} className="border-brand-100/70 hover:bg-brand-50/30">
-                <TableCell className="py-3.5 pl-6">
-                  <span className="mx-auto flex size-11 flex-col items-center justify-center rounded-xl bg-brand-900 text-white">
-                    <span className="text-[9px] font-semibold tracking-wider text-white/70 uppercase">No</span>
-                    <span className="text-base leading-none font-bold tabular-nums">{item.testNumber}</span>
+                <TableCell className={cn(CELL, "pl-3")}>
+                  <span className="flex size-9 flex-col items-center justify-center rounded-lg bg-brand-900 text-white">
+                    <span className="text-[8px] font-semibold tracking-wider text-white/70 uppercase">No</span>
+                    <span className="text-sm leading-none font-bold tabular-nums">{item.testNumber}</span>
                   </span>
                 </TableCell>
-                <TableCell className="text-center">
+                <TableCell className={CELL}>
+                  <span className="block truncate font-mono text-sm font-medium text-neutral-950" title={item.testId}>
+                    {item.testId || "—"}
+                  </span>
+                </TableCell>
+                <TableCell className={cn(CELL, "text-center")}>
                   <span className={NUMBER_PILL}>{item.classLevel}</span>
                 </TableCell>
-                <TableCell className="hidden text-sm text-neutral-800 lg:table-cell">
-                  {programLabel(item.program)}
+                <TableCell className={cn(CELL, "hidden lg:table-cell")}>
+                  <span className="block truncate text-sm text-neutral-800" title={programLabel(item.program)}>
+                    {programLabel(item.program)}
+                  </span>
                 </TableCell>
                 {showType && item.type && (
-                  <TableCell>
+                  <TableCell className={CELL}>
                     <SchoolTypeBadge type={item.type} size="sm" />
                   </TableCell>
                 )}
-                <TableCell className="hidden max-w-56 md:table-cell">
+                <TableCell className={cn(CELL, "hidden md:table-cell")}>
                   {item.school ? (
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-neutral-950" title={item.school.name}>
                         {item.school.name}
                       </p>
-                      <p className="font-mono text-[11px] text-neutral-500">{item.school.code}</p>
+                      <p className="truncate font-mono text-[11px] text-neutral-500">{item.school.code}</p>
                     </div>
                   ) : (
-                    <span className="text-sm text-neutral-500">All regular schools</span>
+                    <span className="text-sm text-neutral-500">All regular</span>
                   )}
                 </TableCell>
-                <TableCell className="hidden sm:table-cell">
+                <TableCell className={cn(CELL, "hidden xl:table-cell")}>
                   <DateTime iso={item.createdAt} />
                 </TableCell>
-                <TableCell className="hidden sm:table-cell">
+                <TableCell className={cn(CELL, "hidden xl:table-cell")}>
                   <DateTime iso={wasEdited(item) ? item.updatedAt : null} />
                 </TableCell>
-                <TableCell className="max-w-64">
-                  <div className="flex items-center gap-2.5">
+                <TableCell className={CELL}>
+                  <div className="flex min-w-0 items-center gap-2">
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-brand-100 bg-brand-50 text-brand-700">
                       <FileText className="size-4" />
                     </span>
@@ -144,22 +166,22 @@ export function DocumentTable({
                       <p className="truncate text-sm font-medium text-neutral-950" title={item.fileName}>
                         {item.fileName}
                       </p>
-                      <p className="text-xs text-neutral-500">
+                      <p className="truncate text-xs text-neutral-500">
                         {formatFileSize(item.fileSize)}
                         <span className="lg:hidden"> · {programLabel(item.program)}</span>
                       </p>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className={cn(CELL, "whitespace-nowrap")}>
                   <PublishSwitch
                     published={item.published}
                     label={item.fileName}
                     onToggle={publishAction.bind(null, item.id)}
                   />
                 </TableCell>
-                <TableCell className="pr-6">
-                  <div className="ml-auto flex w-fit divide-x divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                <TableCell className={cn(CELL, "pr-2")}>
+                  <div className="ml-auto flex w-max shrink-0 divide-x divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
                     <Link
                       href={documentFileHref(basePath, item.id)}
                       target="_blank"

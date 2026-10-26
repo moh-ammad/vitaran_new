@@ -25,7 +25,7 @@ export default async function EditAnswerKeyPage({ params }: PageProps<"/admin/an
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Edit answer key"
-        description="Update the details or replace the PDF. Changes show up in Recent uploads."
+        description={`Test ID ${answerKey.testId} · Test ${answerKey.testNumber} · Class ${answerKey.classLevel}. Update the details or replace the PDF.`}
         actions={
           <Link href={documentAnswersHref(ANSWER_KEYS_PATH, id)} className={buttonVariants({ variant: "outline" })}>
             Edit answers
