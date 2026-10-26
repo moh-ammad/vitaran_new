@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BookOpenCheck } from "lucide-react";
-import { SCHOOL_LOGIN_PATH, STUDENT_HOME_PATH, STUDENT_SESSION_COOKIE } from "@/constants/auth";
+import { SCHOOL_LOGIN_PATH, STUDENT_HOME_PATH } from "@/constants/auth";
 import { AuthShell } from "@/features/auth/auth-shell";
 import { googleErrorMessage } from "@/features/auth/google-errors";
 import { StudentLoginForm } from "@/features/student-auth/student-login-form";
+import { getStudentSession } from "@/features/student-auth/session";
 
 export const metadata: Metadata = {
   title: "Student Sign In",

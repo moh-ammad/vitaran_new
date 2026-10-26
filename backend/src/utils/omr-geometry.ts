@@ -8,9 +8,15 @@ export type Gray = { width: number; height: number; data: Buffer };
 export const CANONICAL_WIDTH = 1000;
 export const CANONICAL_HEIGHT = 1414;
 
-export async function asRgba(input: Buffer): Promise<Rgba> {
-  const { data, info } = await sharp(input)
-    .rotate()
+/** Phone stills are 8–12 MP; bubbles are read after a 1000×1414 warp, so this is enough. */
+const DECODE_MAX = 2400;
+
+/** `turn` rotates clockwise after EXIF: some phone cameras hand back a sideways still with no tag. */
+export async function asRgba(input: Buffer, turn: 0 | 90 | 180 | 270 = 0): Promise<Rgba> {
+  const upright = turn ? await sharp(input).rotate().toBuffer() : input;
+  const { data, info } = await sharp(upright)
+    .rotate(turn || undefined)
+    .resize({ width: DECODE_MAX, height: DECODE_MAX, fit: "inside", withoutEnlargement: true })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -18,8 +24,22 @@ export async function asRgba(input: Buffer): Promise<Rgba> {
 }
 
 export async function asGray(input: Buffer): Promise<Gray> {
-  const { data, info } = await sharp(input).rotate().greyscale().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(input)
+    .rotate()
+    .resize({ width: DECODE_MAX, height: DECODE_MAX, fit: "inside", withoutEnlargement: true })
+    .greyscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   return { width: info.width, height: info.height, data };
+}
+
+export function grayFromRgba(rgba: Rgba): Gray {
+  const n = rgba.width * rgba.height;
+  const data = Buffer.alloc(n);
+  for (let i = 0; i < n; i++) {
+    data[i] = Math.round(luma(rgba.data[i * 4]!, rgba.data[i * 4 + 1]!, rgba.data[i * 4 + 2]!));
+  }
+  return { width: rgba.width, height: rgba.height, data };
 }
 
 export function sampleGray(gray: Gray, x: number, y: number) {
@@ -257,9 +277,9 @@ export async function warpQuad(rgba: Rgba, quad: Quad, width = CANONICAL_WIDTH, 
 
 export type Blob = { x: number; y: number; area: number; minX: number; minY: number; maxX: number; maxY: number };
 
-/** The crimson of the printed registration dots and logo; pen fills are blue/black, rings are pale. */
+/** Printed maroon corner dots. Phone auto-white-balance washes them toward brown; keep pen fills out. */
 function isRegistrationInk(r: number, g: number, b: number) {
-  return r > 50 && r > g * 2.2 + 15 && r > b * 1.25 && g < 90;
+  return r > 38 && r - g > 18 && r > g * 1.35 + 6 && r > b * 1.02 && g < 145 && b < 160 && r < 230;
 }
 
 /** Crimson blobs: the printed registration dots (plus the logo, which callers filter by shape). */
@@ -338,7 +358,84 @@ export function quadQuality(quad: Quad, imageW: number, imageH: number, focus: n
   const skew = Math.max(Math.abs(top - bottom) / width, Math.abs(left - right) / height);
   if (skew > 0.22) return { ok: false, reason: "Flatten the sheet; too much perspective" };
   const coverage = (width * height) / (imageW * imageH);
-  if (coverage < 0.28) return { ok: false, reason: "Move closer until the sheet fills the frame" };
-  if (focus < 18) return { ok: false, reason: "Image is blurry; hold still" };
+  if (coverage < 0.16) return { ok: false, reason: "Move closer until the sheet fills the frame" };
+  if (focus < 12) return { ok: false, reason: "Image is blurry; hold still" };
   return { ok: true, reason: "locked", aspect, coverage, skew, focus };
+}
+
+const DOT_ASPECT = 2.2
+/** Printed corner-dot rectangle is a hair taller than A4 because the dots sit inside the margin. */
+const DOT_HEIGHT_OVER_SPAN = 1.56
+
+/**
+ * The four (or at least the top two) crimson registration dots. Phone photos on a white desk
+ * hide the paper edge, so these marks are the warp that keeps A–D on the right bubbles.
+ */
+export function findRegistrationQuad(rgba: Rgba): Quad | null {
+  const minDim = Math.min(rgba.width, rgba.height)
+  const minArea = Math.max(4, Math.round((minDim * 0.002) ** 2))
+  const maxArea = Math.round((minDim * 0.1) ** 2)
+  const dots = findMagentaBlobs(rgba, minArea, maxArea).filter((blob) => {
+    const w = blob.maxX - blob.minX + 1
+    const h = blob.maxY - blob.minY + 1
+    if (w > h * DOT_ASPECT || h > w * DOT_ASPECT) return false
+    const top = blob.y < rgba.height * 0.14
+    const center = blob.x > rgba.width * 0.2 && blob.x < rgba.width * 0.8
+    return !(top && center)
+  })
+  if (dots.length < 2) return null
+
+  const tl = dots.reduce((a, b) => (b.x + b.y < a.x + a.y ? b : a))
+  const tr = dots.reduce((a, b) => (b.x - b.y > a.x - a.y ? b : a))
+  const span = Math.hypot(tr.x - tl.x, tr.y - tl.y)
+  if (tl === tr || span < minDim * 0.2 || tr.x - tl.x < minDim * 0.16) return null
+
+  const rest = dots.filter((blob) => blob !== tl && blob !== tr)
+  const br = rest.reduce<(typeof rest)[0] | null>((a, b) => (!a || b.x + b.y > a.x + a.y ? b : a), null)
+  const bl = rest.reduce<(typeof rest)[0] | null>((a, b) => (!a || b.x - b.y < a.x - a.y ? b : a), null)
+  const isBottom = (p: { x: number; y: number } | null, along: { x: number; y: number }) =>
+    !!p && p.y > tl.y + span * 1.05 && Math.abs(p.x - along.x) < span * 0.38
+
+  if (bl && br && bl !== br && isBottom(bl, tl) && isBottom(br, tr)) {
+    const found: Quad = [
+      { x: tl.x, y: tl.y },
+      { x: tr.x, y: tr.y },
+      { x: br.x, y: br.y },
+      { x: bl.x, y: bl.y },
+    ]
+    const h = Math.hypot(found[3].x - found[0].x, found[3].y - found[0].y)
+    if (h >= span * 1.2 && h <= span * 2.05) return found
+  }
+
+  const lower = rest.filter((blob) => blob.y > (tl.y + tr.y) / 2 + span * 0.12)
+  const leftSide = lower.reduce<(typeof lower)[0] | null>((a, b) => (!a || b.x < a.x ? b : a), null)
+  const rightSide = lower.reduce<(typeof lower)[0] | null>((a, b) => (!a || b.x > a.x ? b : a), null)
+  const down = span * DOT_HEIGHT_OVER_SPAN
+  const extend = (from: Point, through: { x: number; y: number } | null): Point => {
+    if (!through) {
+      const nx = -(tr.y - tl.y) / span
+      const ny = (tr.x - tl.x) / span
+      return { x: from.x + nx * down, y: from.y + ny * down }
+    }
+    const vx = through.x - from.x
+    const vy = through.y - from.y
+    const len = Math.hypot(vx, vy)
+    if (len < span * 0.08) {
+      const nx = -(tr.y - tl.y) / span
+      const ny = (tr.x - tl.x) / span
+      return { x: from.x + nx * down, y: from.y + ny * down }
+    }
+    const t = down / len
+    return { x: from.x + vx * t, y: from.y + vy * t }
+  }
+
+  const quad: Quad = [
+    { x: tl.x, y: tl.y },
+    { x: tr.x, y: tr.y },
+    extend({ x: tr.x, y: tr.y }, rightSide && rightSide.x > tr.x - span * 0.15 ? rightSide : null),
+    extend({ x: tl.x, y: tl.y }, leftSide && leftSide.x < tl.x + span * 0.15 ? leftSide : null),
+  ]
+  const quadHeight = Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y)
+  if (quadHeight < span * 1.2 || quadHeight > span * 2.05) return null
+  return quad
 }

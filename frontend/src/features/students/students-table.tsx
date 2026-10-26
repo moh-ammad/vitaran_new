@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { Eye, Loader2, Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { Eye, Loader2, Pencil, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { deleteStudentInPlaceAction } from "@/features/students/actions";
 import { deleteAdminStudentInPlaceAction } from "@/features/students/admin-student-actions";
@@ -40,7 +41,17 @@ export function StudentsTable({
 }: StudentsTableProps) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter(
+      (student) =>
+        student.name.toLowerCase().includes(q) || student.rollNo.toLowerCase().includes(q),
+    );
+  }, [students, query]);
 
   if (students.length === 0) {
     return (
@@ -54,17 +65,34 @@ export function StudentsTable({
   const canMutate = mode === "school" || mode === "admin";
 
   function detailHref(student: StudentRow) {
+    if (onView) return null;
     if (mode === "admin") return `/admin/schools/students/${student.id}`;
     if (baseHref) return `${baseHref}/${student.id}`;
     return null;
   }
 
   function editHref(student: StudentRow) {
+    if (onEdit) return null;
     const detail = detailHref(student);
     return detail ? `${detail}/edit` : null;
   }
 
   return (
+    <div className="space-y-3">
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400" />
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.currentTarget.value)}
+          placeholder="Search name or roll no"
+          className="h-10 pl-9"
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
+          No students match "{query.trim()}".
+        </p>
+      ) : (
     <div className="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-[0_4px_16px_-8px_rgb(25_28_95/0.18)]">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-brand-100 bg-brand-50/60 text-[11px] font-semibold tracking-wider text-neutral-500 uppercase">
@@ -79,7 +107,7 @@ export function StudentsTable({
           </tr>
         </thead>
         <tbody>
-          {students.map((student) => {
+          {filtered.map((student) => {
             const detail = detailHref(student);
             const edit = editHref(student);
             const classLabel = student.sectionName
@@ -222,6 +250,8 @@ export function StudentsTable({
           })}
         </tbody>
       </table>
+    </div>
+      )}
     </div>
   );
 }

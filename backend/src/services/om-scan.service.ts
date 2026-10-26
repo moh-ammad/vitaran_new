@@ -21,7 +21,7 @@ import { assignedSubjects, isClassTeacherOf } from "./content-access.js";
 import type { TeacherAccountDto } from "./teacher.service.js";
 
 const KIND = "results";
-const IMAGE_MAX = 8 * 1024 * 1024;
+const IMAGE_MAX = 16 * 1024 * 1024;
 
 export type OmScanDto = {
   id: string;
@@ -349,7 +349,7 @@ export async function scanOmrSheet(
   image: Buffer,
   fileName: string,
 ) {
-  if (image.length > IMAGE_MAX) throw new AppError(413, "OMR image is too large (max 8 MB)");
+  if (image.length > IMAGE_MAX) throw new AppError(413, "OMR image is too large (max 12 MB)");
 
   const { student, key } = await resolveTarget(teacher, identity);
   const read = await readOmrSheet(image, { identity: false });

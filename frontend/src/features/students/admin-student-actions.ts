@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { ApiError } from "@/services/api-client";
+import { listAdminClassTeacherSlots } from "@/services/teachers";
+import { getSchool } from "@/services/schools";
+import { listAdminSchoolSections } from "@/services/sections";
 import {
   createAdminSchoolStudent,
   deleteAdminStudent,
+  getAdminSchoolStudentCounts,
   getAdminStudent,
+  listAdminSchoolStudents,
   resetAdminStudentPassword,
   sendAdminStudentCredentials,
   updateAdminStudent,
@@ -98,6 +103,7 @@ export async function createAdminStudentAction(
   }
 
   const data = parsed.data;
+  const stay = String(formData.get("stay") ?? "") === "1";
 
   try {
     const student = await createAdminSchoolStudent(schoolId, {
@@ -110,7 +116,10 @@ export async function createAdminStudentAction(
       password: data.password || undefined,
     });
     revalidateAdminStudentPaths(schoolId);
-    redirect(`/admin/schools/students/${student.id}`);
+    if (stay) {
+      return { success: true, studentId: student.id, submittedAt: Date.now() };
+    }
+    redirect(`/admin/schools/students?schoolId=${encodeURIComponent(schoolId)}`);
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof ApiError) {
@@ -148,8 +157,9 @@ export async function updateAdminStudentAction(
   }
 
   const data = parsed.data;
+  const stay = String(formData.get("stay") ?? "") === "1";
   const returnTo =
-    String(formData.get("returnTo") ?? "").trim() || `/admin/schools/students/${id}`;
+    String(formData.get("returnTo") ?? "").trim() || "/admin/schools/students";
 
   try {
     const student = await updateAdminStudent(id, {
@@ -162,6 +172,9 @@ export async function updateAdminStudentAction(
       ...(data.password ? { password: data.password } : {}),
     });
     revalidateAdminStudentPaths(student.schoolId);
+    if (stay) {
+      return { success: true, studentId: student.id, submittedAt: Date.now() };
+    }
     redirect(returnTo);
   } catch (error) {
     unstable_rethrow(error);
@@ -211,4 +224,27 @@ export async function resetAdminStudentPasswordAction(id: string, password: stri
     }
     return { ok: false as const, message: "Could not reset password." };
   }
+}
+
+export async function loadAdminSchoolPackAction(schoolId: string) {
+  const [school, organization, slots, counts] = await Promise.all([
+    getSchool(schoolId),
+    listAdminSchoolSections(schoolId),
+    listAdminClassTeacherSlots(schoolId),
+    getAdminSchoolStudentCounts(schoolId),
+  ]);
+  if (!school) return null;
+  return { school, organization, slots, counts };
+}
+
+export async function loadAdminRosterAction(
+  schoolId: string,
+  query: { sectionId?: string; programId?: string; classLevel?: number; wholeClass?: boolean },
+) {
+  const result = await listAdminSchoolStudents(schoolId, { ...query, pageSize: 200 });
+  return result.items;
+}
+
+export async function loadAdminStudentAction(id: string) {
+  return getAdminStudent(id);
 }

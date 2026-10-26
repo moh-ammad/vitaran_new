@@ -20,13 +20,15 @@ const SPLIT_SEARCH_Y = 0.035;
  * The darkest option in a row is the answer when it stands clear of the other three, so light
  * pencil still counts. Fills here are above the option's empty-bubble level on the same sheet.
  */
-const MARK_MIN = 0.05;
-const MARK_LEAD = 0.05;
+const MARK_MIN = 0.09;
+const MARK_LEAD = 0.07;
 /** A printed letter never inks more of the core than this; above it the option is just popular. */
 const LETTER_INK_MAX = 0.15;
 /** Every option this dark, and at least this share of the darkest option's fill, is filled. */
 const MARK_FILL = 0.22;
 const MARK_RATIO = 0.6;
+/** Light pencil still counts when the ring is inked evenly; JPEG noise on empty rings is below this. */
+const MARK_EVEN = 0.16;
 
 export type OmFlag = { question: number; reason: string };
 
@@ -448,6 +450,10 @@ function measuredBlocks(img: Gray, bands: Box[]) {
   const pitch = steps.length ? median(steps) : width * 1.25;
 
   return cells.map(({ c, g, cell, ink, dark }): Block => {
+    const xRuns = bubbleRuns(img, cell, ink).filter(
+      (run) => run.width >= width * 0.7 && run.width <= width * 1.45,
+    );
+    const xsFromRuns = spacedCentres(xRuns, OPTIONS, pitch);
     const xComb = fitComb(
       xProfile(img, cell, ink),
       OPTIONS,
@@ -456,30 +462,66 @@ function measuredBlocks(img: Gray, bands: Box[]) {
       cell.x1 - cell.x0 - width * 1.4,
       cell.x1 - cell.x0,
     );
-    if (!xComb) return { c, g, cell, ink, dark, fit: null, xs: null, ys: null };
-    const xs = xComb.centres.map((x) => cell.x0 + x);
+    const found = xsFromRuns ?? (xComb ? xComb.centres.map((x) => cell.x0 + x) : null);
+    if (!found) return { c, g, cell, ink, dark, fit: null, xs: null, ys: null };
+    const usedPitch = xsFromRuns
+      ? median(found.slice(1).map((x, i) => x - found[i]!))
+      : xComb!.pitch;
+    // D is the last bubble of the printed column. A smudged or over-filled D drops out of the
+    // runs and the question number reads as A, so every option lands one bubble to the left.
+    const lastX = found[OPTIONS - 1]!;
+    const shift = Math.round((cell.x1 - lastX - width * 0.55) / usedPitch);
+    const bubbleThere =
+      shift >= 1 &&
+      shift <= 2 &&
+      bubbleRuns(img, cell, ink).some((run) => Math.abs(run.centre - (lastX + shift * usedPitch)) <= usedPitch * 0.35);
+    const xs = bubbleThere ? found.map((x) => x + shift * usedPitch) : found;
     const optionBox: Box = {
       ...cell,
-      x0: Math.round(xs[0]! - xComb.pitch * 0.45),
-      x1: Math.round(xs[OPTIONS - 1]! + xComb.pitch * 0.45),
+      x0: Math.round(xs[0]! - usedPitch * 0.45),
+      x1: Math.round(xs[OPTIONS - 1]! + usedPitch * 0.45),
     };
     const rowPitch = (cell.y1 - cell.y0) / ROWS_PER_GROUP;
+    const yRuns = inkRuns(yProfile(img, optionBox, ink), Math.max(2, Math.max(...yProfile(img, optionBox, ink)) * 0.1), 3)
+      .map((run) => ({ centre: optionBox.y0 + (run.start + run.end) / 2, width: run.end - run.start + 1 }))
+      .filter((run) => run.width >= 3);
+    const ysFromRuns = spacedCentres(yRuns, ROWS_PER_GROUP, rowPitch);
     const yComb = fitComb(yProfile(img, optionBox, ink), ROWS_PER_GROUP, rowPitch * 0.8, rowPitch * 1.1);
-    const ys = yComb ? yComb.centres.map((y) => cell.y0 + y) : null;
-    const fit: OptionFit = { xs, width: xComb.pitch * 0.82, pitch: xComb.pitch };
+    const ys = ysFromRuns ?? (yComb ? yComb.centres.map((y) => optionBox.y0 + y) : null);
+    const fit: OptionFit = { xs, width: usedPitch * 0.82, pitch: usedPitch };
     return { c, g, cell, ink, dark, fit, xs, ys };
   });
 }
 
-function pickMarked(cells: Array<{ option: AnswerOption; fill: number }>) {
+function spacedCentres(runs: Array<{ centre: number; width: number }>, count: number, pitch: number) {
+  if (runs.length < count) return null;
+  let best: { centres: number[]; score: number } | null = null;
+  for (let i = 0; i + count <= runs.length; i++) {
+    const slice = runs.slice(i, i + count);
+    const steps = slice.slice(1).map((run, k) => run.centre - slice[k]!.centre);
+    if (steps.some((step) => step < pitch * 0.7 || step > pitch * 1.4)) continue;
+    const mean = steps.reduce((sum, step) => sum + step, 0) / steps.length;
+    const spread = steps.reduce((sum, step) => sum + (step - mean) ** 2, 0);
+    const score = i - spread;
+    if (!best || score > best.score) best = { centres: slice.map((run) => run.centre), score };
+  }
+  return best?.centres ?? null;
+}
+
+function pickMarked(cells: Array<{ option: AnswerOption; fill: number; even: number }>) {
   const ranked = [...cells].sort((a, b) => b.fill - a.fill);
   const best = ranked[0];
   const second = ranked[1];
   if (!best || best.fill < MARK_MIN) return { marked: [] as typeof cells };
-  const filled = ranked.filter((cell) => cell.fill >= MARK_FILL && cell.fill >= best.fill * MARK_RATIO);
+  const solid = ranked.filter(
+    (cell) => cell.fill >= MARK_MIN && (cell.fill >= MARK_FILL || cell.even >= MARK_EVEN),
+  );
+  const filled = solid.filter((cell) => cell.fill >= MARK_FILL && cell.fill >= best.fill * MARK_RATIO);
   if (filled.length > 1) return { marked: filled };
-  if (second && best.fill - second.fill < MARK_LEAD) return { marked: [] as typeof cells };
-  return { marked: [best] };
+  const pick = solid[0];
+  if (!pick) return { marked: [] as typeof cells };
+  if (second && pick.fill - second.fill < MARK_LEAD && pick.fill < MARK_FILL) return { marked: [] as typeof cells };
+  return { marked: [pick] };
 }
 
 export function layoutOmrBubbles(rgba: Rgba): OmLayout {
@@ -519,7 +561,7 @@ export function layoutOmrBubbles(rgba: Rgba): OmLayout {
     const rows = ys ?? (xs && fit ? rowCentres(img, { ...cell, x0: Math.round(xs[0]! - fit.width) }, ink) : null);
     if (process.env.OMR_DEBUG) {
       console.log(
-        `col ${c} group ${g} pitch ${fit?.pitch?.toFixed(1) ?? `sheet ${sheetPitch.toFixed(1)}`} width ${fit?.width} opts [${xs?.map((x) => x.toFixed(0)).join(",")}] rows [${rows?.map((y) => y.toFixed(0)).join(",")}] ${measured ? "measured" : "fallback"}`,
+        `col ${c} group ${g} cell ${cell.x0}-${cell.x1} pitch ${fit?.pitch?.toFixed(1) ?? `sheet ${sheetPitch.toFixed(1)}`} width ${fit?.width} opts [${xs?.map((x) => x.toFixed(0)).join(",")}] rows [${rows?.map((y) => y.toFixed(0)).join(",")}] ${measured ? "measured" : "fallback"}`,
       );
     }
     for (let r = 0; r < ROWS_PER_GROUP; r++) {
@@ -561,7 +603,11 @@ export function layoutOmrBubbles(rgba: Rgba): OmLayout {
   for (const [question, cells] of byQuestion) {
     const c = columnOf(question);
     const { marked } = pickMarked(
-      cells.map((cell) => ({ option: cell.option, fill: Math.max(0, cell.fill - (baseline.get(`${c}${cell.option}`) ?? 0)) })),
+      cells.map((cell) => ({
+        option: cell.option,
+        fill: Math.max(0, cell.fill - (baseline.get(`${c}${cell.option}`) ?? 0)),
+        even: cell.even,
+      })),
     );
     if (marked.length > 0) {
       answers[String(question)] = ANSWER_OPTIONS.filter((option) =>

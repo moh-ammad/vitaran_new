@@ -50,6 +50,7 @@ const allItems = adminNavGroups.flatMap((group) => group.items);
 function isStudentAdminPath(pathname: string) {
   return (
     pathname === "/admin/schools/students" ||
+    pathname.startsWith("/admin/schools/students?") ||
     pathname.startsWith("/admin/schools/students/") ||
     /^\/admin\/schools\/[^/]+\/students(\/|$)/.test(pathname)
   );

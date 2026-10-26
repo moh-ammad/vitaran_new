@@ -33,7 +33,7 @@ export function createSession<T>({ cookieName, path, fetchProfile }: SessionConf
     try {
       return await fetchProfile(token);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) return null;
+      if (error instanceof ApiError && (error.status === 401 || error.status === 404)) return null;
       throw error;
     }
   });
