@@ -6,7 +6,7 @@ import { Logo } from "@/components/shared/logo";
 type AuthShellProps = {
   badge: string;
   title: ReactNode;
-  description: string;
+  description?: string;
   highlights: { icon: LucideIcon; title: string; description: string }[];
   footnote: ReactNode;
   /** Visible jump to the other portal login. */
@@ -51,9 +51,11 @@ export function AuthShell({
           <h1 className="animate-in fade-in slide-in-from-bottom-6 mt-7 text-4xl leading-tight font-extrabold text-balance duration-700 sm:text-5xl">
             {title}
           </h1>
-          <p className="animate-in fade-in slide-in-from-bottom-8 mt-5 max-w-md text-lg leading-relaxed text-brand-200/85 duration-1000">
-            {description}
-          </p>
+          {description ? (
+            <p className="animate-in fade-in slide-in-from-bottom-8 mt-5 max-w-md text-lg leading-relaxed text-brand-200/85 duration-1000">
+              {description}
+            </p>
+          ) : null}
 
           <ul className="mt-10 hidden space-y-5 lg:block">
             {highlights.map((item) => (

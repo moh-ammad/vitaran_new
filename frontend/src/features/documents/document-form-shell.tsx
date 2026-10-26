@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { AlertCircle, Loader2, Save, Upload } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type DocumentFormShellProps = {
   message?: string;
@@ -59,10 +60,21 @@ export function DocumentFormShell({
   );
 }
 
-export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+export function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
   return (
     <section className="px-6 py-5">
-      <h2 className="mb-3.5 text-base font-bold text-neutral-950">{title}</h2>
+      <h2 className={cn("text-base font-bold text-neutral-950", !description && "mb-3.5")}>{title}</h2>
+      {description ? (
+        <p className="mt-1 mb-3.5 max-w-2xl text-sm text-neutral-500">{description}</p>
+      ) : null}
       {children}
     </section>
   );

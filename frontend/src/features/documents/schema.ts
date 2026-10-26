@@ -22,10 +22,10 @@ const optionalPdfFile = z.preprocess(
 export const pdfFileField = (mode: DocumentFormMode) => (mode === "create" ? pdfFile : optionalPdfFile);
 
 export const testNumberField = z.coerce
-  .number({ error: "Enter the test number." })
+  .number({ error: "Select a test number." })
   .int()
-  .min(1, "Enter a test number from 1 to 100.")
-  .max(100, "Enter a test number from 1 to 100.");
+  .min(1, "Select a test number from 1 to 30.")
+  .max(30, "Select a test number from 1 to 30.");
 
 export const classLevelField = z.coerce
   .number({ error: "Select a class." })

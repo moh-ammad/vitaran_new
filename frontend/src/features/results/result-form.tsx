@@ -297,7 +297,7 @@ function FormFields({ schools, resultSet, backHref, values, errors, message, pen
                       value: testKey(test),
                       label: `Test No ${test.testNumber}`,
                     }))}
-                    defaultValue={selectedTestKey || undefined}
+                    value={selectedTestKey || ""}
                     onValueChange={selectTest}
                     disabled={editing}
                     errors={errors.testId ?? errors.testNumber}

@@ -5,7 +5,7 @@ export const PDF_MAX_BYTES = 10 * 1024 * 1024;
 const range = (from: number, to: number) =>
   Array.from({ length: to - from + 1 }, (_, index) => from + index);
 
-export const TEST_NUMBERS = range(1, 100);
+export const TEST_NUMBERS = range(1, 30);
 export const CLASS_LEVELS = range(1, 12);
 
 export const testItems = TEST_NUMBERS.map((n) => ({ value: String(n), label: `Test No ${n}` }));
