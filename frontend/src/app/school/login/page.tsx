@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BookOpenCheck, ClipboardCheck, ScanLine, Trophy } from "lucide-react";
-import { SCHOOL_HOME_PATH, STUDENT_LOGIN_PATH, TEACHER_HOME_PATH } from "@/constants/auth";
+import { SCHOOL_HOME_PATH, TEACHER_HOME_PATH } from "@/constants/auth";
 import { AuthShell } from "@/features/auth/auth-shell";
 import { googleErrorMessage } from "@/features/auth/google-errors";
 import { PortalLoginForm } from "@/features/auth/portal-login-form";
@@ -53,11 +53,6 @@ export default async function PortalLoginPage({
       }
       description="One login for schools and teachers. Continue with Google only if that Gmail is already on the account."
       highlights={highlights}
-      switcher={{
-        href: STUDENT_LOGIN_PATH,
-        label: "Student sign in",
-        hint: "Are you a student?",
-      }}
       footnote="Use the login details shared by Vitaran or your school."
     >
       <PortalLoginForm googleError={googleErrorMessage(error)} />

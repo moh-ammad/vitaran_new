@@ -22,8 +22,7 @@ const highlights = [
 export default async function StudentLoginPage({
   searchParams,
 }: PageProps<"/school/student/login">) {
-  const cookieStore = await cookies();
-  if (cookieStore.has(STUDENT_SESSION_COOKIE)) redirect(STUDENT_HOME_PATH);
+  if (await getStudentSession()) redirect(STUDENT_HOME_PATH);
   const { error } = await searchParams;
 
   return (
