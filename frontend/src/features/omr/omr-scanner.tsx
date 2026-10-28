@@ -23,7 +23,7 @@ function today() {
 
 const COMPACT_SIDE = 2200;
 
-/** Phone camera JPEGs are huge; shrink before the ngrok hop so Reading does not stall. */
+/** Phone camera JPEGs are huge; shrink so Reading does not stall. */
 async function compactOmrFile(file: File): Promise<File> {
   try {
     const bitmap = await createImageBitmap(file);

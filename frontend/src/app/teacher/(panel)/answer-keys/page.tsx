@@ -1,9 +1,10 @@
 import { TEACHER_ANSWER_KEYS_PATH } from "@/features/answer-keys/constants";
 import { PortalAnswerKeysBoard } from "@/features/answer-keys/portal-answer-keys-board";
 import { verifyTeacherSession } from "@/features/teacher-auth/session";
+import { listTeacherAnswerKeys } from "@/services/answer-keys";
 
 export default async function TeacherAnswerKeysPage() {
-  const teacher = await verifyTeacherSession();
+  const [teacher, documents] = await Promise.all([verifyTeacherSession(), listTeacherAnswerKeys()]);
 
   const programCodes =
     teacher.assignments.length > 0
@@ -17,6 +18,7 @@ export default async function TeacherAnswerKeysPage() {
       programIds={programCodes}
       description="Published answer keys for your assigned classes."
       hideIdBadgeOnMobile
+      initialDocuments={documents}
     />
   );
 }

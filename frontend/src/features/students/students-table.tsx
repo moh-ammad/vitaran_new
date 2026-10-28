@@ -121,7 +121,7 @@ export function StudentsTable({
                   </td>
                 ) : null}
                 <td className="px-4 py-2.5 font-medium text-neutral-950">{student.rollNo}</td>
-                <td className="px-4 py-2.5">
+                <td className="px-4 py-2.5 capitalize">
                   {detail ? (
                     <Link href={detail} className="font-medium text-brand-900 hover:underline">
                       {student.name}

@@ -2,11 +2,14 @@ import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+const root = path.dirname(fileURLToPath(import.meta.url));
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   agentRules: false,
+  outputFileTracingRoot: root,
   turbopack: {
-    root: path.dirname(fileURLToPath(import.meta.url)),
+    root,
   },
   experimental: {
     // Uploads go through server actions: answer key PDFs (10 MB) and up to 12 result sheets (2 MB each).

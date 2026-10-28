@@ -1,6 +1,5 @@
 const API_URL_ENV = "NEXT_PUBLIC_API_URL";
 
-/** Express API on this machine. Never the ngrok URL — see NGROK.md. */
 export function getApiUrl(): string {
   const value = process.env.NEXT_PUBLIC_API_URL?.trim();
 

@@ -15,11 +15,12 @@ import { solutionBooks } from "./solution-books";
 type PortalResourcesBoardProps = {
   role: "school" | "teacher" | "student";
   description: string;
+  initialPayload: PortalResourcesPayload;
 };
 
 /** Reloads offerings/assignments so admin class changes show without a hard refresh. */
-export function PortalResourcesBoard({ role, description }: PortalResourcesBoardProps) {
-  const [payload, setPayload] = useState<PortalResourcesPayload | null>(null);
+export function PortalResourcesBoard({ role, description, initialPayload }: PortalResourcesBoardProps) {
+  const [payload, setPayload] = useState(initialPayload);
   const [pending, startTransition] = useTransition();
 
   const reload = useCallback(() => {
@@ -35,8 +36,6 @@ export function PortalResourcesBoard({ role, description }: PortalResourcesBoard
   }, [role]);
 
   useEffect(() => {
-    reload();
-
     const onVisible = () => {
       if (document.visibilityState === "visible") reload();
     };
@@ -47,17 +46,6 @@ export function PortalResourcesBoard({ role, description }: PortalResourcesBoard
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [reload]);
-
-  if (payload === null) {
-    return (
-      <>
-        <PageHeader title="Resources" description={description} />
-        <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-10 text-center text-sm text-neutral-500">
-          Loading resources…
-        </div>
-      </>
-    );
-  }
 
   const cacheKey = payload.assignments
     .map((row) => `${row.programCode}:${row.classLevel}:${row.subject}`)

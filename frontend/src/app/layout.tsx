@@ -1,14 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Geist, Plus_Jakarta_Sans } from "next/font/google";
-import { cn } from "@/lib/utils";
-
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -22,11 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      data-scroll-behavior="smooth"
-      className={cn("font-sans antialiased", geist.variable, jakarta.variable)}
-    >
+    <html lang="en" data-scroll-behavior="smooth" className="font-sans antialiased">
       <body>{children}</body>
     </html>
   );

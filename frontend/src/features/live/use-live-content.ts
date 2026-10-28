@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { LiveContentKind } from "./live-refresh";
 
 const LIVE_PATH = "/live";
+const CONNECT_AFTER_MS = 1_200;
 const REFRESH_DEBOUNCE_MS = 1_500;
 const MAX_RETRY_MS = 30_000;
 
@@ -48,8 +49,10 @@ export function useLiveContent(kind: LiveContentKind, onChange: () => void, as?:
       };
     };
 
-    connect();
+    // Let the page paint and hydrate before compiling / opening the SSE route.
+    const start = window.setTimeout(connect, CONNECT_AFTER_MS);
     return () => {
+      window.clearTimeout(start);
       source?.close();
       clearTimeout(retryTimer);
       clearTimeout(refreshTimer);

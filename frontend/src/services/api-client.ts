@@ -34,10 +34,6 @@ export async function apiClient<T>(
     requestHeaders.set("Accept", "application/json");
   }
 
-  if (!requestHeaders.has("ngrok-skip-browser-warning")) {
-    requestHeaders.set("ngrok-skip-browser-warning", "1");
-  }
-
   // Files and multipart forms are sent as-is; everything else is JSON.
   const isBinary = body instanceof Blob || body instanceof FormData;
 
@@ -46,15 +42,22 @@ export async function apiClient<T>(
   }
 
   const url = buildApiUrl(path);
+  const timeoutMs = isBinary ? 10 * 60 * 1000 : 8_000;
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
 
   let response: Response;
   try {
     response = await fetch(url, {
       ...init,
+      signal,
       headers: requestHeaders,
       body: body === undefined ? undefined : isBinary ? body : JSON.stringify(body),
     });
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiError("The API took too long to respond", 503);
+    }
     const cause =
       error instanceof Error && error.cause instanceof Error
         ? error.cause.message

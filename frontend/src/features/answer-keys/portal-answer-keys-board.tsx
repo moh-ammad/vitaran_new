@@ -18,6 +18,7 @@ type PortalAnswerKeysBoardProps = {
   programIds: string[];
   description: string;
   hideIdBadgeOnMobile?: boolean;
+  initialDocuments: PdfDocument[];
 };
 
 /** Reloads when admin publishes/hides keys — live stream + focus/visibility. */
@@ -27,8 +28,9 @@ export function PortalAnswerKeysBoard({
   programIds,
   description,
   hideIdBadgeOnMobile = false,
+  initialDocuments,
 }: PortalAnswerKeysBoardProps) {
-  const [documents, setDocuments] = useState<PdfDocument[] | null>(null);
+  const [documents, setDocuments] = useState(initialDocuments);
   const [pending, startTransition] = useTransition();
 
   const reload = useCallback(() => {
@@ -44,8 +46,6 @@ export function PortalAnswerKeysBoard({
   useLiveContent("answer-keys", reload);
 
   useEffect(() => {
-    reload();
-
     const onVisible = () => {
       if (document.visibilityState === "visible") reload();
     };
@@ -56,17 +56,6 @@ export function PortalAnswerKeysBoard({
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [reload]);
-
-  if (documents === null) {
-    return (
-      <>
-        <PageHeader title="Answer keys" description={description} />
-        <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-10 text-center text-sm text-neutral-500">
-          Loading answer keys…
-        </div>
-      </>
-    );
-  }
 
   return (
     <>

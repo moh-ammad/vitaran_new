@@ -16,11 +16,18 @@ type PortalResultsBoardProps = {
   basePath: string;
   description: string;
   emptyHint?: string;
+  initialResultSets: ResultSet[];
 };
 
-/** Reloads when admin publishes/hides results — live stream + focus/visibility. */
-export function PortalResultsBoard({ role, basePath, description, emptyHint }: PortalResultsBoardProps) {
-  const [resultSets, setResultSets] = useState<ResultSet[] | null>(null);
+/** Reloads when results are published — live stream + focus/visibility. */
+export function PortalResultsBoard({
+  role,
+  basePath,
+  description,
+  emptyHint,
+  initialResultSets,
+}: PortalResultsBoardProps) {
+  const [resultSets, setResultSets] = useState(initialResultSets);
   const [pending, startTransition] = useTransition();
 
   const reload = useCallback(() => {
@@ -36,8 +43,6 @@ export function PortalResultsBoard({ role, basePath, description, emptyHint }: P
   useLiveContent("results", reload);
 
   useEffect(() => {
-    reload();
-
     const onVisible = () => {
       if (document.visibilityState === "visible") reload();
     };
@@ -48,17 +53,6 @@ export function PortalResultsBoard({ role, basePath, description, emptyHint }: P
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [reload]);
-
-  if (resultSets === null) {
-    return (
-      <>
-        <PageHeader title="Results" description={description} />
-        <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-10 text-center text-sm text-neutral-500">
-          Loading results…
-        </div>
-      </>
-    );
-  }
 
   return (
     <>
