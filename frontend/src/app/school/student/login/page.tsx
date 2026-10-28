@@ -37,8 +37,8 @@ export default async function StudentLoginPage({
       highlights={highlights}
       switcher={{
         href: SCHOOL_LOGIN_PATH,
-        label: "School or teacher sign in",
-        hint: "School or teacher?",
+        hint: "Are you a school or teacher?",
+        label: "Sign in as a school or teacher",
       }}
       footnote="Ask your school for your roll number and password."
     >

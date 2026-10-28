@@ -262,7 +262,7 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
       <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-3 sm:p-4">
         <div className="grid grid-cols-2 gap-2.5">
           <div className="min-w-0 space-y-1">
-            <Label htmlFor="omr-roll">Roll</Label>
+            <Label htmlFor="omr-roll">Roll no.</Label>
             <Input
               ref={rollRef}
               id="omr-roll"
@@ -306,12 +306,18 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
             <Loader2 className="size-4 animate-spin" />
           </p>
         ) : target ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-emerald-50 px-3 py-2 text-sm">
             <CheckCircle2 className="size-4 shrink-0 text-emerald-700" />
             <span className="font-semibold text-emerald-950">{target.student.name}</span>
-            <span className="text-emerald-800">
-              {target.student.classLevel}
+            <span className="min-w-0 text-emerald-800">
+              Class {target.student.classLevel}
               {target.student.sectionName ? `-${target.student.sectionName}` : ""}
+              {" · "}
+              {target.student.programName}
+              {" · Test "}
+              {target.test.testNumber}
+              {" · ID "}
+              {target.test.testId}
             </span>
             {target.previous ? (
               <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">

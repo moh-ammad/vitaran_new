@@ -47,18 +47,21 @@ export function OmrScanBoard({ initial, releases }: { initial: OmScan[]; release
           {latest && <OmScorecard scan={latest} read={latestRead} />}
           {tests.length > 1 && (
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-              {tests.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setTestId(id)}
-                  className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${
-                    testId === id ? "border-brand-900 bg-brand-900 text-white" : "border-neutral-200 bg-white"
-                  }`}
-                >
-                  {id}
-                </button>
-              ))}
+              {tests.map((id) => {
+                const sample = scans.find((row) => row.testId === id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTestId(id)}
+                    className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${
+                      testId === id ? "border-brand-900 bg-brand-900 text-white" : "border-neutral-200 bg-white"
+                    }`}
+                  >
+                    {sample ? `Test ${sample.testNumber} · ${id}` : id}
+                  </button>
+                );
+              })}
             </div>
           )}
           {scans.length === 0 && !canScan ? null : (

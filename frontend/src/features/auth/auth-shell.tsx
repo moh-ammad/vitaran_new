@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/shared/logo";
 
 type AuthShellProps = {
@@ -26,7 +26,7 @@ export function AuthShell({
   children,
 }: AuthShellProps) {
   return (
-    <main className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-brand-950 text-white">
+    <main className="relative isolate flex min-h-dvh flex-col overflow-x-hidden bg-brand-950 text-white">
       <div className="bg-grid absolute inset-0 -z-10 mask-[radial-gradient(ellipse_at_top,black_30%,transparent_75%)]" />
       <div className="absolute -top-40 left-1/2 -z-10 size-200 -translate-x-1/2 rounded-full bg-brand-700/40 blur-[140px]" />
       <div className="absolute right-0 bottom-0 -z-10 size-120 rounded-full bg-glow/20 blur-[120px]" />
@@ -73,13 +73,18 @@ export function AuthShell({
         <div className="animate-in fade-in slide-in-from-bottom-8 w-full max-w-md duration-700 lg:justify-self-end">
           {children}
           {switcher ? (
-            <div className="mt-4 space-y-2">
-              <p className="text-center text-sm text-brand-200">{switcher.hint}</p>
+            <div className="mt-5">
+              <p className="relative mb-4 text-center text-xs font-medium tracking-wide text-brand-300 uppercase">
+                <span className="absolute inset-x-0 top-1/2 border-t border-white/20" />
+                <span className="relative bg-brand-950 px-3">or</span>
+              </p>
+              <p className="mb-2.5 text-center text-sm text-white/90">{switcher.hint}</p>
               <Link
                 href={switcher.href}
-                className="flex h-11 w-full items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                className="group flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-brand-950 shadow-[0_8px_24px_rgb(0_0_0/0.2)] transition-colors hover:bg-brand-50"
               >
                 {switcher.label}
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
           ) : null}
