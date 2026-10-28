@@ -78,6 +78,7 @@ export type SchoolDetail = School & { password: string | null };
 
 export type SchoolProgramInput = {
   programId: string;
+  negativeMarking: boolean;
   classes: { classLevel: number; subjects: Subject[] }[];
 };
 

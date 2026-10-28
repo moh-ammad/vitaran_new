@@ -37,6 +37,7 @@ const schoolProgramClassSchema = z.object({
 
 const schoolProgramSchema = z.object({
   programId: z.uuid(),
+  negativeMarking: z.boolean().default(false),
   classes: z
     .array(schoolProgramClassSchema)
     .min(1, "Select at least one class for each program")

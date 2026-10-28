@@ -13,8 +13,12 @@ export function parseOfferingToken(token: string) {
   return { programId, classLevel, subject: subject as Subject };
 }
 
-export function offeringsToPrograms(tokens: string[]): SchoolProgramInput[] {
+export function offeringsToPrograms(
+  tokens: string[],
+  negativeMarkingIds: string[] = [],
+): SchoolProgramInput[] {
   const byProgram = new Map<string, Map<number, Set<Subject>>>();
+  const enabled = new Set(negativeMarkingIds);
 
   for (const token of tokens) {
     const parsed = parseOfferingToken(token);
@@ -28,6 +32,7 @@ export function offeringsToPrograms(tokens: string[]): SchoolProgramInput[] {
 
   return [...byProgram.entries()].map(([programId, classes]) => ({
     programId,
+    negativeMarking: enabled.has(programId),
     classes: [...classes.entries()]
       .map(([classLevel, subjects]) => ({ classLevel, subjects: [...subjects] }))
       .sort((a, b) => a.classLevel - b.classLevel),

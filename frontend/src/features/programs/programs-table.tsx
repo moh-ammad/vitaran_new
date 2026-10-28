@@ -82,7 +82,11 @@ export function ProgramsTable({ programs }: { programs: LearningProgram[] }) {
                   label={program.name}
                   deleteDisabled={pending}
                   onDelete={() => {
-                    if (!confirm(`Delete “${program.name}”? Schools using it cannot be deleted.`)) {
+                    if (
+                      !confirm(
+                        `Delete “${program.name}”? This unenrolls schools and removes related classes, assignments, students, answer keys, and results for this program.`,
+                      )
+                    ) {
                       return;
                     }
                     startTransition(async () => {

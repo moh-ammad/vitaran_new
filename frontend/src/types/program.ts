@@ -34,5 +34,6 @@ export type SchoolProgramOffering = {
   classFrom: number;
   classTo: number;
   catalogSubjects: Subject[];
+  negativeMarking: boolean;
   classes: SchoolProgramClass[];
 };

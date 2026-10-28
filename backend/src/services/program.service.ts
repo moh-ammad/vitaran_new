@@ -1,4 +1,3 @@
-import * as answerKeyRepository from "../repositories/answer-key.repository.js";
 import * as programRepository from "../repositories/program.repository.js";
 import type { CreateProgramInput, UpdateProgramInput } from "../schemas/program.schema.js";
 import { AppError } from "../utils/app-error.js";
@@ -110,21 +109,16 @@ export async function deleteProgram(id: string) {
   const current = await programRepository.findProgramById(id);
   if (!current) throw new AppError(404, "Program not found");
 
-  const [schoolCount, assignmentCount] = await Promise.all([
-    prisma.schoolProgram.count({ where: { programId: id } }),
-    prisma.teacherAssignment.count({ where: { programId: id } }),
-  ]);
-  const answerKeyCount = await answerKeyRepository.countAnswerKeys({
-    programCode: current.code,
+  await prisma.$transaction(async (tx) => {
+    await tx.omResultRelease.deleteMany({ where: { programId: id } });
+    await tx.teacherAssignment.deleteMany({ where: { programId: id } });
+    await tx.classTeacher.deleteMany({ where: { programId: id } });
+    await tx.student.deleteMany({ where: { programId: id } });
+    await tx.schoolSection.deleteMany({ where: { programId: id } });
+    await tx.schoolClass.deleteMany({ where: { programId: id } });
+    await tx.schoolProgram.deleteMany({ where: { programId: id } });
+    await tx.answerKey.deleteMany({ where: { programCode: current.code } });
+    await tx.resultSet.deleteMany({ where: { programCode: current.code } });
+    await tx.learningProgram.delete({ where: { id } });
   });
-  const resultCount = await prisma.resultSet.count({ where: { programCode: current.code } });
-
-  if (schoolCount + assignmentCount + answerKeyCount + resultCount > 0) {
-    throw new AppError(
-      409,
-      "This program is in use by schools, teachers or content and cannot be deleted",
-    );
-  }
-
-  await programRepository.deleteProgram(id);
 }

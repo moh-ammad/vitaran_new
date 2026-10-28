@@ -128,7 +128,7 @@ export function findOmScansForKey(answerKeyId: string) {
       id: true,
       answers: true,
       schoolId: true,
-      school: { select: { type: true } },
+      student: { select: { programId: true } },
     },
   });
 }

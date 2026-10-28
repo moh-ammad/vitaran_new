@@ -1,4 +1,4 @@
-import type { SchoolType, Subject } from "../generated/prisma/enums.js";
+import type { Subject } from "../generated/prisma/enums.js";
 import {
   ANSWER_OPTIONS,
   asAnswers,
@@ -47,14 +47,14 @@ export type QuestionScore = {
 
 const FULL = 4;
 
-export function wrongPenaltyFor(schoolType: SchoolType | string | null | undefined) {
-  return schoolType === "CUSTOMIZED" ? -1 : 0;
+export function wrongPenaltyFor(negativeMarking: boolean | null | undefined) {
+  return negativeMarking ? -1 : 0;
 }
 
 /**
  * Mains: one bubble. ADD = 4 if any bubble else 0. B/C = 4 if the one bubble is B or C.
  * Advanced A,C,D: +1 per correct option with no extras; 4 only when every correct option is filled.
- * Wrong combo: customized −1, regular 0. Blank is always 0.
+ * Wrong combo: −1 only when the school's program has negative marking on. Blank is always 0.
  */
 export function scoreQuestion(
   marked: AnswerOption[],

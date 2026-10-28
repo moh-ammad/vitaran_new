@@ -80,7 +80,7 @@ function toAssignments(teacher: TeacherRecord): TeacherAssignmentDto[] {
     programCode: row.program.code,
     programName: row.program.name,
     classLevel: row.classLevel,
-    subject: row.subject,
+    subject: row.subject as Subject,
   }));
 }
 

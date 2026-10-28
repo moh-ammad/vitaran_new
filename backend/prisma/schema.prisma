@@ -62,7 +62,8 @@ model LearningProgram {
   year      Int
   classFrom Int       @map("class_from") @db.SmallInt
   classTo   Int       @map("class_to") @db.SmallInt
-  subjects  Subject[]
+  /// Stored as text[] (see dynamic_subjects); values are `Subject` names.
+  subjects  String[]
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   schoolPrograms     SchoolProgram[]
@@ -122,14 +123,16 @@ model School {
 
 /// A school enrolled in a catalog program, with per-class subject selections.
 model SchoolProgram {
-  id        String              @id @default(uuid()) @db.Uuid
-  schoolId  String              @map("school_id") @db.Uuid
-  programId String              @map("program_id") @db.Uuid
-  school    School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  program   LearningProgram     @relation(fields: [programId], references: [id], onDelete: Restrict)
-  classes   SchoolProgramClass[]
-  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id               String              @id @default(uuid()) @db.Uuid
+  schoolId         String              @map("school_id") @db.Uuid
+  programId        String              @map("program_id") @db.Uuid
+  /// When true, a wrong OMR answer is −1 for this school + program. Off = 0.
+  negativeMarking  Boolean             @default(false) @map("negative_marking")
+  school           School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  program          LearningProgram     @relation(fields: [programId], references: [id], onDelete: Restrict)
+  classes          SchoolProgramClass[]
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@unique([schoolId, programId])
   @@index([programId])
@@ -140,7 +143,8 @@ model SchoolProgramClass {
   id              String        @id @default(uuid()) @db.Uuid
   schoolProgramId String        @map("school_program_id") @db.Uuid
   classLevel      Int           @map("class_level") @db.SmallInt
-  subjects        Subject[]
+  /// Stored as text[]; values are `Subject` names.
+  subjects        String[]
   schoolProgram   SchoolProgram @relation(fields: [schoolProgramId], references: [id], onDelete: Cascade)
 
   @@unique([schoolProgramId, classLevel])
@@ -181,7 +185,8 @@ model TeacherAssignment {
   teacher    Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   program    LearningProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
   classLevel Int             @map("class_level") @db.SmallInt
-  subject    Subject
+  /// Stored as varchar; value is a `Subject` name.
+  subject    String          @db.VarChar(64)
 
   @@unique([teacherId, programId, classLevel, subject])
   @@index([teacherId])

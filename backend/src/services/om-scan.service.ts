@@ -4,6 +4,7 @@ import { SchoolType, type Subject } from "../generated/prisma/enums.js";
 import * as answerKeyRepository from "../repositories/answer-key.repository.js";
 import * as omScanRepository from "../repositories/om-scan.repository.js";
 import type { OmScanSummary } from "../repositories/om-scan.repository.js";
+import * as schoolRepository from "../repositories/school.repository.js";
 import * as studentRepository from "../repositories/student.repository.js";
 import { AppError } from "../utils/app-error.js";
 import {
@@ -22,6 +23,11 @@ import type { TeacherAccountDto } from "./teacher.service.js";
 
 const KIND = "results";
 const IMAGE_MAX = 16 * 1024 * 1024;
+
+async function wrongPenaltyForProgram(schoolId: string, programId: string) {
+  const row = await schoolRepository.findSchoolProgramMarking(schoolId, programId);
+  return wrongPenaltyFor(row?.negativeMarking);
+}
 
 export type OmScanDto = {
   id: string;
@@ -356,7 +362,7 @@ export async function scanOmrSheet(
   if (!read.ok) throw new AppError(422, read.reason);
 
   const score = scoreOmrAnswers(read.answers, key.answers, key.subjectRanges, {
-    wrongPenalty: wrongPenaltyFor(teacher.school.type),
+    wrongPenalty: await wrongPenaltyForProgram(teacher.schoolId, student.programId),
   });
   const preview = await jpegPreview(image);
   const saved = await omScanRepository.upsertOmScan(student.id, key.testId, {
@@ -397,9 +403,15 @@ export async function rescoreOmScansForKey(answerKeyId: string) {
   if (!key) return 0;
   const rows = await omScanRepository.findOmScansForKey(answerKeyId);
   if (rows.length === 0) return 0;
+  const penalties = new Map<string, Promise<number>>();
+  const penaltyFor = (schoolId: string, programId: string) => {
+    const cacheKey = `${schoolId}:${programId}`;
+    if (!penalties.has(cacheKey)) penalties.set(cacheKey, wrongPenaltyForProgram(schoolId, programId));
+    return penalties.get(cacheKey)!;
+  };
   for (const row of rows) {
     const score = scoreOmrAnswers(row.answers, key.answers, key.subjectRanges, {
-      wrongPenalty: wrongPenaltyFor(row.school.type),
+      wrongPenalty: await penaltyFor(row.schoolId, row.student.programId),
     });
     await omScanRepository.updateOmScan(row.id, applyScore(score));
   }
@@ -416,6 +428,14 @@ export async function rescoreOmScansForKey(answerKeyId: string) {
   }
   notifyContentChanged({ kind: KIND, schoolId: key.school?.id ?? null });
   return rows.length;
+}
+
+export async function rescoreOmScansForSchool(schoolId: string) {
+  const rows = await omScanRepository.findOmScans({ schoolId });
+  const keyIds = [...new Set(rows.map((row) => row.answerKeyId))];
+  for (const answerKeyId of keyIds) {
+    await rescoreOmScansForKey(answerKeyId);
+  }
 }
 
 export async function listTeacherOmScans(teacher: TeacherAccountDto, testId?: string) {
@@ -593,7 +613,7 @@ export async function getStudentOmScanReview(studentId: string, testId: string):
       asAnswers(key.answers),
       asExplanations(key.explanations),
       asSubjectRanges(key.subjectRanges),
-      wrongPenaltyFor(row.school.type),
+      await wrongPenaltyForProgram(row.schoolId, row.student.programId),
     ),
   };
 }

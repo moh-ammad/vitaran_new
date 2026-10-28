@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { FieldError } from "@/components/ui/field";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { LearningProgram } from "@/types/program";
 import { encodeOffering, parseOfferingToken } from "./offerings";
@@ -10,7 +11,9 @@ import { capitalizeWords } from "./schema";
 type ProgramOfferingsFieldProps = {
   catalog: LearningProgram[];
   value: string[];
+  negativeMarking: string[];
   onChange: (next: string[]) => void;
+  onNegativeMarkingChange?: (next: string[]) => void;
   error?: string;
 };
 
@@ -24,7 +27,9 @@ function classLevels(program: LearningProgram) {
 export function ProgramOfferingsField({
   catalog,
   value,
+  negativeMarking,
   onChange,
+  onNegativeMarkingChange,
   error,
 }: ProgramOfferingsFieldProps) {
   const [selectedIds, setSelectedIds] = useState(() => {
@@ -35,12 +40,21 @@ export function ProgramOfferingsField({
     }
     return open;
   });
+  const [markingIds, setMarkingIds] = useState(() => new Set(negativeMarking));
 
   const emit = useCallback(
     (next: string[]) => {
       queueMicrotask(() => onChange(next));
     },
     [onChange],
+  );
+
+  const emitMarking = useCallback(
+    (next: Set<string>) => {
+      setMarkingIds(next);
+      queueMicrotask(() => onNegativeMarkingChange?.([...next]));
+    },
+    [onNegativeMarkingChange],
   );
 
   const selectedPrograms = useMemo(
@@ -63,6 +77,11 @@ export function ProgramOfferingsField({
     });
     if (!checked) {
       emit(value.filter((token) => !token.startsWith(`${program.id}:`)));
+      if (markingIds.has(program.id)) {
+        const next = new Set(markingIds);
+        next.delete(program.id);
+        emitMarking(next);
+      }
     }
   };
 
@@ -87,6 +106,13 @@ export function ProgramOfferingsField({
       ...withoutClass,
       ...subjects.map((subject) => encodeOffering(program.id, classLevel, subject)),
     ]);
+  };
+
+  const toggleMarking = (programId: string, checked: boolean) => {
+    const next = new Set(markingIds);
+    if (checked) next.add(programId);
+    else next.delete(programId);
+    emitMarking(next);
   };
 
   if (catalog.length === 0) {
@@ -128,6 +154,7 @@ export function ProgramOfferingsField({
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {selectedPrograms.map((program) => {
             const levels = classLevels(program);
+            const markingOn = markingIds.has(program.id);
             return (
               <div
                 key={program.id}
@@ -168,6 +195,27 @@ export function ProgramOfferingsField({
                     );
                   })}
                 </ul>
+                <label
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-3 border-t px-3 py-3",
+                    markingOn ? "border-brand-200 bg-brand-50" : "border-neutral-200 bg-neutral-50",
+                  )}
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-neutral-950">
+                      Enable negative marking
+                    </span>
+                    <span className="block text-xs text-neutral-500">
+                      {markingOn ? "Wrong answers score −1" : "Wrong answers score 0"}
+                    </span>
+                  </span>
+                  <Switch
+                    checked={markingOn}
+                    onCheckedChange={(checked) => toggleMarking(program.id, checked)}
+                    aria-label={`Enable negative marking for ${program.name}`}
+                    className="data-checked:bg-brand-900"
+                  />
+                </label>
               </div>
             );
           })}
@@ -180,6 +228,9 @@ export function ProgramOfferingsField({
 
       {value.map((token) => (
         <input key={token} type="hidden" name="offerings" value={token} />
+      ))}
+      {[...markingIds].map((programId) => (
+        <input key={`mark-${programId}`} type="hidden" name="negativeMarking" value={programId} />
       ))}
       {error && <FieldError>{error}</FieldError>}
     </div>

@@ -128,7 +128,7 @@ const BOLD_SECTION_HEADINGS =
   "[&_[data-slot=section-heading]]:text-sm [&_[data-slot=section-heading]]:font-bold [&_[data-slot=section-heading]]:text-neutral-950";
 
 function toFormValues(school?: SchoolDetail): SchoolFormValues {
-  if (!school) return { type: "REGULAR", status: "ACTIVE", offerings: [] };
+  if (!school) return { type: "REGULAR", status: "ACTIVE", offerings: [], negativeMarking: [] };
 
   return {
     code: school.code,
@@ -137,6 +137,9 @@ function toFormValues(school?: SchoolDetail): SchoolFormValues {
     type: school.type,
     status: school.status,
     offerings: schoolProgramsToTokens(school.schoolPrograms),
+    negativeMarking: school.schoolPrograms
+      .filter((row) => row.negativeMarking)
+      .map((row) => row.programId),
     principalName: school.principalName ?? "",
     contactName: school.contactName,
     contactEmail: school.contactEmail,
@@ -576,10 +579,19 @@ function SchoolFormWizard({
                 <ProgramOfferingsField
                   catalog={catalog}
                   value={offerings}
+                  negativeMarking={values.negativeMarking ?? []}
                   onChange={(next) => {
                     setOfferings(next);
                     if (savedValues) {
                       setDirty(!sameFormValues({ ...readValues(), offerings: next }, savedValues));
+                    }
+                    saveDraftSoon();
+                  }}
+                  onNegativeMarkingChange={(next) => {
+                    if (savedValues) {
+                      setDirty(
+                        !sameFormValues({ ...readValues(), negativeMarking: next }, savedValues),
+                      );
                     }
                     saveDraftSoon();
                   }}

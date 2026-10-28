@@ -42,7 +42,8 @@ export async function apiClient<T>(
   }
 
   const url = buildApiUrl(path);
-  const timeoutMs = isBinary ? 10 * 60 * 1000 : 8_000;
+  const isRead = !init.method || init.method.toUpperCase() === "GET";
+  const timeoutMs = isBinary ? 10 * 60 * 1000 : isRead ? 8_000 : 60_000;
   const timeout = AbortSignal.timeout(timeoutMs);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
 

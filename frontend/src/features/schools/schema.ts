@@ -59,6 +59,7 @@ const schoolFields = z.object({
   type: z.enum(SCHOOL_TYPES, { error: "Select a type." }),
   status: z.enum(SCHOOL_STATUSES, { error: "Select a status." }),
   offerings: z.array(offeringToken),
+  negativeMarking: z.array(z.uuid()).default([]),
   principalName: z
     .string()
     .trim()
@@ -119,14 +120,15 @@ export type SchoolFormField = keyof z.input<typeof schoolFields>;
 export function toSchoolInput({
   password,
   offerings,
+  negativeMarking,
   ...input
 }: z.output<typeof schoolFields>): SchoolInput {
-  const programs = offeringsToPrograms(offerings);
+  const programs = offeringsToPrograms(offerings, negativeMarking);
   return password ? { ...input, programs, password } : { ...input, programs };
 }
 
 /** Checkbox groups; every other field is a single text value. */
-export const LIST_FIELDS = ["offerings"] as const;
+export const LIST_FIELDS = ["offerings", "negativeMarking"] as const;
 export type ListField = (typeof LIST_FIELDS)[number];
 export type TextField = Exclude<SchoolFormField, ListField>;
 

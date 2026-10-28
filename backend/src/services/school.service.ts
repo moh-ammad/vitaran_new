@@ -17,6 +17,7 @@ import type {
   UpdateSchoolInput,
 } from "../schemas/school.schema.js";
 import { AppError } from "../utils/app-error.js";
+import { logger } from "../utils/logger.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { decryptSecret, encryptSecret } from "../utils/secret-box.js";
 import { sendSchoolCredentialsEmail } from "./mail.service.js";
@@ -34,6 +35,7 @@ export type SchoolProgramDto = {
   classFrom: number;
   classTo: number;
   catalogSubjects: Subject[];
+  negativeMarking: boolean;
   classes: SchoolProgramClassDto[];
 };
 
@@ -102,10 +104,11 @@ function toSchoolPrograms(school: SchoolWithPrograms): SchoolProgramDto[] {
     year: row.program.year,
     classFrom: row.program.classFrom,
     classTo: row.program.classTo,
-    catalogSubjects: row.program.subjects,
+    catalogSubjects: row.program.subjects as Subject[],
+    negativeMarking: row.negativeMarking,
     classes: row.classes.map((cls) => ({
       classLevel: cls.classLevel,
-      subjects: cls.subjects,
+      subjects: cls.subjects as Subject[],
     })),
   }));
 }
@@ -178,10 +181,11 @@ export function toSchoolSessionAccountDto(school: SchoolSessionRow): SchoolAccou
     year: row.program.year,
     classFrom: row.program.classFrom,
     classTo: row.program.classTo,
-    catalogSubjects: row.program.subjects,
+    catalogSubjects: row.program.subjects as Subject[],
+    negativeMarking: row.negativeMarking,
     classes: row.classes.map((cls) => ({
       classLevel: cls.classLevel,
-      subjects: cls.subjects,
+      subjects: cls.subjects as Subject[],
     })),
   }));
   return {
@@ -232,17 +236,20 @@ async function assertAccountAvailable(
 ) {
   const issues: { path: string[]; message: string }[] = [];
 
-  for (const field of ["accountEmail", "contactEmail"] as const) {
-    const email = account[field];
-    if (email && (await schoolRepository.isEmailUsedByOtherSchool(email, excludeId))) {
-      issues.push({ path: [field], message: "Email already exists" });
-    }
-  }
+  const fields = ["accountEmail", "contactEmail"] as const;
+  const [emailTaken, conflicts] = await Promise.all([
+    Promise.all(
+      fields.map((field) => {
+        const email = account[field];
+        return email ? schoolRepository.isEmailUsedByOtherSchool(email, excludeId) : false;
+      }),
+    ),
+    schoolRepository.findAccountConflicts({ accountPhone: account.accountPhone }, excludeId),
+  ]);
+  fields.forEach((field, index) => {
+    if (emailTaken[index]) issues.push({ path: [field], message: "Email already exists" });
+  });
 
-  const conflicts = await schoolRepository.findAccountConflicts(
-    { accountPhone: account.accountPhone },
-    excludeId,
-  );
   if (account.accountPhone && conflicts.some((c) => c.accountPhone === account.accountPhone)) {
     issues.push({ path: ["accountPhone"], message: "This login phone is already used by another school." });
   }
@@ -254,8 +261,11 @@ async function assertAccountAvailable(
 
 /** Offerings must stay inside each catalog program's class range and subject list. */
 async function assertProgramOfferings(programs: SchoolProgramInput[]) {
-  for (const row of programs) {
-    const catalog = await programRepository.findProgramById(row.programId);
+  const catalogs = await Promise.all(
+    programs.map((row) => programRepository.findProgramById(row.programId)),
+  );
+  for (const [index, row] of programs.entries()) {
+    const catalog = catalogs[index];
     if (!catalog) {
       throw new AppError(400, "Unknown program", [
         { path: ["programs"], message: "Select a valid program" },
@@ -343,11 +353,12 @@ export async function updateSchool(
   id: string,
   { password, programs, code, ...input }: UpdateSchoolInput,
 ) {
-  await assertAccountAvailable(input, id);
-  if (programs) await assertProgramOfferings(programs);
-
-  const seal = password && (await passwordChanged(id, password));
-  const schoolCode = code !== undefined ? await assertSchoolCodeAvailable(code, id) : undefined;
+  const [, , seal, schoolCode] = await Promise.all([
+    assertAccountAvailable(input, id),
+    programs ? assertProgramOfferings(programs) : undefined,
+    password ? passwordChanged(id, password) : false,
+    code !== undefined ? assertSchoolCodeAvailable(code, id) : undefined,
+  ]);
 
   const school = await schoolRepository.updateSchool(id, {
     ...input,
@@ -358,6 +369,10 @@ export async function updateSchool(
 
   if (programs) {
     await teacherRepository.pruneAssignmentsOutsideSchoolOfferings(id);
+    // Rescoring touches every scan; the save must not wait on it.
+    void import("./om-scan.service.js")
+      .then(({ rescoreOmScansForSchool }) => rescoreOmScansForSchool(id))
+      .catch((error: unknown) => logger.error({ err: error, schoolId: id }, "OMR rescore failed"));
   }
 
   const dto = toSchoolDto(school);

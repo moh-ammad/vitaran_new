@@ -1,5 +1,5 @@
 import { prisma } from "../config/database.js";
-import type { Prisma, Subject } from "../generated/prisma/client.js";
+import type { Prisma } from "../generated/prisma/client.js";
 import {
   SchoolStatus,
   SchoolType,
@@ -72,6 +72,7 @@ export const schoolSessionSelect = {
     orderBy: { program: { name: "asc" } },
     select: {
       programId: true,
+      negativeMarking: true,
       program: {
         select: {
           code: true,
@@ -88,6 +89,13 @@ export const schoolSessionSelect = {
 } satisfies Prisma.SchoolSelect;
 
 export type SchoolSessionRow = Prisma.SchoolGetPayload<{ select: typeof schoolSessionSelect }>;
+
+export function findSchoolProgramMarking(schoolId: string, programId: string) {
+  return prisma.schoolProgram.findUnique({
+    where: { schoolId_programId: { schoolId, programId } },
+    select: { negativeMarking: true },
+  });
+}
 
 function buildWhere(query: ListSchoolsQuery): Prisma.SchoolWhereInput {
   const where: Prisma.SchoolWhereInput = {};
@@ -183,33 +191,87 @@ export function findAccountConflicts(
   });
 }
 
-function programNestedCreate(programs: SchoolProgramInput[]) {
-  return {
-    create: programs.map((row) => ({
-      programId: row.programId,
-      classes: {
-        create: row.classes.map((cls) => ({
-          classLevel: cls.classLevel,
-          subjects: cls.subjects as Subject[],
-        })),
-      },
-    })),
-  };
+function classFingerprint(classes: { classLevel: number; subjects: string[] }[]) {
+  return classes
+    .map((row) => `${row.classLevel}:${[...row.subjects].sort().join(",")}`)
+    .sort()
+    .join("|");
 }
 
-export function createSchool(
+const SCHOOL_WRITE_TX = { timeout: 30_000, maxWait: 10_000 };
+
+/** Writes only what changed: every round trip to Neon costs ~100–300ms. */
+async function replaceSchoolPrograms(
+  tx: Prisma.TransactionClient,
+  schoolId: string,
+  programs: SchoolProgramInput[],
+) {
+  const keep = programs.map((row) => row.programId);
+  await tx.schoolProgram.deleteMany({ where: { schoolId, programId: { notIn: keep } } });
+  const existing = await tx.schoolProgram.findMany({
+    where: { schoolId, programId: { in: keep } },
+    select: {
+      id: true,
+      programId: true,
+      negativeMarking: true,
+      classes: { select: { classLevel: true, subjects: true } },
+    },
+  });
+  const byProgram = new Map(existing.map((row) => [row.programId, row]));
+
+  for (const row of programs) {
+    const current = byProgram.get(row.programId);
+    if (!current) {
+      await tx.schoolProgram.create({
+        data: {
+          schoolId,
+          programId: row.programId,
+          negativeMarking: row.negativeMarking,
+          classes: {
+            createMany: {
+              data: row.classes.map((cls) => ({ classLevel: cls.classLevel, subjects: cls.subjects })),
+            },
+          },
+        },
+      });
+      continue;
+    }
+
+    if (current.negativeMarking !== row.negativeMarking) {
+      await tx.schoolProgram.update({
+        where: { id: current.id },
+        data: { negativeMarking: row.negativeMarking },
+      });
+    }
+    if (classFingerprint(current.classes) === classFingerprint(row.classes)) continue;
+
+    await tx.schoolProgramClass.deleteMany({ where: { schoolProgramId: current.id } });
+    if (row.classes.length > 0) {
+      await tx.schoolProgramClass.createMany({
+        data: row.classes.map((cls) => ({
+          schoolProgramId: current.id,
+          classLevel: cls.classLevel,
+          subjects: cls.subjects,
+        })),
+      });
+    }
+  }
+}
+
+export async function createSchool(
   data: Prisma.SchoolCreateInput & { programs?: SchoolProgramInput[] },
 ) {
   const { programs = [], ...rest } = data as Prisma.SchoolCreateInput & {
     programs?: SchoolProgramInput[];
   };
-  return prisma.school.create({
-    data: {
-      ...rest,
-      schoolPrograms: programNestedCreate(programs),
-    },
-    include: schoolProgramInclude,
-  });
+  return prisma.$transaction(async (tx) => {
+    const school = await tx.school.create({ data: rest });
+    await replaceSchoolPrograms(tx, school.id, programs);
+    return tx.school.findUniqueOrThrow({
+      where: { id: school.id },
+      include: schoolProgramInclude,
+    });
+  }, SCHOOL_WRITE_TX);
 }
 
 export async function updateSchool(
@@ -221,30 +283,14 @@ export async function updateSchool(
   };
 
   return prisma.$transaction(async (tx) => {
-    if (programs) {
-      await tx.schoolProgram.deleteMany({ where: { schoolId: id } });
-      for (const row of programs) {
-        await tx.schoolProgram.create({
-          data: {
-            schoolId: id,
-            programId: row.programId,
-            classes: {
-              create: row.classes.map((cls) => ({
-                classLevel: cls.classLevel,
-                subjects: cls.subjects as Subject[],
-              })),
-            },
-          },
-        });
-      }
-    }
+    if (programs) await replaceSchoolPrograms(tx, id, programs);
 
     return tx.school.update({
       where: { id },
       data: rest,
       include: schoolProgramInclude,
     });
-  });
+  }, SCHOOL_WRITE_TX);
 }
 
 export function deleteSchool(id: string) {
