@@ -12,7 +12,7 @@ export default async function AdminAnalysisPage() {
     <>
       <PageHeader
         title="Analysis"
-        description="School, program, and class ranking with estimated averages. Student-wise analysis stays with the school and class teacher."
+        description="Estimated average across all schools, then program-wise and class-wise. Open a school to go deeper — no student list here."
       />
       <AnalysisBoard role="admin" report={report} />
     </>

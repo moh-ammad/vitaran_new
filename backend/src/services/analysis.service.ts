@@ -474,7 +474,8 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
   const classes = groupRows(
     inProgram,
     (row) => `${row.programCode}:${row.classLevel}`,
-    (row) => `Class ${row.classLevel}`,
+    (row) =>
+      query.program ? `Class ${row.classLevel}` : `Class ${row.classLevel} · ${row.programName}`,
     (row) => ({ classLevel: row.classLevel, programCode: row.programCode }),
   ).sort((a, b) => (b.avgPercent ?? -1) - (a.avgPercent ?? -1));
   const sections = groupRows(
@@ -495,14 +496,13 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
 
   const studentView = Boolean(query.student);
   const portalView = actor != null;
+  const overview = !studentView && query.class == null;
   const focus = studentView ? studentFocus(scoped) : null;
   const subjects = subjectStats(scoped);
   const percents = scoped.map((row) => row.percent).filter((value): value is number => value != null);
-  const showSchools = !studentView && !lockedSchoolId && !schoolId;
-  const showPrograms =
-    !studentView && Boolean(schoolId) && query.program == null && query.class == null && programs.length > 1;
-  const showClasses =
-    !studentView && Boolean(schoolId) && query.class == null && (Boolean(query.program) || programs.length <= 1);
+  const showSchools = overview && !lockedSchoolId && !schoolId;
+  const showPrograms = !studentView && query.program == null && query.class == null && programs.length > 0;
+  const showClasses = overview && classes.length > 0;
   const showSections =
     !studentView && Boolean(schoolId) && query.class != null && query.section == null && sections.length > 1;
   const showTests = false;

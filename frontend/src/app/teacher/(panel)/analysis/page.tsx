@@ -12,7 +12,7 @@ export default async function TeacherAnalysisPage() {
     <>
       <PageHeader
         title="Analysis"
-        description="Your classes ranked by estimated average. Open a class for student ranking. Class teachers see every subject; subject teachers see only theirs."
+        description="Your programs and classes, ranked by estimated average. Class teachers see every subject. Subject teachers see only their subject."
       />
       <AnalysisBoard role="teacher" report={report} />
     </>

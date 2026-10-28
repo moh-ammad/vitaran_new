@@ -12,7 +12,7 @@ export default async function SchoolAnalysisPage() {
     <>
       <PageHeader
         title="Analysis"
-        description="Class-wise ranking and estimated average. Open a class for student ranking, then a student for their charts."
+        description="Program-wise and class-wise results with estimated averages. Open a class for student ranking."
       />
       <AnalysisBoard role="school" report={report} />
     </>

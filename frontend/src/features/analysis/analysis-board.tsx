@@ -402,6 +402,7 @@ export function AnalysisBoard({
     !report.focus &&
     totals.students === 0 &&
     report.schools.length === 0 &&
+    report.programs.length === 0 &&
     report.classes.length === 0 &&
     report.tests.length === 0 &&
     report.students.length === 0;
@@ -551,7 +552,13 @@ export function AnalysisBoard({
             <KpiTile
               label="Estimated average"
               value={formatPct(totals.avgPercent)}
-              hint={report.focus ? `${report.focus.name} · roll ${report.focus.rollNo}` : "Across tests in this view"}
+              hint={
+                report.focus
+                  ? `${report.focus.name} · roll ${report.focus.rollNo}`
+                  : role === "admin" && !scope.schoolId
+                    ? "Across all schools in this program / class view"
+                    : "Across tests in this view"
+              }
               tone="brand"
             />
             {!report.focus && (
@@ -612,19 +619,27 @@ export function AnalysisBoard({
 
           <GroupTable
             title="Schools"
-            description="Ranked by estimated average. Filter by program or class, then open a school."
+            description="Estimated average across schools. Filter by program or class to see who performed well."
             rows={report.schools}
             onOpen={(row) => go({ school: row.schoolId })}
           />
           <GroupTable
             title="Programs"
-            description="Ranked by estimated average. Open a program for class ranking."
+            description={
+              role === "admin" && !scope.schoolId
+                ? "Estimated average by program across all schools."
+                : "Program-wise results. Open a program, or a class below."
+            }
             rows={report.programs}
             onOpen={(row) => go({ school: current.school, program: row.programCode })}
           />
           <GroupTable
             title="Classes"
-            description="Class-wise ranking and estimated average. Open a class for student ranking."
+            description={
+              role === "admin" && !scope.schoolId
+                ? "Estimated average by class across all schools. Open a class to compare schools."
+                : "Class-wise ranking and estimated average. Open a class for student ranking."
+            }
             rows={report.classes}
             onOpen={(row) =>
               go({
