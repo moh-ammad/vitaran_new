@@ -90,6 +90,7 @@ export function ResultsTable({
               const program = resultProgramLabel(resultSet);
               const students = resultSet.classes.reduce((sum, item) => sum + item.rowCount, 0);
               const label = `Test ID ${resultSet.testId} · ${program}`;
+              const omr = resultSet.source === "omr";
               return (
                 <TableRow key={resultSet.id} className="border-brand-100/70 hover:bg-brand-50/30">
                   <TableCell className="py-3.5 pl-6">
@@ -100,7 +101,9 @@ export function ResultsTable({
                       </span>
                       <span className="min-w-0 lg:hidden">
                         <span className="block truncate text-sm font-medium text-neutral-950 group-hover:underline">{program}</span>
-                        <span className="text-xs text-neutral-500">{resultSet.classes.length} classes</span>
+                        <span className="text-xs text-neutral-500">
+                          {resultSet.classes.length} classes{omr ? " · OMR" : ""}
+                        </span>
                       </span>
                     </Link>
                   </TableCell>
@@ -142,25 +145,35 @@ export function ResultsTable({
                     <DateTime iso={wasEdited(resultSet) ? resultSet.updatedAt : null} />
                   </TableCell>
                   <TableCell>
-                    <PublishSwitch
-                      published={resultSet.published}
-                      label={label}
-                      onToggle={setResultPublishedAction.bind(null, resultSet.id)}
-                    />
+                    {omr ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                        Results published
+                      </span>
+                    ) : (
+                      <PublishSwitch
+                        published={resultSet.published}
+                        label={label}
+                        onToggle={setResultPublishedAction.bind(null, resultSet.id)}
+                      />
+                    )}
                   </TableCell>
                   <TableCell className="pr-6">
                     <div className="ml-auto flex w-fit divide-x divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
                       <Link href={resultSetHref(RESULTS_PATH, resultSet.id)} title="View" aria-label={`View ${label}`} className={ROW_ACTION}>
                         <Eye />
                       </Link>
-                      <Link href={resultEditHref(resultSet.id)} title="Edit" aria-label={`Edit ${label}`} className={ROW_ACTION}>
-                        <Pencil />
-                      </Link>
-                      <DeleteDocumentButton
-                        fileName={`${label} (${resultSet.classes.length} classes)`}
-                        noun="result"
-                        onDelete={deleteResultAction.bind(null, resultSet.id)}
-                      />
+                      {!omr && (
+                        <>
+                          <Link href={resultEditHref(resultSet.id)} title="Edit" aria-label={`Edit ${label}`} className={ROW_ACTION}>
+                            <Pencil />
+                          </Link>
+                          <DeleteDocumentButton
+                            fileName={`${label} (${resultSet.classes.length} classes)`}
+                            noun="result"
+                            onDelete={deleteResultAction.bind(null, resultSet.id)}
+                          />
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

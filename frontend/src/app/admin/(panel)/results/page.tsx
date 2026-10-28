@@ -19,7 +19,6 @@ export default async function AdminResultsPage({ searchParams }: PageProps<"/adm
 
   return (
     <>
-      <LiveRefresh kind="results" as="admin" />
       <PageHeader
         title="Results"
         count={resultSets.length}

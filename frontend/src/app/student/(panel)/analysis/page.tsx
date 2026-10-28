@@ -11,7 +11,7 @@ export default async function StudentAnalysisPage() {
       <LiveRefresh kind="results" as="student" />
       <PageHeader
         title="Analysis"
-        description="Overall average across every published test, plus past vs latest and which subjects need work."
+        description="Your published tests: overall average, test-wise and subject-wise bar and pie charts, and past vs latest."
       />
       <StudentAnalysisBoard tests={tests} />
     </>

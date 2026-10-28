@@ -38,11 +38,11 @@ export const listResultSetsQuerySchema = z.object({
 });
 
 export const resultSetIdParamsSchema = z.object({
-  id: z.uuid(),
+  id: z.string().trim().min(1).max(180),
 });
 
 export const resultSheetParamsSchema = z.object({
-  id: z.uuid(),
+  id: z.string().trim().min(1).max(180),
   classLevel: z.coerce.number().int().min(1).max(12),
 });
 

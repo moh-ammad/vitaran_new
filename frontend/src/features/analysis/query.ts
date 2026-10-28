@@ -8,6 +8,7 @@ export type AnalysisParams = {
   class?: number | string | null;
   section?: string | null;
   test?: string | null;
+  student?: string | null;
 };
 
 export function analysisHref(basePath: string, params: AnalysisParams) {
@@ -17,6 +18,7 @@ export function analysisHref(basePath: string, params: AnalysisParams) {
   if (params.class != null && params.class !== "") search.set("class", String(params.class));
   if (params.section) search.set("section", params.section);
   if (params.test) search.set("test", params.test);
+  if (params.student) search.set("student", params.student);
   const query = search.toString();
   return query ? `${basePath}?${query}` : basePath;
 }

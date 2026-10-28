@@ -6,7 +6,8 @@ export default async function TeacherResultsPage() {
     <PortalResultsBoard
       role="teacher"
       basePath={TEACHER_RESULTS_PATH}
-      description="Class teachers see every subject for their class. Subject teachers see only their subject."
+      description="Published results for your classes. Class teachers see every subject. Subject teachers see only their subject. Unpublished scans stay on OMR Scan."
+      emptyHint="Results appear here after you publish OMR scans, or after uploaded sheets are published."
     />
   );
 }

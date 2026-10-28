@@ -18,6 +18,8 @@ import { AppError } from "../utils/app-error.js";
 import { notifyContentChanged } from "../utils/content-events.js";
 import { ExcelParseError, parseResultSheet, type CellValue } from "../utils/excel.js";
 import * as answerKeyRepository from "../repositories/answer-key.repository.js";
+import * as omScanRepository from "../repositories/om-scan.repository.js";
+import type { OmScanSummary } from "../repositories/om-scan.repository.js";
 import * as studentRepository from "../repositories/student.repository.js";
 import type { Subject } from "../generated/prisma/enums.js";
 import { asSubjectRanges } from "../utils/answer-key-parse.js";
@@ -31,16 +33,138 @@ import {
   projectSheetForTeacher,
 } from "../utils/result-sheet-scope.js";
 import {
+  contentSchool,
   resultSetAccessFilter,
   resultSetMatchesProgram,
   resultSetVisibleToTeacher,
   resultSheetClassFilter,
+  teacherCanAccessStudent,
   type ContentActor,
 } from "./content-access.js";
 import { toSchoolRef, type SchoolAccountDto } from "./school.service.js";
 import type { StudentAccountDto } from "./student.service.js";
 
 const KIND = "results";
+const OMR_ID_PREFIX = "omr_";
+const SUBJECT_HEADER: Record<Subject, string> = {
+  MATHEMATICS: "Mathematics",
+  PHYSICS: "Physics",
+  CHEMISTRY: "Chemistry",
+  BIOLOGY: "Biology",
+  SCIENCE: "Science",
+};
+const SUBJECT_ORDER: Subject[] = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"];
+
+function isOmrResultId(id: string) {
+  return id.startsWith(OMR_ID_PREFIX);
+}
+
+function omrResultId(schoolId: string, programId: string, testId: string) {
+  return `${OMR_ID_PREFIX}${schoolId}_${programId}_${encodeURIComponent(testId)}`;
+}
+
+function parseOmrResultId(id: string) {
+  if (!isOmrResultId(id)) return null;
+  const body = id.slice(OMR_ID_PREFIX.length);
+  const schoolId = body.slice(0, 36);
+  if (body[36] !== "_") return null;
+  const rest = body.slice(37);
+  const programId = rest.slice(0, 36);
+  if (rest[36] !== "_") return null;
+  try {
+    return { schoolId, programId, testId: decodeURIComponent(rest.slice(37)) };
+  } catch {
+    return null;
+  }
+}
+
+function scanReleaseKey(row: OmScanSummary) {
+  return [row.schoolId, row.testId, row.student.programId, row.student.classLevel, row.student.sectionId ?? "class"].join(
+    ":",
+  );
+}
+
+function sheetFromOmScans(scans: OmScanSummary[], classLevel: number) {
+  const present = new Set(
+    scans.flatMap((scan) => (Array.isArray(scan.subjectScores) ? (scan.subjectScores as SubjectScore[]) : []).map((item) => item.subject)),
+  );
+  const subjects = [...SUBJECT_ORDER.filter((item) => present.has(item)), ...[...present].filter((item) => !SUBJECT_ORDER.includes(item))];
+  const columns = ["Roll No", "Name", "Class", ...subjects.map((item) => SUBJECT_HEADER[item] ?? item), "Total", "Percentage"];
+  const rows: CellValue[][] = [...scans]
+    .sort((a, b) => a.rollNo.localeCompare(b.rollNo))
+    .map((scan) => {
+      const scores = Array.isArray(scan.subjectScores) ? (scan.subjectScores as SubjectScore[]) : [];
+      const klass = scan.student.section?.name
+        ? `${scan.student.classLevel}-${scan.student.section.name}`
+        : String(scan.student.classLevel);
+      const percent = scan.maxTotal ? Math.round((scan.total / scan.maxTotal) * 1000) / 10 : null;
+      return [
+        scan.rollNo,
+        scan.student.name,
+        klass,
+        ...subjects.map((subject) => scores.find((item) => item.subject === subject)?.total ?? null),
+        scan.total,
+        percent,
+      ];
+    });
+  const latest = scans.reduce((max, scan) => (scan.updatedAt > max ? scan.updatedAt : max), scans[0]?.updatedAt ?? new Date());
+  return {
+    classLevel,
+    fileName: "OMR scan",
+    fileSize: 0,
+    caption: [`OMR · Test ${scans[0]?.answerKey.testNumber ?? ""} · ID ${scans[0]?.testId ?? ""}`],
+    columns,
+    rows,
+    rowCount: rows.length,
+    updatedAt: latest.toISOString(),
+  };
+}
+
+async function publishedOmScans(schoolId?: string) {
+  const [scans, releases] = await Promise.all([
+    omScanRepository.findOmScans(schoolId ? { schoolId } : {}),
+    omScanRepository.findOmResultReleases({ published: true, ...(schoolId ? { schoolId } : {}) }),
+  ]);
+  const released = new Set(
+    releases.map((row) => [row.schoolId, row.testId, row.programId, row.classLevel, row.sectionKey].join(":")),
+  );
+  return scans.filter((scan) => released.has(scanReleaseKey(scan)));
+}
+
+function toOmrResultSetDto(scans: OmScanSummary[]) {
+  const sample = scans[0]!;
+  const byClass = new Map<number, OmScanSummary[]>();
+  for (const scan of scans) {
+    const list = byClass.get(scan.student.classLevel);
+    if (list) list.push(scan);
+    else byClass.set(scan.student.classLevel, [scan]);
+  }
+  const updatedAt = scans.reduce((max, scan) => (scan.updatedAt > max ? scan.updatedAt : max), sample.updatedAt);
+  const publishedAt = updatedAt;
+  return {
+    id: omrResultId(sample.schoolId, sample.student.programId, sample.testId),
+    source: "omr" as const,
+    program: sample.student.program.code,
+    programCode: sample.student.program.code,
+    programName: sample.student.program.name,
+    testId: sample.testId,
+    testNumber: sample.answerKey.testNumber,
+    published: true,
+    publishedAt: publishedAt.toISOString(),
+    school: { ...toSchoolRef(sample.school), type: sample.school.type },
+    classes: [...byClass.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([classLevel, rows]) => ({
+        classLevel,
+        rowCount: rows.length,
+        fileName: "OMR scan",
+        fileSize: 0,
+        updatedAt: rows.reduce((max, row) => (row.updatedAt > max ? row.updatedAt : max), rows[0]!.updatedAt).toISOString(),
+      })),
+    createdAt: updatedAt.toISOString(),
+    updatedAt: updatedAt.toISOString(),
+  };
+}
 
 export type UploadedFiles = Partial<Record<string, Express.Multer.File[]>>;
 
@@ -52,6 +176,7 @@ const fieldError = (status: number, path: string, message: string) =>
 function toResultSetDto({ school, sheets, createdAt, updatedAt, publishedAt, programCode, ...rest }: ResultSetSummary) {
   return {
     ...rest,
+    source: "upload" as const,
     program: programCode,
     programCode,
     publishedAt: publishedAt?.toISOString() ?? null,
@@ -63,6 +188,106 @@ function toResultSetDto({ school, sheets, createdAt, updatedAt, publishedAt, pro
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
   };
+}
+
+type ResultSetDto = ReturnType<typeof toResultSetDto> | ReturnType<typeof toOmrResultSetDto>;
+
+function coversOmr(excel: ResultSetDto, omr: ResultSetDto) {
+  return excel.school.id === omr.school.id && excel.testId === omr.testId && excel.programCode === omr.programCode;
+}
+
+function mergeOmrSets(excel: ResultSetDto[], omr: ResultSetDto[]) {
+  const extra = omr.filter((row) => !excel.some((item) => coversOmr(item, row)));
+  return [...excel, ...extra].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+}
+
+function scansForTeacher(scans: OmScanSummary[], actor?: ContentActor) {
+  if (actor?.kind !== "teacher") return scans;
+  return scans.filter((scan) =>
+    teacherCanAccessStudent(actor.teacher, {
+      programCode: scan.student.program.code,
+      classLevel: scan.student.classLevel,
+      sectionId: scan.student.sectionId,
+    }),
+  );
+}
+
+function omrSetForActor(scans: OmScanSummary[], actor?: ContentActor) {
+  const visible = scansForTeacher(scans, actor);
+  if (visible.length === 0) return null;
+  const dto = toOmrResultSetDto(visible);
+  if (actor?.kind === "teacher" && !resultSetVisibleToTeacher(actor.teacher, dto)) return null;
+  return withActorSheetFilter(dto, actor);
+}
+
+async function publishedOmrGroups(schoolId?: string) {
+  const scans = await publishedOmScans(schoolId);
+  const groups = new Map<string, OmScanSummary[]>();
+  for (const scan of scans) {
+    const key = omrResultId(scan.schoolId, scan.student.programId, scan.testId);
+    const list = groups.get(key);
+    if (list) list.push(scan);
+    else groups.set(key, [scan]);
+  }
+  return [...groups.values()];
+}
+
+async function listPublishedOmrResultSets(schoolId?: string, actor?: ContentActor) {
+  const dtos = [];
+  for (const scans of await publishedOmrGroups(schoolId)) {
+    const dto = omrSetForActor(scans, actor);
+    if (dto) dtos.push(dto);
+  }
+  return dtos;
+}
+
+function rejectOmrMutation(id: string) {
+  if (isOmrResultId(id)) {
+    throw new AppError(400, "OMR results are published from the scan board");
+  }
+}
+
+async function getOmrResultSet(id: string, actor?: ContentActor) {
+  const parsed = parseOmrResultId(id);
+  if (!parsed) throw new AppError(404, "Result not found");
+  if (actor && contentSchool(actor).id !== parsed.schoolId) throw new AppError(404, "Result not found");
+  const scans = (await publishedOmScans(parsed.schoolId)).filter(
+    (scan) => scan.student.programId === parsed.programId && scan.testId === parsed.testId,
+  );
+  const dto = omrSetForActor(scans, actor);
+  if (!dto) throw new AppError(404, "Result not found");
+  return dto;
+}
+
+async function getOmrResultSheet(params: ResultSheetParams, actor?: ContentActor) {
+  assertSheetClassAllowed(params.classLevel, actor);
+  const parsed = parseOmrResultId(params.id);
+  if (!parsed) throw new AppError(404, "Result not found");
+  if (actor && contentSchool(actor).id !== parsed.schoolId) throw new AppError(404, "Result not found");
+  const scans = scansForTeacher(
+    (await publishedOmScans(parsed.schoolId)).filter(
+      (scan) =>
+        scan.student.programId === parsed.programId &&
+        scan.testId === parsed.testId &&
+        scan.student.classLevel === params.classLevel,
+    ),
+    actor,
+  );
+  if (scans.length === 0) throw new AppError(404, "Result not found");
+  const built = sheetFromOmScans(scans, params.classLevel);
+  if (actor?.kind === "teacher") {
+    const roster = await studentRepository.listSchoolRoster(actor.teacher.schoolId);
+    const scoped = projectSheetForTeacher(built.columns, built.rows, actor.teacher, roster);
+    if (scoped.rows.length === 0) throw new AppError(404, "Result not found");
+    return {
+      ...built,
+      columns: scoped.columns,
+      rows: scoped.rows,
+      rowCount: scoped.rows.length,
+      classLabel: scoped.classLabel,
+    };
+  }
+  return built;
 }
 
 /** Regular schools pick one of their programs; customized schools name their own. */
@@ -148,7 +373,14 @@ const requireClasses = (count: number) => {
 
 export async function listResultSets({ limit, testNumber, type, schoolId }: ListResultSetsQuery) {
   const where: Prisma.ResultSetWhereInput = { testNumber, schoolId, ...(type && { school: { type } }) };
-  return (await resultRepository.findResultSets(where, limit)).map(toResultSetDto);
+  const excel = (await resultRepository.findResultSets(where)).map(toResultSetDto);
+  const omr = (await listPublishedOmrResultSets(schoolId)).filter((row) => {
+    if (testNumber != null && row.testNumber !== testNumber) return false;
+    if (type && row.school.type !== type) return false;
+    return true;
+  });
+  const merged = mergeOmrSets(excel, omr);
+  return limit ? merged.slice(0, limit) : merged;
 }
 
 export async function getResultStats() {
@@ -177,6 +409,7 @@ function toContentActor(actor?: ContentActor | SchoolAccountDto): ContentActor |
 
 export async function getResultSet(id: string, actor?: ContentActor | SchoolAccountDto) {
   const contentActor = toContentActor(actor);
+  if (isOmrResultId(id)) return getOmrResultSet(id, contentActor);
   const resultSet = await resultRepository.findResultSet({
     id,
     ...(contentActor && resultSetAccessFilter(contentActor)),
@@ -207,6 +440,7 @@ export async function uploadResultSet(fields: ResultSetFields, files?: UploadedF
 }
 
 export async function updateResultSet(id: string, fields: ResultSetFields, files?: UploadedFiles) {
+  rejectOmrMutation(id);
   const meta = await resolveMeta(fields);
   const sheets = await readSheets(files);
 
@@ -221,6 +455,7 @@ export async function updateResultSet(id: string, fields: ResultSetFields, files
 }
 
 export async function deleteResultSet(id: string) {
+  rejectOmrMutation(id);
   const { schoolId, published } = await resultRepository.deleteResultSet(id);
   if (published) notifyContentChanged({ kind: KIND, schoolId });
 }
@@ -242,13 +477,12 @@ async function paperRangesForTest(testId: string) {
   return asSubjectRanges(key?.subjectRanges);
 }
 
-function omrViewerFor(actor?: ContentActor): OmScanViewer {
-  if (!actor) return { kind: "admin" };
-  if (actor.kind === "teacher") return { kind: "teacher", teacher: actor.teacher };
-  return { kind: "school" };
+/** Results tab waits until the class teacher publishes. OMR Scan board is the live workspace. */
+function omrViewerFor(_actor?: ContentActor): OmScanViewer {
+  return { kind: "released" };
 }
 
-/** School, admin, and class teachers get live OMR scores. Students and subject teachers wait for publish. */
+/** Published OMR scores overlay uploaded sheets. Unpublished scans stay on the OMR board. */
 async function overlayOmrForTest(
   schoolId: string,
   testId: string,
@@ -272,6 +506,7 @@ async function overlayOmrForTest(
 
 export async function getResultSheet(params: ResultSheetParams, actor?: ContentActor | SchoolAccountDto) {
   const contentActor = toContentActor(actor);
+  if (isOmrResultId(params.id)) return getOmrResultSheet(params, contentActor);
   assertSheetClassAllowed(params.classLevel, contentActor);
   const sheet = await resultRepository.findResultSheet(sheetWhere(params, contentActor));
   if (!sheet) throw new AppError(404, "Result not found");
@@ -323,6 +558,7 @@ export async function getResultSheetFile(
   params: ResultSheetParams,
   actor?: ContentActor | SchoolAccountDto,
 ) {
+  rejectOmrMutation(params.id);
   const contentActor = toContentActor(actor);
   assertSheetClassAllowed(params.classLevel, contentActor);
   const file = await resultRepository.findResultSheetFile(sheetWhere(params, contentActor));
@@ -335,8 +571,10 @@ export async function listVisibleResultSets(actor: ContentActor) {
   const visible = sets.filter((set) =>
     actor.kind === "school" ? true : resultSetVisibleToTeacher(actor.teacher, set),
   );
+  const omr = await listPublishedOmrResultSets(contentSchool(actor).id, actor);
+
   if (actor.kind !== "teacher") {
-    return visible.map((set) => withActorSheetFilter(toResultSetDto(set), actor));
+    return mergeOmrSets(visible.map((set) => withActorSheetFilter(toResultSetDto(set), actor)), omr);
   }
 
   const roster = await studentRepository.listSchoolRoster(actor.teacher.schoolId);
@@ -362,12 +600,11 @@ export async function listVisibleResultSets(actor: ContentActor) {
     if (classes.length === 0) continue;
     dtos.push({ ...dto, classes });
   }
-  return dtos;
+  return mergeOmrSets(dtos, omr);
 }
 
 export async function countVisibleResultSets(actor: ContentActor) {
-  if (actor.kind === "teacher") return (await listVisibleResultSets(actor)).length;
-  return resultRepository.countResultSets(resultSetAccessFilter(actor));
+  return (await listVisibleResultSets(actor)).length;
 }
 
 export type StudentResultRowDto = {
@@ -436,6 +673,7 @@ export async function listSchoolResultSets(school: SchoolAccountDto) {
 }
 
 export async function setResultSetPublished(id: string, published: boolean) {
+  rejectOmrMutation(id);
   const resultSet = await resultRepository.setResultSetPublished(id, published);
   if (!resultSet) throw new AppError(404, "Result not found");
   notifyContentChanged({ kind: KIND, schoolId: resultSet.school.id });

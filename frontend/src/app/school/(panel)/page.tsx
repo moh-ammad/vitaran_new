@@ -40,7 +40,7 @@ export default async function SchoolDashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Teachers"
           value={stats.teachers.total}
@@ -75,12 +75,6 @@ export default async function SchoolDashboardPage() {
           hint="Published for your school"
           icon={Trophy}
           href="/school/results"
-        />
-        <StatCard
-          label="Analysis"
-          hint="Class, section, and subject performance"
-          icon={ChartColumn}
-          href="/school/analysis"
         />
       </div>
 

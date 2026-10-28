@@ -23,8 +23,10 @@ export const resultUploadHrefFor = (schoolId: string) =>
   `${RESULT_UPLOAD_PATH}?${new URLSearchParams({ schoolId })}`;
 
 /** `basePath` is `/admin/results` or `/results`. */
-export const resultSetHref = (basePath: string, id: string, classLevel?: number) =>
-  classLevel ? `${basePath}/${id}?class=${classLevel}` : `${basePath}/${id}`;
+export const resultSetHref = (basePath: string, id: string, classLevel?: number) => {
+  const path = `${basePath}/${encodeURIComponent(id)}`;
+  return classLevel ? `${path}?class=${classLevel}` : path;
+};
 export const resultEditHref = (id: string) => `${RESULTS_PATH}/${id}/edit`;
 export const resultSheetDownloadHref = (basePath: string, id: string, classLevel: number) =>
   `${basePath}/${id}/classes/${classLevel}/file`;

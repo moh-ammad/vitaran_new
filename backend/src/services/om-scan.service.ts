@@ -438,16 +438,17 @@ export type OmScanViewer =
   | { kind: "teacher"; teacher: TeacherAccountDto }
   | { kind: "released" };
 
-/** Admin and school see every scan. Class teachers see their class. Students and subject teachers see released only. */
+/** Results pages wait for publish. Class teachers still see unpublished scans on the OMR board. */
 export async function findVisibleOmScans(schoolId: string, testId: string, viewer: OmScanViewer) {
   const rows = await omScanRepository.findOmScans({ schoolId, testId });
-  if (viewer.kind === "admin" || viewer.kind === "school") return rows;
   const released = await releasedKeys(schoolId, [testId]);
-  return rows.filter(
-    (row) =>
-      released.has(rowReleaseKey(row)) ||
-      (viewer.kind === "teacher" && isClassTeacherOf(viewer.teacher, studentSlot(row))),
-  );
+  if (viewer.kind === "teacher") {
+    return rows.filter(
+      (row) =>
+        released.has(rowReleaseKey(row)) || isClassTeacherOf(viewer.teacher, studentSlot(row)),
+    );
+  }
+  return rows.filter((row) => released.has(rowReleaseKey(row)));
 }
 
 export type OmResultReleaseDto = {

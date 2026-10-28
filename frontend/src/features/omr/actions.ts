@@ -47,9 +47,12 @@ export async function setOmResultReleaseAction(input: {
   try {
     const release = await setOmResultRelease(input);
     revalidatePath("/teacher/omr-scan");
+    revalidatePath("/teacher/results");
     revalidatePath("/teacher/analysis");
     revalidatePath("/student", "layout");
+    revalidatePath("/school/results");
     revalidatePath("/school/analysis");
+    revalidatePath("/admin/results");
     revalidatePath("/admin/analysis");
     return { ok: true, release };
   } catch (error) {

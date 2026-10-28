@@ -99,6 +99,11 @@ export function SchoolResults({
                   <div>
                     <h3 className="text-lg font-bold text-neutral-950">
                       Test ID {resultSet.testId} results
+                      {resultSet.source === "omr" && (
+                        <span className="ml-2 align-middle text-[11px] font-semibold tracking-wide text-emerald-800 uppercase">
+                          OMR
+                        </span>
+                      )}
                     </h3>
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-600">
                       <Users className="size-3.5 text-brand-700" />

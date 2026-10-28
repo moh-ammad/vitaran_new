@@ -18,22 +18,24 @@ export default async function ResultPage({ params, searchParams }: PageProps<"/a
 
   return (
     <>
-    <LiveRefresh kind="results" as="admin" />
-    <ResultSetView
-      resultSet={resultSet}
-      sheet={sheet}
-      basePath={RESULTS_PATH}
-      showSchool
-      actions={
-        <Link
-          href={resultEditHref(id)}
-          className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-brand-200 bg-white px-4 text-sm font-semibold text-brand-900 transition-colors hover:border-brand-300 hover:bg-brand-50"
-        >
-          <Pencil className="size-4" />
-          Edit
-        </Link>
-      }
-    />
+      <LiveRefresh kind="results" as="admin" />
+      <ResultSetView
+        resultSet={resultSet}
+        sheet={sheet}
+        basePath={RESULTS_PATH}
+        showSchool
+        actions={
+          resultSet.source === "omr" ? undefined : (
+            <Link
+              href={resultEditHref(id)}
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-brand-200 bg-white px-4 text-sm font-semibold text-brand-900 transition-colors hover:border-brand-300 hover:bg-brand-50"
+            >
+              <Pencil className="size-4" />
+              Edit
+            </Link>
+          )
+        }
+      />
     </>
   );
 }

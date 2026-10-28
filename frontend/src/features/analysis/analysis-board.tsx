@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import {
   Select,
@@ -23,12 +21,14 @@ import {
 import { Panel } from "@/features/admin/dashboard-parts";
 import { SUBJECT_LABELS, programLabel } from "@/features/schools/constants";
 import { SUBJECT_COLORS } from "@/features/student-portal/subject-colors";
-import { KpiTile, SubjectBarChart } from "@/features/student-portal/student-ui";
 import { cn } from "@/lib/utils";
-import type { AnalysisGroupRow, AnalysisReport, AnalysisStudentRow } from "@/types/analysis";
+import { ChartPair, KpiTile, SubjectBarChart } from "@/features/student-portal/student-ui";
+import type { AnalysisGroupRow, AnalysisReport, AnalysisStudentFocus, AnalysisStudentRow } from "@/types/analysis";
 import type { Subject } from "@/types/school";
+import { useLiveContent } from "@/features/live/use-live-content";
 import { classLabel } from "@/utils/format";
-import { analysisHref, type AnalysisParams } from "./query";
+import { loadAnalysisAction } from "./actions";
+import type { AnalysisParams } from "./query";
 
 const ALL = "ALL";
 
@@ -81,12 +81,12 @@ function GroupTable({
   title,
   description,
   rows,
-  hrefFor,
+  onOpen,
 }: {
   title: string;
   description: string;
   rows: AnalysisGroupRow[];
-  hrefFor: (row: AnalysisGroupRow) => string;
+  onOpen: (row: AnalysisGroupRow) => void;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -94,20 +94,22 @@ function GroupTable({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-14">Rank</TableHead>
             <TableHead>Name</TableHead>
             <TableHead className="text-right">Students</TableHead>
             <TableHead className="text-right">Tests</TableHead>
-            <TableHead className="text-right">Average</TableHead>
+            <TableHead className="text-right">Est. average</TableHead>
             <TableHead>Weakest</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <TableRow key={row.key} className="hover:bg-brand-50/70">
+              <TableCell className="font-semibold tabular-nums text-neutral-900">{index + 1}</TableCell>
               <TableCell>
-                <Link href={hrefFor(row)} className="font-semibold text-brand-900 hover:underline">
+                <button type="button" onClick={() => onOpen(row)} className="font-semibold text-brand-900 hover:underline">
                   {row.label}
-                </Link>
+                </button>
               </TableCell>
               <TableCell className="text-right tabular-nums">{row.students}</TableCell>
               <TableCell className="text-right tabular-nums">{row.tests}</TableCell>
@@ -129,7 +131,13 @@ function GroupTable({
   );
 }
 
-function StudentTable({ rows }: { rows: AnalysisStudentRow[] }) {
+function StudentTable({
+  rows,
+  onOpen,
+}: {
+  rows: AnalysisStudentRow[];
+  onOpen: (row: AnalysisStudentRow) => void;
+}) {
   const [query, setQuery] = useState("");
   const subjects = useMemo(() => {
     const seen = new Set<Subject>();
@@ -138,16 +146,17 @@ function StudentTable({ rows }: { rows: AnalysisStudentRow[] }) {
     }
     return [...seen];
   }, [rows]);
-  const filtered = rows.filter((row) => {
+  if (rows.length === 0) return null;
+
+  const ranked = rows.map((row, index) => ({ row, rank: index + 1 }));
+  const visible = ranked.filter(({ row }) => {
     const needle = query.trim().toLowerCase();
     if (!needle) return true;
     return row.name.toLowerCase().includes(needle) || row.rollNo.toLowerCase().includes(needle);
   });
 
-  if (rows.length === 0) return null;
-
   return (
-    <Panel title="Students" description="Latest OMR score wins when a student also has an uploaded sheet.">
+    <Panel title="Students" description="Ranked by estimated average. Open a student for test-wise charts.">
       <div className="relative mb-4 max-w-xs">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400" />
         <Input
@@ -160,10 +169,11 @@ function StudentTable({ rows }: { rows: AnalysisStudentRow[] }) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-14">Rank</TableHead>
             <TableHead>Student</TableHead>
             <TableHead>Roll</TableHead>
             <TableHead className="text-right">Tests</TableHead>
-            <TableHead className="text-right">Average</TableHead>
+            <TableHead className="text-right">Est. average</TableHead>
             {subjects.map((subject) => (
               <TableHead key={subject} className="text-right">
                 {subjectName(subject)}
@@ -172,10 +182,17 @@ function StudentTable({ rows }: { rows: AnalysisStudentRow[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filtered.map((row) => (
-            <TableRow key={row.studentId}>
+          {visible.map(({ row, rank }) => (
+            <TableRow key={row.studentId} className="hover:bg-brand-50/70">
+              <TableCell className="font-semibold tabular-nums text-neutral-900">{rank}</TableCell>
               <TableCell>
-                <p className="font-semibold text-neutral-950">{row.name}</p>
+                <button
+                  type="button"
+                  onClick={() => onOpen(row)}
+                  className="font-semibold text-brand-900 hover:underline"
+                >
+                  {row.name}
+                </button>
                 <p className="text-xs text-neutral-500">
                   {classLabel(row.classLevel)}
                   {row.sectionName ? `-${row.sectionName}` : ""} · {row.programName}
@@ -200,29 +217,119 @@ function StudentTable({ rows }: { rows: AnalysisStudentRow[] }) {
           ))}
         </TableBody>
       </Table>
-      {filtered.length === 0 && <p className="mt-3 text-sm text-neutral-500">No students match that search.</p>}
+      {visible.length === 0 && <p className="mt-3 text-sm text-neutral-500">No students match that search.</p>}
     </Panel>
+  );
+}
+
+const TEST_FILLS = ["#191c5f", "#3b3f8f", "#5b61b5", "#38bdf8", "#15803d", "#a16207"];
+
+function StudentFocus({ student }: { student: AnalysisStudentFocus }) {
+  const testBar = student.tests
+    .filter((row) => row.percent != null)
+    .map((row, index) => ({
+      name: `Test ${row.testNumber}`,
+      value: row.percent ?? 0,
+      fill: TEST_FILLS[index % TEST_FILLS.length] ?? "#191c5f",
+    }));
+  const subjectBar = student.subjects.map((item) => ({
+    name: subjectName(item.subject),
+    value: item.avgPercent,
+    fill: SUBJECT_COLORS[item.subject] ?? "#191c5f",
+  }));
+  const subjectPie = student.subjects.map((item) => ({
+    name: subjectName(item.subject),
+    value: item.avgPercent,
+    fill: SUBJECT_COLORS[item.subject] ?? "#191c5f",
+  }));
+
+  return (
+    <div className="space-y-4">
+      {testBar.length > 0 && subjectPie.length > 0 && (
+        <ChartPair barTitle="Score by test" pieTitle="Average by subject" bar={testBar} pie={subjectPie} />
+      )}
+      {subjectBar.length > 0 && (
+        <Panel title="Subject performance" description="Lowest average first — those subjects need more work.">
+          <SubjectBarChart data={subjectBar} />
+        </Panel>
+      )}
+      <Panel title="Tests" description={`${student.tests.length} ${student.tests.length === 1 ? "test" : "tests"} for this student.`}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Test</TableHead>
+              <TableHead className="text-right">Average</TableHead>
+              {student.subjects.map((item) => (
+                <TableHead key={item.subject} className="text-right">
+                  {subjectName(item.subject)}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {student.tests.map((row) => (
+              <TableRow key={row.testId}>
+                <TableCell>
+                  <p className="font-semibold text-neutral-950">Test {row.testNumber}</p>
+                  <p className="text-xs text-neutral-500">ID {row.testId}</p>
+                </TableCell>
+                <TableCell className="text-right font-semibold tabular-nums">{formatPct(row.percent)}</TableCell>
+                {student.subjects.map((item) => {
+                  const hit = row.subjects.find((score) => score.subject === item.subject);
+                  return (
+                    <TableCell key={item.subject} className="text-right tabular-nums">
+                      {formatPct(hit?.percent)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Panel>
+    </div>
   );
 }
 
 export function AnalysisBoard({
   role,
-  basePath,
-  report,
+  report: initialReport,
 }: {
   role: "admin" | "school" | "teacher";
-  basePath: string;
   report: AnalysisReport;
 }) {
-  const router = useRouter();
+  const [report, setReport] = useState(initialReport);
+  const [params, setParams] = useState<AnalysisParams>({});
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
   const [pending, startTransition] = useTransition();
   const { scope, filters, totals } = report;
 
-  const go = (params: AnalysisParams) => {
-    startTransition(() => {
-      router.replace(analysisHref(basePath, params), { scroll: false });
-    });
+  const load = useCallback(
+    (next: AnalysisParams) => {
+      startTransition(async () => {
+        setReport(await loadAnalysisAction(role, next));
+      });
+    },
+    [role],
+  );
+
+  const go = (next: AnalysisParams) => {
+    setParams(next);
+    load(next);
   };
+
+  useLiveContent(
+    "results",
+    () => load(paramsRef.current),
+    role === "admin" ? "admin" : undefined,
+  );
+
+  useEffect(() => {
+    if (window.location.search) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   const current: AnalysisParams = {
     school: role === "admin" ? scope.schoolId : undefined,
@@ -230,53 +337,69 @@ export function AnalysisBoard({
     class: scope.classLevel,
     section: scope.sectionId,
     test: scope.testId,
+    student: scope.studentId,
   };
+  const studentView = Boolean(scope.studentId);
 
   const rootLabel = role === "admin" ? "All schools" : role === "teacher" ? "Your classes" : "All classes";
-  const crumbs = [
-    { label: rootLabel, href: basePath },
-    ...(scope.schoolName && role === "admin"
-      ? [{ label: scope.schoolName, href: analysisHref(basePath, { school: scope.schoolId }) }]
-      : []),
-    ...(scope.program
-      ? [
-          {
-            label: programLabel(scope.program),
-            href: analysisHref(basePath, { school: current.school, program: scope.program }),
-          },
-        ]
-      : []),
-    ...(scope.classLevel
-      ? [
-          {
-            label: classLabel(scope.classLevel),
-            href: analysisHref(basePath, {
-              school: current.school,
-              program: scope.program,
-              class: scope.classLevel,
-            }),
-          },
-        ]
-      : []),
-    ...(scope.sectionName
-      ? [
-          {
-            label: scope.sectionName,
-            href: analysisHref(basePath, { ...current, test: null, section: scope.sectionId }),
-          },
-        ]
-      : []),
-    ...(scope.testId
-      ? [
-          {
-            label: filters.tests.find((item) => item.id === scope.testId)?.label ?? scope.testId,
-            href: analysisHref(basePath, current),
-          },
-        ]
-      : []),
-  ];
+  type Crumb = { label: string; params?: AnalysisParams };
+  const crumbs: Crumb[] = studentView
+    ? [
+        { label: rootLabel, params: {} },
+        ...(scope.schoolName && role === "admin"
+          ? [{ label: scope.schoolName, params: { school: scope.schoolId } }]
+          : []),
+        { label: scope.studentName ?? "Student", params: { school: current.school, student: scope.studentId } },
+        ...(scope.testId
+          ? [
+              {
+                label: filters.tests.find((item) => item.id === scope.testId)?.label ?? scope.testId,
+                params: { school: current.school, student: scope.studentId, test: scope.testId },
+              },
+            ]
+          : []),
+      ]
+    : [
+        { label: rootLabel, params: {} },
+        ...(scope.schoolName && role === "admin"
+          ? [{ label: scope.schoolName, params: { school: scope.schoolId } }]
+          : []),
+        ...(scope.program
+          ? [{ label: programLabel(scope.program), params: { school: current.school, program: scope.program } }]
+          : []),
+        ...(scope.classLevel
+          ? [
+              {
+                label: classLabel(scope.classLevel),
+                params: { school: current.school, program: scope.program, class: scope.classLevel },
+              },
+            ]
+          : []),
+        ...(scope.sectionName
+          ? [
+              {
+                label: scope.sectionName,
+                params: {
+                  school: current.school,
+                  program: current.program,
+                  class: current.class,
+                  section: scope.sectionId,
+                },
+              },
+            ]
+          : []),
+        ...(scope.testId
+          ? [
+              {
+                label: filters.tests.find((item) => item.id === scope.testId)?.label ?? scope.testId,
+                params: { ...current, student: null },
+              },
+            ]
+          : []),
+      ];
 
   const empty =
+    !report.focus &&
     totals.students === 0 &&
     report.schools.length === 0 &&
     report.classes.length === 0 &&
@@ -293,21 +416,25 @@ export function AnalysisBoard({
     <div className={cn("space-y-5", pending && "opacity-70 transition-opacity")}>
       <div className="flex flex-wrap items-center gap-2">
         {crumbs.map((crumb, index) => (
-          <span key={crumb.href + crumb.label} className="flex items-center gap-2">
+          <span key={crumb.label + index} className="flex items-center gap-2">
             {index > 0 && <ChevronRight className="size-3.5 text-neutral-400" />}
             {index === crumbs.length - 1 ? (
               <span className="text-sm font-semibold text-neutral-900">{crumb.label}</span>
             ) : (
-              <Link href={crumb.href} className="text-sm font-medium text-brand-800 hover:underline">
+              <button
+                type="button"
+                onClick={() => crumb.params && go(crumb.params)}
+                className="text-sm font-medium text-brand-800 hover:underline"
+              >
                 {crumb.label}
-              </Link>
+              </button>
             )}
           </span>
         ))}
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {role === "admin" && filters.schools.length > 0 && (
+        {!studentView && role === "admin" && filters.schools.length > 0 && (
           <FilterSelect
             label="School"
             value={scope.schoolId ?? ALL}
@@ -315,11 +442,17 @@ export function AnalysisBoard({
               { value: ALL, label: "All schools" },
               ...filters.schools.map((school) => ({ value: school.id, label: school.name })),
             ]}
-            onChange={(value) => go({ school: value === ALL ? null : value })}
+            onChange={(value) =>
+              go({
+                school: value === ALL ? null : value,
+                program: current.program,
+                class: current.class,
+              })
+            }
             className="min-w-48"
           />
         )}
-        {(role !== "admin" || scope.schoolId) && filters.programs.length > 0 && (
+        {!studentView && filters.programs.length > 0 && (
           <FilterSelect
             label="Program"
             value={scope.program ?? ALL}
@@ -339,7 +472,7 @@ export function AnalysisBoard({
             className="min-w-44"
           />
         )}
-        {(role !== "admin" || scope.schoolId) && filters.classes.length > 0 && (
+        {!studentView && filters.classes.length > 0 && (
           <FilterSelect
             label="Class"
             value={scope.classLevel != null ? String(scope.classLevel) : ALL}
@@ -357,7 +490,7 @@ export function AnalysisBoard({
             className="min-w-36"
           />
         )}
-        {scope.classLevel != null && filters.sections.length > 1 && (
+        {!studentView && scope.classLevel != null && filters.sections.length > 1 && (
           <FilterSelect
             label="Section"
             value={scope.sectionId ?? ALL}
@@ -385,13 +518,19 @@ export function AnalysisBoard({
               ...filters.tests.map((test) => ({ value: test.id, label: test.label })),
             ]}
             onChange={(value) =>
-              go({
-                school: current.school,
-                program: current.program,
-                class: current.class,
-                section: current.section,
-                test: value === ALL ? null : value,
-              })
+              studentView
+                ? go({
+                    school: current.school,
+                    student: current.student,
+                    test: value === ALL ? null : value,
+                  })
+                : go({
+                    school: current.school,
+                    program: current.program,
+                    class: current.class,
+                    section: current.section,
+                    test: value === ALL ? null : value,
+                  })
             }
             className="min-w-44"
           />
@@ -408,19 +547,33 @@ export function AnalysisBoard({
         </div>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiTile label="Average" value={formatPct(totals.avgPercent)} hint="Across the latest test scores" tone="brand" />
-            <KpiTile label="Students" value={totals.students} hint={role === "admin" ? `${totals.schools} schools` : "In this view"} />
+          <div className={cn("grid gap-3 sm:grid-cols-2", report.focus ? "xl:grid-cols-3" : "xl:grid-cols-4")}>
+            <KpiTile
+              label="Estimated average"
+              value={formatPct(totals.avgPercent)}
+              hint={report.focus ? `${report.focus.name} · roll ${report.focus.rollNo}` : "Across tests in this view"}
+              tone="brand"
+            />
+            {!report.focus && (
+              <KpiTile
+                label="Students"
+                value={totals.students}
+                hint={role === "admin" ? `${totals.schools} schools` : "In this view"}
+              />
+            )}
             <KpiTile label="Tests" value={totals.tests} hint="OMR scans and uploaded sheets" />
             <KpiTile
               label="Weakest subject"
               value={totals.weakSubject ? subjectName(totals.weakSubject) : "—"}
-              hint="Lowest average in this view"
+              hint={report.focus ? "Lowest average for this student" : "Lowest average in this view"}
               tone={totals.weakSubject ? "bad" : "default"}
             />
           </div>
 
-          {chart.length > 0 && (
+          {report.focus ? (
+            <StudentFocus student={report.focus} />
+          ) : (
+            chart.length > 0 && (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
               <Panel title="Subject performance" description="Lowest average first — those subjects need more work.">
                 <SubjectBarChart data={chart} />
@@ -454,40 +607,39 @@ export function AnalysisBoard({
                 </ul>
               </Panel>
             </div>
+            )
           )}
 
           <GroupTable
             title="Schools"
-            description="Open a school for class, section, and program breakdowns."
+            description="Ranked by estimated average. Filter by program or class, then open a school."
             rows={report.schools}
-            hrefFor={(row) => analysisHref(basePath, { school: row.schoolId })}
+            onOpen={(row) => go({ school: row.schoolId })}
           />
           <GroupTable
             title="Programs"
-            description="How each program is performing in this school."
+            description="Ranked by estimated average. Open a program for class ranking."
             rows={report.programs}
-            hrefFor={(row) =>
-              analysisHref(basePath, { school: current.school, program: row.programCode })
-            }
+            onOpen={(row) => go({ school: current.school, program: row.programCode })}
           />
           <GroupTable
             title="Classes"
-            description="Class-wise averages. Open a class for sections and students."
+            description="Class-wise ranking and estimated average. Open a class for student ranking."
             rows={report.classes}
-            hrefFor={(row) =>
-              analysisHref(basePath, {
+            onOpen={(row) =>
+              go({
                 school: current.school,
-                program: current.program,
+                program: current.program ?? row.programCode,
                 class: row.classLevel,
               })
             }
           />
           <GroupTable
             title="Sections"
-            description="Section-wise averages for this class."
+            description="Section-wise averages for the classes in this view."
             rows={report.sections}
-            hrefFor={(row) =>
-              analysisHref(basePath, {
+            onOpen={(row) =>
+              go({
                 school: current.school,
                 program: current.program,
                 class: current.class,
@@ -495,21 +647,10 @@ export function AnalysisBoard({
               })
             }
           />
-          <GroupTable
-            title="Tests"
-            description="How the class moved from one test to the next. Open a test for student-wise scores."
-            rows={report.tests}
-            hrefFor={(row) =>
-              analysisHref(basePath, {
-                school: current.school,
-                program: current.program,
-                class: current.class,
-                section: current.section,
-                test: row.testId,
-              })
-            }
+          <StudentTable
+            rows={report.students}
+            onOpen={(row) => go({ school: current.school, student: row.studentId })}
           />
-          <StudentTable rows={report.students} />
         </>
       )}
     </div>

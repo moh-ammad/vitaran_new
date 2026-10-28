@@ -34,6 +34,24 @@ export type AnalysisStudentRow = {
   subjects: AnalysisSubjectStat[];
 };
 
+export type AnalysisStudentFocus = {
+  studentId: string;
+  name: string;
+  rollNo: string;
+  classLevel: number;
+  sectionName: string | null;
+  programName: string;
+  avgPercent: number | null;
+  weakSubject: Subject | null;
+  tests: Array<{
+    testId: string;
+    testNumber: number;
+    percent: number | null;
+    subjects: Array<{ subject: Subject; score: number; max: number | null; percent: number | null }>;
+  }>;
+  subjects: AnalysisSubjectStat[];
+};
+
 export type AnalysisReport = {
   scope: {
     schoolId: string | null;
@@ -43,6 +61,8 @@ export type AnalysisReport = {
     sectionId: string | null;
     sectionName: string | null;
     testId: string | null;
+    studentId: string | null;
+    studentName: string | null;
   };
   filters: {
     schools: Array<{ id: string; name: string; code: string }>;
@@ -65,4 +85,5 @@ export type AnalysisReport = {
   sections: AnalysisGroupRow[];
   tests: AnalysisGroupRow[];
   students: AnalysisStudentRow[];
+  focus: AnalysisStudentFocus | null;
 };

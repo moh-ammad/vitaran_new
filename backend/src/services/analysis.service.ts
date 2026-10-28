@@ -50,6 +50,24 @@ export type AnalysisStudentRow = {
   subjects: AnalysisSubjectStat[];
 };
 
+export type AnalysisStudentFocus = {
+  studentId: string;
+  name: string;
+  rollNo: string;
+  classLevel: number;
+  sectionName: string | null;
+  programName: string;
+  avgPercent: number | null;
+  weakSubject: Subject | null;
+  tests: Array<{
+    testId: string;
+    testNumber: number;
+    percent: number | null;
+    subjects: Array<{ subject: Subject; score: number; max: number | null; percent: number | null }>;
+  }>;
+  subjects: AnalysisSubjectStat[];
+};
+
 export type AnalysisReport = {
   scope: {
     schoolId: string | null;
@@ -59,6 +77,8 @@ export type AnalysisReport = {
     sectionId: string | null;
     sectionName: string | null;
     testId: string | null;
+    studentId: string | null;
+    studentName: string | null;
   };
   filters: {
     schools: Array<{ id: string; name: string; code: string }>;
@@ -81,6 +101,7 @@ export type AnalysisReport = {
   sections: AnalysisGroupRow[];
   tests: AnalysisGroupRow[];
   students: AnalysisStudentRow[];
+  focus: AnalysisStudentFocus | null;
 };
 
 export type AnalysisActor =
@@ -183,6 +204,37 @@ function groupRows(
     .sort((a, b) => (a.avgPercent ?? 101) - (b.avgPercent ?? 101));
 }
 
+function studentFocus(attempts: Attempt[]): AnalysisStudentFocus | null {
+  if (attempts.length === 0) return null;
+  const sample = attempts[0]!;
+  const stats = subjectStats(attempts);
+  const percents = attempts.map((row) => row.percent).filter((value): value is number => value != null);
+  return {
+    studentId: sample.studentId,
+    name: sample.name,
+    rollNo: sample.rollNo,
+    classLevel: sample.classLevel,
+    sectionName: sample.sectionName,
+    programName: sample.programName,
+    avgPercent: average(percents),
+    weakSubject: weakSubjectOf(stats),
+    tests: [...attempts]
+      .sort((a, b) => a.testNumber - b.testNumber || a.testId.localeCompare(b.testId))
+      .map((row) => ({
+        testId: row.testId,
+        testNumber: row.testNumber,
+        percent: row.percent,
+        subjects: row.subjects.map((item) => ({
+          subject: item.subject,
+          score: item.score,
+          max: item.max,
+          percent: percentOf(item.score, item.max),
+        })),
+      })),
+    subjects: stats,
+  };
+}
+
 function studentRows(attempts: Attempt[]): AnalysisStudentRow[] {
   const groups = new Map<string, Attempt[]>();
   for (const attempt of attempts) {
@@ -206,7 +258,7 @@ function studentRows(attempts: Attempt[]): AnalysisStudentRow[] {
         subjects: subjectStats(rows),
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => (b.avgPercent ?? -1) - (a.avgPercent ?? -1) || a.name.localeCompare(b.name));
 }
 
 function matchesProgram(attempt: Attempt, program: string) {
@@ -258,12 +310,16 @@ async function forTeacher(attempts: Attempt[], teacher: TeacherAccountDto): Prom
 }
 
 async function collectAttempts(schoolId?: string): Promise<Attempt[]> {
-  const [scans, students, sets] = await Promise.all([
+  const [scans, students, sets, releases] = await Promise.all([
     omScanRepository.findOmScans(schoolId ? { schoolId } : {}),
     studentRepository.listAnalysisStudents(schoolId),
     resultRepository.findResultSets(schoolId ? { schoolId } : {}),
+    omScanRepository.findOmResultReleases({ published: true, ...(schoolId ? { schoolId } : {}) }),
   ]);
 
+  const released = new Set(
+    releases.map((row) => [row.schoolId, row.testId, row.programId, row.classLevel, row.sectionKey].join(":")),
+  );
   const byKey = new Map<string, Attempt>();
 
   for (const scan of scans) {
@@ -284,7 +340,11 @@ async function collectAttempts(schoolId?: string): Promise<Attempt[]> {
       testId: scan.testId,
       testNumber: scan.answerKey.testNumber,
       source: "omr",
-      published: true,
+      published: released.has(
+        [scan.schoolId, scan.testId, scan.student.programId, scan.student.classLevel, scan.student.sectionId ?? "class"].join(
+          ":",
+        ),
+      ),
       subjects: scores.map((item) => ({ subject: item.subject, score: item.total, max: item.maxTotal })),
       percent: percentOf(scan.total, scan.maxTotal),
     };
@@ -368,7 +428,10 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
     collectAttempts(schoolId),
     actor ? Promise.resolve([]) : schoolRepository.findSchoolOptions({ status: SchoolStatus.ACTIVE }),
   ]);
-  const attempts = actor?.kind === "teacher" ? await forTeacher(rawAttempts, actor.teacher) : rawAttempts;
+  const attempts =
+    actor?.kind === "teacher"
+      ? await forTeacher(rawAttempts, actor.teacher)
+      : rawAttempts.filter((row) => row.published);
 
   const inSchool = schoolId ? attempts.filter((row) => row.schoolId === schoolId) : attempts;
   const inProgram = query.program ? inSchool.filter((row) => matchesProgram(row, query.program!)) : inSchool;
@@ -379,7 +442,8 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
       : query.section
         ? inClass.filter((row) => row.sectionId === query.section)
         : inClass;
-  const scoped = query.test ? inSection.filter((row) => row.testId === query.test) : inSection;
+  const inStudent = query.student ? inSection.filter((row) => row.studentId === query.student) : inSection;
+  const scoped = query.test ? inStudent.filter((row) => row.testId === query.test) : inStudent;
 
   const catalogSchool = schoolOptionsRows.find((row) => row.id === schoolId);
   const schoolName = schoolId
@@ -396,23 +460,23 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
         : null;
 
   const schools = groupRows(
-    inSchool,
+    inClass,
     (row) => row.schoolId,
     (row) => row.schoolName,
     (row) => ({ schoolId: row.schoolId }),
-  );
+  ).sort((a, b) => (b.avgPercent ?? -1) - (a.avgPercent ?? -1));
   const programs = groupRows(
     inProgram,
     (row) => row.programCode,
     (row) => row.programName,
     (row) => ({ programCode: row.programCode }),
-  );
+  ).sort((a, b) => (b.avgPercent ?? -1) - (a.avgPercent ?? -1));
   const classes = groupRows(
     inProgram,
-    (row) => String(row.classLevel),
+    (row) => `${row.programCode}:${row.classLevel}`,
     (row) => `Class ${row.classLevel}`,
-    (row) => ({ classLevel: row.classLevel }),
-  );
+    (row) => ({ classLevel: row.classLevel, programCode: row.programCode }),
+  ).sort((a, b) => (b.avgPercent ?? -1) - (a.avgPercent ?? -1));
   const sections = groupRows(
     inClass,
     (row) => row.sectionId ?? WHOLE_CLASS,
@@ -429,15 +493,20 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
     (row) => ({ testId: row.testId, testNumber: row.testNumber }),
   ).sort((a, b) => (b.testNumber ?? 0) - (a.testNumber ?? 0) || a.label.localeCompare(b.label));
 
-  const teacherView = actor?.kind === "teacher";
+  const studentView = Boolean(query.student);
+  const portalView = actor != null;
+  const focus = studentView ? studentFocus(scoped) : null;
   const subjects = subjectStats(scoped);
   const percents = scoped.map((row) => row.percent).filter((value): value is number => value != null);
-  const showSchools = !lockedSchoolId && !schoolId;
-  const showPrograms = Boolean(schoolId) && query.class == null;
-  const showClasses = Boolean(schoolId) && query.class == null;
-  const showSections = Boolean(schoolId) && query.class != null && query.section == null && sections.length > 1;
-  const showTests = (teacherView || Boolean(schoolId)) && query.test == null;
-  const showStudents = teacherView || (Boolean(schoolId) && query.class != null);
+  const showSchools = !studentView && !lockedSchoolId && !schoolId;
+  const showPrograms =
+    !studentView && Boolean(schoolId) && query.program == null && query.class == null && programs.length > 1;
+  const showClasses =
+    !studentView && Boolean(schoolId) && query.class == null && (Boolean(query.program) || programs.length <= 1);
+  const showSections =
+    !studentView && Boolean(schoolId) && query.class != null && query.section == null && sections.length > 1;
+  const showTests = false;
+  const showStudents = !studentView && portalView && query.class != null;
 
   const schoolOptions =
     schoolOptionsRows.length > 0
@@ -459,7 +528,10 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
   ].sort((a, b) => a.name.localeCompare(b.name));
   const testOptions = [
     ...new Map(
-      inSection.map((row) => [row.testId, { id: row.testId, label: `Test ${row.testNumber} · ${row.testId}` }]),
+      (query.student ? inStudent : inSection).map((row) => [
+        row.testId,
+        { id: row.testId, label: `Test ${row.testNumber} · ${row.testId}` },
+      ]),
     ).values(),
   ];
 
@@ -472,6 +544,8 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
       sectionId: query.section ?? null,
       sectionName,
       testId: query.test ?? null,
+      studentId: query.student ?? null,
+      studentName: focus?.name ?? null,
     },
     filters: {
       schools: schoolOptions,
@@ -494,5 +568,6 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
     sections: showSections ? sections : [],
     tests: showTests ? testRows : [],
     students: showStudents ? studentRows(scoped) : [],
+    focus,
   };
 }

@@ -14,6 +14,8 @@ export type ResultClass = {
 /** One test's results for one school and program. */
 export type ResultSet = Publishable & {
   id: string;
+  /** Uploaded Excel sheet, or a published OMR scan with no matching upload. */
+  source?: "upload" | "omr";
   school: SchoolRef & { type: SchoolType };
   /** Regular schools. */
   program: Program | null;

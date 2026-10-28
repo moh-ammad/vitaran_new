@@ -91,6 +91,7 @@ export function updateOmScan(id: string, data: Prisma.OmScanUncheckedUpdateInput
 }
 
 export const omResultReleaseSelect = {
+  schoolId: true,
   testId: true,
   programId: true,
   classLevel: true,
