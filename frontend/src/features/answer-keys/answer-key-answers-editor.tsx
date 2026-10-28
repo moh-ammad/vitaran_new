@@ -44,6 +44,9 @@ export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKe
   );
 
   const [filter, setFilter] = useState<"all" | "filled" | "missing">("all");
+  const [subject, setSubject] = useState<SubjectRange["subject"] | null>(
+    () => answerKey.subjectRanges[0]?.subject ?? null,
+  );
   const [printedAnswers, setPrintedAnswers] = useState(() => answerKey.printedAnswers ?? {});
   const [printedExplanations, setPrintedExplanations] = useState(
     () => answerKey.printedExplanations ?? {},
@@ -83,6 +86,11 @@ export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKe
         setPrintedAnswers(saved.printedAnswers ?? {});
         setPrintedExplanations(saved.printedExplanations ?? {});
         setRanges(saved.subjectRanges);
+        setSubject((current) =>
+          saved.subjectRanges.some((range) => range.subject === current)
+            ? current
+            : (saved.subjectRanges[0]?.subject ?? null),
+        );
         setPattern(saved.pattern ?? pattern);
         setBaseline(snapshot(saved.answers, saved.explanations, saved.subjectRanges, saved.pattern ?? pattern));
         toast.success("Saved");
@@ -101,6 +109,11 @@ export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKe
         setPrintedExplanations(parsed.printedExplanations ?? {});
         setExplanations(parsed.explanations);
         setRanges(parsed.subjectRanges);
+        setSubject((current) =>
+          parsed.subjectRanges.some((range) => range.subject === current)
+            ? current
+            : (parsed.subjectRanges[0]?.subject ?? null),
+        );
         if (parsed.pattern) {
           setPattern(parsed.pattern);
           setAnswers(rewriteKeyAnswers(parsed.answers, parsed.pattern));
@@ -191,12 +204,46 @@ export function AnswerKeyAnswersEditor({ answerKey, readOnly = false }: AnswerKe
         </div>
       )}
 
+      {ranges.length > 1 && (
+        <nav
+          aria-label="Subject"
+          className="sticky top-0 z-10 -mx-1 flex gap-1.5 overflow-x-auto bg-neutral-50/95 px-1 py-2 backdrop-blur-sm"
+        >
+          {ranges.map((range) => {
+            const count = questionsIn(range).length;
+            const filled = questionsIn(range).filter((question) => answers[String(question)]).length;
+            const active = subject === range.subject;
+            return (
+              <button
+                key={`${range.subject}-${range.from}`}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                onClick={() => setSubject(range.subject)}
+                className={cn(
+                  "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold",
+                  active
+                    ? "border-brand-900 bg-brand-900 text-white"
+                    : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50",
+                )}
+              >
+                {SUBJECT_LABELS[range.subject]}
+                <span className={cn("ml-1.5 tabular-nums", active ? "text-white/80" : "text-neutral-500")}>
+                  {filled}/{count}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
       {ranges.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">
           {readOnly ? "No answers published for this test yet." : "No answers stored yet. Re-parse the PDF or fill them in."}
         </p>
       ) : (
-        ranges.map((range) => {
+        ranges
+          .filter((range) => subject == null || range.subject === subject)
+          .map((range) => {
           const shown = visibleQuestions(range);
           if (shown.length === 0) return null;
           return (
