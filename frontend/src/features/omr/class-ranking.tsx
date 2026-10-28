@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SUBJECT_LABELS } from "@/features/schools/constants";
+import { capitalizeWords } from "@/features/schools/schema";
 import type { OmScan } from "@/types/om-scan";
 
 function scopeKey(row: OmScan) {
@@ -14,7 +15,7 @@ function scopeTitle(row: OmScan) {
   const klass = row.student.sectionName
     ? `Class ${row.student.classLevel}-${row.student.sectionName}`
     : `Class ${row.student.classLevel}`;
-  const meta = `${klass} · ${row.student.programName} · Test ${row.testNumber} · ID ${row.testId}`;
+  const meta = `${klass} · ${capitalizeWords(row.student.programName)} · Test ${row.testNumber} · ID ${row.testId}`;
   if (row.view === "class") return meta;
   const subjects = row.subjectScores.map((s) => SUBJECT_LABELS[s.subject] ?? s.subject).join(" · ");
   return `${meta} · ${subjects || "your subjects"}`;
@@ -53,7 +54,9 @@ export function ClassRanking({ scans, testId }: { scans: OmScan[]; testId?: stri
                   >
                     <span className="w-8 text-sm font-bold tabular-nums text-neutral-500">{row.rank ?? "—"}</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold text-brand-900">{row.student.name}</span>
+                      <span className="block truncate font-semibold text-brand-900">
+                        {capitalizeWords(row.student.name)}
+                      </span>
                       <span className="text-xs text-neutral-500 tabular-nums">{row.rollNo}</span>
                     </span>
                     <span className="text-sm font-bold tabular-nums">
@@ -78,7 +81,7 @@ export function ClassRanking({ scans, testId }: { scans: OmScan[]; testId?: stri
                     <td className="px-4 py-2.5 font-bold tabular-nums">{row.rank ?? "—"}</td>
                     <td className="px-4 py-2.5">
                       <Link href={`/teacher/omr-scan/${row.id}`} className="font-semibold text-brand-900 hover:underline">
-                        {row.student.name}
+                        {capitalizeWords(row.student.name)}
                       </Link>
                     </td>
                     <td className="px-4 py-2.5 tabular-nums">{row.rollNo}</td>
