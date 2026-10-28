@@ -10,6 +10,7 @@ import type { SubjectRange } from "./answer-key-parse.js";
 import type { CellValue } from "./excel.js";
 
 export type RosterStudent = {
+  id?: string;
   name: string;
   rollNo: string;
   classLevel: number;
@@ -89,7 +90,7 @@ function studentScope(student: RosterStudent): StudentScope {
   };
 }
 
-function matchRoster(row: CellValue[], columns: string[], roster: RosterStudent[]) {
+export function matchRosterStudent(row: CellValue[], columns: string[], roster: RosterStudent[]) {
   const rollCol = colIndex(columns, [/^roll/, /regd/, /registration/]);
   const nameCol = colIndex(columns, [/candidate\s*name/, /student\s*name/, /^name$/, /name of/]);
   const roll = rollCol >= 0 ? normalizeRoll(row[rollCol] ?? null) : "";
@@ -238,36 +239,64 @@ function rewriteClassCell(row: CellValue[], columns: string[], student: RosterSt
 
 export type OmOverlayScan = {
   rollNo: string;
+  name?: string;
   subjectScores: Array<{ subject: Subject; total: number }>;
   total: number;
   maxTotal: number;
 };
 
-/** OMR scores win over uploaded Excel for the same roll on this test. */
+function applyOmrToRow(columns: string[], row: CellValue[], scan: OmOverlayScan): CellValue[] {
+  const next = [...row];
+  columns.forEach((label, index) => {
+    const subject = subjectForColumn(label);
+    if (subject) {
+      const hit = scan.subjectScores.find((item) => item.subject === subject);
+      if (hit) next[index] = hit.total;
+      return;
+    }
+    const text = compactLabel(label);
+    if (/total marks|grand total|^total$/.test(text)) next[index] = scan.total;
+    if (/percentage|percent|^%$/.test(text) && scan.maxTotal) {
+      next[index] = Math.round((scan.total / scan.maxTotal) * 1000) / 10;
+    }
+  });
+  return next;
+}
+
+function rowFromOmScan(columns: string[], scan: OmOverlayScan): CellValue[] {
+  const rollCol = colIndex(columns, [/^roll/, /regd/, /registration/]);
+  const nameCol = colIndex(columns, [/candidate\s*name/, /student\s*name/, /^name$/, /name of/]);
+  return columns.map((label, index) => {
+    if (index === rollCol) return scan.rollNo;
+    if (index === nameCol) return scan.name ?? null;
+    const subject = subjectForColumn(label);
+    if (subject) {
+      const hit = scan.subjectScores.find((item) => item.subject === subject);
+      return hit ? hit.total : null;
+    }
+    const text = compactLabel(label);
+    if (/total marks|grand total|^total$/.test(text)) return scan.total;
+    if (/percentage|percent|^%$/.test(text) && scan.maxTotal) {
+      return Math.round((scan.total / scan.maxTotal) * 1000) / 10;
+    }
+    return null;
+  });
+}
+
+/** OMR scores win over uploaded Excel for the same roll on this test. Missing OMR students are appended. */
 export function overlayOmrOnRows(columns: string[], rows: CellValue[][], scans: OmOverlayScan[]): CellValue[][] {
   if (scans.length === 0) return rows;
   const byRoll = new Map(scans.map((scan) => [normalizeRoll(scan.rollNo), scan]));
   const rollCol = colIndex(columns, [/^roll/, /regd/, /registration/]);
-  return rows.map((row) => {
+  const overlaid = rows.map((row) => {
     const roll = rollCol >= 0 ? normalizeRoll(row[rollCol] ?? null) : "";
     const scan = roll ? byRoll.get(roll) : undefined;
-    if (!scan) return row;
-    const next = [...row];
-    columns.forEach((label, index) => {
-      const subject = subjectForColumn(label);
-      if (subject) {
-        const hit = scan.subjectScores.find((item) => item.subject === subject);
-        if (hit) next[index] = hit.total;
-        return;
-      }
-      const text = compactLabel(label);
-      if (/total marks|grand total|^total$/.test(text)) next[index] = scan.total;
-      if (/percentage|percent|^%$/.test(text) && scan.maxTotal) {
-        next[index] = Math.round((scan.total / scan.maxTotal) * 1000) / 10;
-      }
-    });
-    return next;
+    return scan ? applyOmrToRow(columns, row, scan) : row;
   });
+  if (rollCol < 0) return overlaid;
+  const seen = new Set(overlaid.map((row) => normalizeRoll(row[rollCol] ?? null)).filter(Boolean));
+  const extras = scans.filter((scan) => !seen.has(normalizeRoll(scan.rollNo)));
+  return extras.length === 0 ? overlaid : [...overlaid, ...extras.map((scan) => rowFromOmScan(columns, scan))];
 }
 
 export function findRowForStudent(
@@ -295,7 +324,7 @@ export function projectSheetForTeacher(
 ): ScopedSheet {
   const kept: Array<{ row: CellValue[]; access: RowAccess; classLevel: number; sectionName: string | null }> = [];
   for (const row of rows) {
-    const student = matchRoster(row, columns, roster);
+    const student = matchRosterStudent(row, columns, roster);
     if (!student) continue;
     const access = accessFor(teacher, student);
     if (!access) continue;

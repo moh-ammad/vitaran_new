@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ChartColumn,
   KeyRound,
   LayoutDashboard,
   ScanLine,
@@ -31,6 +32,7 @@ export const teacherNavGroups: TeacherNavGroup[] = [
       { title: "Resources", href: "/teacher/resources", icon: BookOpen },
       { title: "Answer Keys", href: "/teacher/answer-keys", icon: KeyRound },
       { title: "Results", href: "/teacher/results", icon: Trophy },
+      { title: "Analysis", href: "/teacher/analysis", icon: ChartColumn },
       { title: "OMR Scan", href: "/teacher/omr-scan", icon: ScanLine },
     ],
   },
@@ -59,6 +61,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   answers: "Key corrections",
   edit: "Edit",
   results: "Results",
+  analysis: "Analysis",
   "omr-scan": "OMR Scan",
 };
 

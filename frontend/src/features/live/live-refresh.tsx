@@ -10,7 +10,7 @@ export type LiveContentKind = "answer-keys" | "results";
  * Re-renders the page when the admin publishes, hides, edits or deletes this kind of content,
  * so schools/teachers/students see changes without reloading.
  */
-export function LiveRefresh({ kind, as }: { kind: LiveContentKind; as?: "student" }) {
+export function LiveRefresh({ kind, as }: { kind: LiveContentKind; as?: "student" | "admin" }) {
   const router = useRouter();
   const refresh = useCallback(() => router.refresh(), [router]);
   useLiveContent(kind, refresh, as);

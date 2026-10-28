@@ -82,19 +82,28 @@ export function findResultSet(where: Prisma.ResultSetWhereInput) {
   return prisma.resultSet.findFirst({ where, select: resultSetSummarySelect });
 }
 
+const resultSheetRowsSelect = {
+  classLevel: true,
+  caption: true,
+  columns: true,
+  rowCount: true,
+  fileName: true,
+  fileSize: true,
+  updatedAt: true,
+  rows: { select: { values: true }, orderBy: { position: "asc" as const } },
+};
+
 export function findResultSheet(where: Prisma.ResultSheetWhereInput) {
   return prisma.resultSheet.findFirst({
     where,
-    select: {
-      classLevel: true,
-      caption: true,
-      columns: true,
-      rowCount: true,
-      fileName: true,
-      fileSize: true,
-      updatedAt: true,
-      rows: { select: { values: true }, orderBy: { position: "asc" } },
-    },
+    select: resultSheetRowsSelect,
+  });
+}
+
+export function findResultSheetsBySetIds(resultSetIds: string[]) {
+  return prisma.resultSheet.findMany({
+    where: { resultSetId: { in: resultSetIds } },
+    select: { resultSetId: true, ...resultSheetRowsSelect },
   });
 }
 

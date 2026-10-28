@@ -1,5 +1,6 @@
 import {
   BookMarked,
+  ChartColumn,
   CirclePlus,
   GraduationCap,
   KeyRound,
@@ -41,6 +42,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       { title: "Answer Keys", href: "/admin/answer-keys", icon: KeyRound },
       { title: "Results", href: "/admin/results", icon: Trophy },
+      { title: "Analysis", href: "/admin/analysis", icon: ChartColumn },
     ],
   },
 ];
@@ -91,6 +93,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   "answer-keys": "Answer Keys",
   upload: "Upload",
   results: "Results",
+  analysis: "Analysis",
   classes: "Classes",
   students: "Students",
 };

@@ -432,12 +432,16 @@ export async function listTeacherOmScans(teacher: TeacherAccountDto, testId?: st
   }));
 }
 
-export type OmScanViewer = { kind: "admin" } | { kind: "teacher"; teacher: TeacherAccountDto } | { kind: "released" };
+export type OmScanViewer =
+  | { kind: "admin" }
+  | { kind: "school" }
+  | { kind: "teacher"; teacher: TeacherAccountDto }
+  | { kind: "released" };
 
-/** Scans for one test that this viewer may see: admin all, class teacher their class, others released only. */
+/** Admin and school see every scan. Class teachers see their class. Students and subject teachers see released only. */
 export async function findVisibleOmScans(schoolId: string, testId: string, viewer: OmScanViewer) {
   const rows = await omScanRepository.findOmScans({ schoolId, testId });
-  if (viewer.kind === "admin") return rows;
+  if (viewer.kind === "admin" || viewer.kind === "school") return rows;
   const released = await releasedKeys(schoolId, [testId]);
   return rows.filter(
     (row) =>

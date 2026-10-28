@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
 import { hasListFilters, parseListFilters } from "@/features/documents/list-filters";
 import { ListFiltersBar } from "@/features/documents/list-filters-bar";
+import { LiveRefresh } from "@/features/live/live-refresh";
 import { RESULT_UPLOAD_PATH } from "@/features/results/constants";
 import { ResultsTable } from "@/features/results/results-table";
 import { listResultSets } from "@/services/results";
@@ -18,6 +19,7 @@ export default async function AdminResultsPage({ searchParams }: PageProps<"/adm
 
   return (
     <>
+      <LiveRefresh kind="results" as="admin" />
       <PageHeader
         title="Results"
         count={resultSets.length}

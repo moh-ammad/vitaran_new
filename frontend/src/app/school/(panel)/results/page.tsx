@@ -6,7 +6,8 @@ export default async function SchoolResultsPage() {
     <PortalResultsBoard
       role="school"
       basePath={SCHOOL_RESULTS_PATH}
-      description="Published results for your school."
+      description="OMR scores update these sheets as class teachers scan, even before they publish to students."
+      emptyHint="Uploaded sheets appear here. OMR scores overlay them as soon as class teachers scan — Analysis covers OMR-only tests too."
     />
   );
 }

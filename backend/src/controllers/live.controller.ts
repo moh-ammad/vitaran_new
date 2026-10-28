@@ -48,3 +48,25 @@ export const streamTeacherEvents: RequestHandler = (req, res) => {
   const teacher = res.locals.teacher as TeacherAccountDto;
   streamContentEvents(res, teacher.school.id, req);
 };
+
+/** Admin sees every school's scans and uploads as they land. */
+export const streamAdminEvents: RequestHandler = (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+  res.write(`retry: ${RETRY_MS}\n\n`);
+
+  const unsubscribe = onContentChanged(({ kind }) => {
+    res.write(`event: change\ndata: ${JSON.stringify({ kind })}\n\n`);
+  });
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), HEARTBEAT_MS);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
+};

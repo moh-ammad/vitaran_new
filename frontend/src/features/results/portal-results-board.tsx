@@ -15,10 +15,11 @@ type PortalResultsBoardProps = {
   role: "school" | "teacher";
   basePath: string;
   description: string;
+  emptyHint?: string;
 };
 
 /** Reloads when admin publishes/hides results — live stream + focus/visibility. */
-export function PortalResultsBoard({ role, basePath, description }: PortalResultsBoardProps) {
+export function PortalResultsBoard({ role, basePath, description, emptyHint }: PortalResultsBoardProps) {
   const [resultSets, setResultSets] = useState<ResultSet[] | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -67,6 +68,7 @@ export function PortalResultsBoard({ role, basePath, description }: PortalResult
           key={resultSets.map((set) => `${set.id}:${set.updatedAt}`).join("|")}
           resultSets={resultSets}
           basePath={basePath}
+          emptyHint={emptyHint}
         />
       </div>
     </>

@@ -1,4 +1,4 @@
-import { BookOpen, KeyRound, ScanLine, Trophy, Users } from "lucide-react";
+import { BookOpen, ChartColumn, KeyRound, ScanLine, Trophy, Users } from "lucide-react";
 import { PageHeader } from "@/features/admin/page-header";
 import { StatCard } from "@/features/admin/dashboard-parts";
 import { ChipRow, QuickLinks } from "@/features/admin/quick-links";
@@ -37,6 +37,12 @@ export default async function TeacherDashboardPage() {
       icon: Trophy,
       count: stats.results,
       hint: `${stats.results} published`,
+    },
+    {
+      label: "Analysis",
+      href: "/teacher/analysis",
+      icon: ChartColumn,
+      hint: "Class and subject performance",
     },
     {
       label: "OMR Scan",

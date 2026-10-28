@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { CheckCircle2, KeyRound, Plus, School, Trophy, Upload } from "lucide-react";
+import { ChartColumn, CheckCircle2, KeyRound, Plus, School, Trophy, Upload } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Empty,
@@ -116,6 +116,12 @@ async function DashboardContent() {
           hint={`${results.published} published · ${hiddenCount(results)} hidden`}
           icon={Trophy}
           href="/admin/results"
+        />
+        <StatCard
+          label="Analysis"
+          hint="School-wise performance from latest scores"
+          icon={ChartColumn}
+          href="/admin/analysis"
         />
       </div>
 

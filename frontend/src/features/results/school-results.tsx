@@ -13,9 +13,11 @@ import { resultProgramLabel, resultSetHref, TEACHER_RESULTS_PATH } from "./const
 export function SchoolResults({
   resultSets,
   basePath = TEACHER_RESULTS_PATH,
+  emptyHint = "Test results for your school will appear here as soon as they're published.",
 }: {
   resultSets: ResultSet[];
   basePath?: string;
+  emptyHint?: string;
 }) {
   const programs = [...new Set(resultSets.map(resultProgramLabel))].sort((a, b) => a.localeCompare(b));
   const [program, setProgram] = useState(programs[0]);
@@ -27,9 +29,7 @@ export function SchoolResults({
           <Trophy className="size-5" />
         </span>
         <p className="text-base font-semibold text-neutral-950">No results yet</p>
-        <p className="max-w-sm text-sm text-brand-700">
-          Test results for your school will appear here as soon as they&apos;re published.
-        </p>
+        <p className="max-w-sm text-sm text-brand-700">{emptyHint}</p>
       </div>
     );
   }

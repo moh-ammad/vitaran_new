@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
+import { LiveRefresh } from "@/features/live/live-refresh";
 import { RESULTS_PATH, resultEditHref } from "@/features/results/constants";
 import { ResultSetView, selectedClass } from "@/features/results/result-set-view";
 import { getResultSet, getResultSheet } from "@/services/results";
@@ -16,6 +17,8 @@ export default async function ResultPage({ params, searchParams }: PageProps<"/a
   if (!resultSet || !sheet) notFound();
 
   return (
+    <>
+    <LiveRefresh kind="results" as="admin" />
     <ResultSetView
       resultSet={resultSet}
       sheet={sheet}
@@ -31,5 +34,6 @@ export default async function ResultPage({ params, searchParams }: PageProps<"/a
         </Link>
       }
     />
+    </>
   );
 }

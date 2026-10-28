@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ChartColumn,
   KeyRound,
   LayoutDashboard,
   School2,
@@ -37,6 +38,7 @@ export const schoolNavGroups: SchoolNavGroup[] = [
       { title: "Resources", href: "/school/resources", icon: BookOpen },
       { title: "Answer Keys", href: "/school/answer-keys", icon: KeyRound },
       { title: "Results", href: "/school/results", icon: Trophy },
+      { title: "Analysis", href: "/school/analysis", icon: ChartColumn },
     ],
   },
 ];
@@ -71,6 +73,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   resources: "Resources",
   "answer-keys": "Answer Keys",
   results: "Results",
+  analysis: "Analysis",
 };
 
 function crumbLabel(segment: string, previous: string | undefined) {

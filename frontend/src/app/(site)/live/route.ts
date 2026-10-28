@@ -1,5 +1,10 @@
 import { cookies } from "next/headers";
-import { SCHOOL_SESSION_COOKIE, STUDENT_SESSION_COOKIE, TEACHER_SESSION_COOKIE } from "@/constants/auth";
+import {
+  ADMIN_SESSION_COOKIE,
+  SCHOOL_SESSION_COOKIE,
+  STUDENT_SESSION_COOKIE,
+  TEACHER_SESSION_COOKIE,
+} from "@/constants/auth";
 import { buildApiUrl } from "@/services/api-client";
 
 export const dynamic = "force-dynamic";
@@ -17,19 +22,25 @@ export async function GET(request: Request) {
   const schoolToken = jar.get(SCHOOL_SESSION_COOKIE)?.value;
   const teacherToken = jar.get(TEACHER_SESSION_COOKIE)?.value;
   const studentToken = jar.get(STUDENT_SESSION_COOKIE)?.value;
-  // Student pages ask for their own stream; school/teacher pages use the default order.
-  const wantsStudent = new URL(request.url).searchParams.get("as") === "student";
+  const adminToken = jar.get(ADMIN_SESSION_COOKIE)?.value;
+  const as = new URL(request.url).searchParams.get("as");
+  const wantsStudent = as === "student";
+  const wantsAdmin = as === "admin";
 
   const [upstreamPath, token] =
-    wantsStudent && studentToken
-      ? ["/student/events", studentToken]
-      : schoolToken
-        ? ["/school/events", schoolToken]
-        : teacherToken
-          ? ["/teacher/events", teacherToken]
-          : studentToken
-            ? ["/student/events", studentToken]
-            : [null, undefined];
+    wantsAdmin && adminToken
+      ? ["/admin/events", adminToken]
+      : wantsStudent && studentToken
+        ? ["/student/events", studentToken]
+        : schoolToken
+          ? ["/school/events", schoolToken]
+          : teacherToken
+            ? ["/teacher/events", teacherToken]
+            : studentToken
+              ? ["/student/events", studentToken]
+              : adminToken
+                ? ["/admin/events", adminToken]
+                : [null, undefined];
   if (!upstreamPath || !token) return new Response(null, { status: 401 });
 
   try {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -17,16 +18,36 @@ function classLabel(row: OmResultRelease) {
 }
 
 export function ReleasePanel({ releases }: { releases: OmResultRelease[] }) {
-  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+  const router = useRouter();
+  const [rows, setRows] = useState(releases);
+  const [seen, setSeen] = useState(releases);
+  const held = useRef<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  if (releases.length === 0) return null;
+  if (seen !== releases) {
+    setSeen(releases);
+    setRows(
+      releases.map((row) => {
+        const key = slotKey(row);
+        const local = held.current[key];
+        if (local == null) return row;
+        if (local === row.published) {
+          delete held.current[key];
+          return row;
+        }
+        return { ...row, published: local };
+      }),
+    );
+  }
+
+  if (rows.length === 0) return null;
 
   function toggle(row: OmResultRelease, published: boolean) {
     const key = slotKey(row);
+    held.current[key] = published;
     setBusy(key);
-    setOverrides((prev) => ({ ...prev, [key]: published }));
+    setRows((prev) => prev.map((item) => (slotKey(item) === key ? { ...item, published } : item)));
     startTransition(async () => {
       const result = await setOmResultReleaseAction({
         testId: row.testId,
@@ -36,16 +57,17 @@ export function ReleasePanel({ releases }: { releases: OmResultRelease[] }) {
         published,
       });
       setBusy(null);
-      setOverrides((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
       if (!result.ok) {
+        delete held.current[key];
+        setRows((prev) => prev.map((item) => (slotKey(item) === key ? { ...item, published: row.published } : item)));
         toast.error(result.message);
         return;
       }
-      toast.success(published ? "Results published." : "Results hidden.");
+      const next = result.release?.published ?? published;
+      held.current[key] = next;
+      setRows((prev) => prev.map((item) => (slotKey(item) === key ? { ...item, published: next } : item)));
+      toast.success(next ? "Results published." : "Results hidden.");
+      router.refresh();
     });
   }
 
@@ -53,9 +75,9 @@ export function ReleasePanel({ releases }: { releases: OmResultRelease[] }) {
     <section className="rounded-2xl border border-neutral-200 bg-white p-3 sm:p-4">
       <h2 className="mb-2 text-sm font-bold text-neutral-950">Publish results</h2>
       <ul className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200">
-        {releases.map((row) => {
+        {rows.map((row) => {
           const key = slotKey(row);
-          const published = overrides[key] ?? row.published;
+          const published = row.published;
           return (
             <li key={key} className="flex items-center gap-3 px-3 py-2.5">
               <div className="min-w-0 flex-1">
@@ -79,7 +101,7 @@ export function ReleasePanel({ releases }: { releases: OmResultRelease[] }) {
                 ) : (
                   <EyeOff className="size-3" />
                 )}
-                {published ? "Show results" : "Hide results"}
+                {published ? "Showing" : "Hidden"}
               </span>
               <Switch
                 checked={published}

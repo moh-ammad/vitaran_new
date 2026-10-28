@@ -67,6 +67,27 @@ export function listSchoolRoster(schoolId: string) {
   });
 }
 
+export function listAnalysisStudents(schoolId?: string) {
+  return prisma.student.findMany({
+    where: {
+      status: StudentStatus.ACTIVE,
+      ...(schoolId ? { schoolId } : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      rollNo: true,
+      schoolId: true,
+      classLevel: true,
+      sectionId: true,
+      programId: true,
+      school: { select: { id: true, name: true, code: true } },
+      program: { select: { id: true, code: true, name: true } },
+      section: { select: { id: true, name: true } },
+    },
+  });
+}
+
 export function findStudentBySchoolAndRoll(schoolId: string, rollNo: string) {
   return prisma.student.findUnique({
     where: { schoolId_rollNo: { schoolId, rollNo } },

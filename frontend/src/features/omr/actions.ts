@@ -24,9 +24,12 @@ export async function scanOmrAction(
     const result = await scanTeacherOmr(file, identity);
     revalidatePath("/teacher/omr-scan");
     revalidatePath("/teacher/results");
+    revalidatePath("/teacher/analysis");
     revalidatePath("/school/results");
+    revalidatePath("/school/analysis");
     revalidatePath("/student/results");
     revalidatePath("/admin/results");
+    revalidatePath("/admin/analysis");
     return { ok: true, result };
   } catch (error) {
     if (error instanceof ApiError) return { ok: false, message: error.message };
@@ -44,7 +47,10 @@ export async function setOmResultReleaseAction(input: {
   try {
     const release = await setOmResultRelease(input);
     revalidatePath("/teacher/omr-scan");
+    revalidatePath("/teacher/analysis");
     revalidatePath("/student", "layout");
+    revalidatePath("/school/analysis");
+    revalidatePath("/admin/analysis");
     return { ok: true, release };
   } catch (error) {
     return { ok: false, message: error instanceof ApiError ? error.message : "Could not update publishing" };

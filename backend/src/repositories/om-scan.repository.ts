@@ -24,7 +24,7 @@ export const omScanSummarySelect = {
   scannedById: true,
   createdAt: true,
   updatedAt: true,
-  school: { select: { type: true } },
+  school: { select: { id: true, name: true, code: true, type: true } },
   answerKey: { select: { testNumber: true } },
   student: {
     select: {

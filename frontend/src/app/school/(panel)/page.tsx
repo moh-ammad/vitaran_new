@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, KeyRound, School2, Trophy, Users } from "lucide-react";
+import { BookOpen, ChartColumn, KeyRound, School2, Trophy, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/features/admin/page-header";
 import { StatCard } from "@/features/admin/dashboard-parts";
@@ -40,7 +40,7 @@ export default async function SchoolDashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           label="Teachers"
           value={stats.teachers.total}
@@ -75,6 +75,12 @@ export default async function SchoolDashboardPage() {
           hint="Published for your school"
           icon={Trophy}
           href="/school/results"
+        />
+        <StatCard
+          label="Analysis"
+          hint="Class, section, and subject performance"
+          icon={ChartColumn}
+          href="/school/analysis"
         />
       </div>
 

@@ -198,7 +198,9 @@ export async function uploadResultSet(fields: ResultSetFields, files?: UploadedF
   requireClasses(sheets.length);
 
   try {
-    return toResultSetDto(await resultRepository.createResultSet(meta, sheets));
+    const created = await resultRepository.createResultSet(meta, sheets);
+    notifyContentChanged({ kind: KIND, schoolId: meta.schoolId });
+    return toResultSetDto(created);
   } catch (error) {
     throw duplicateTest(error, meta.testNumber);
   }
@@ -214,8 +216,7 @@ export async function updateResultSet(id: string, fields: ResultSetFields, files
   } catch (error) {
     throw duplicateTest(error, meta.testNumber);
   }
-  // The set may have moved to another school, so tell every school.
-  if (resultSet.published) notifyContentChanged({ kind: KIND, schoolId: null });
+  notifyContentChanged({ kind: KIND, schoolId: resultSet.school.id });
   return toResultSetDto(resultSet);
 }
 
@@ -241,7 +242,13 @@ async function paperRangesForTest(testId: string) {
   return asSubjectRanges(key?.subjectRanges);
 }
 
-/** Unpublished OMR scores stay out of result sheets for anyone but admin and the class teacher. */
+function omrViewerFor(actor?: ContentActor): OmScanViewer {
+  if (!actor) return { kind: "admin" };
+  if (actor.kind === "teacher") return { kind: "teacher", teacher: actor.teacher };
+  return { kind: "school" };
+}
+
+/** School, admin, and class teachers get live OMR scores. Students and subject teachers wait for publish. */
 async function overlayOmrForTest(
   schoolId: string,
   testId: string,
@@ -255,6 +262,7 @@ async function overlayOmrForTest(
     rows,
     scans.map((scan) => ({
       rollNo: scan.rollNo,
+      name: scan.student.name,
       subjectScores: scan.subjectScores as SubjectScore[],
       total: scan.total,
       maxTotal: scan.maxTotal,
@@ -281,11 +289,7 @@ export async function getResultSheet(params: ResultSheetParams, actor?: ContentA
     resultSet?.testId ?? "",
     columns as string[],
     rows.map(({ values }) => values as CellValue[]),
-    !contentActor
-      ? { kind: "admin" }
-      : contentActor.kind === "teacher"
-        ? { kind: "teacher", teacher: contentActor.teacher }
-        : { kind: "released" },
+    omrViewerFor(contentActor),
   );
   let parsedCaption = caption;
   if (contentActor?.kind === "teacher") {
@@ -310,6 +314,7 @@ export async function getResultSheet(params: ResultSheetParams, actor?: ContentA
     caption: paper.caption,
     columns: paper.columns,
     rows: paper.rows,
+    rowCount: paper.rows.length,
     updatedAt: updatedAt.toISOString(),
   };
 }
