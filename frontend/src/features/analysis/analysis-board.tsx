@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Panel } from "@/features/admin/dashboard-parts";
 import { SUBJECT_LABELS, programLabel } from "@/features/schools/constants";
+import { capitalizeWords } from "@/features/schools/schema";
 import { SUBJECT_COLORS } from "@/features/student-portal/subject-colors";
 import { cn } from "@/lib/utils";
 import { ChartPair, KpiTile, SubjectBarChart } from "@/features/student-portal/student-ui";
@@ -99,7 +100,7 @@ function GroupTable({
             <TableHead className="text-right">Students</TableHead>
             <TableHead className="text-right">Tests</TableHead>
             <TableHead className="text-right">Est. average</TableHead>
-            <TableHead>Weakest</TableHead>
+            <TableHead>Improve in</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -156,7 +157,7 @@ function StudentTable({
   });
 
   return (
-    <Panel title="Students" description="Ranked by estimated average. Open a student for test-wise charts.">
+    <Panel title="Students" description="Ranked by estimated average. The subject to improve is named on each row.">
       <div className="relative mb-4 max-w-xs">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400" />
         <Input
@@ -174,6 +175,7 @@ function StudentTable({
             <TableHead>Roll</TableHead>
             <TableHead className="text-right">Tests</TableHead>
             <TableHead className="text-right">Est. average</TableHead>
+            <TableHead>Improve in</TableHead>
             {subjects.map((subject) => (
               <TableHead key={subject} className="text-right">
                 {subjectName(subject)}
@@ -191,7 +193,7 @@ function StudentTable({
                   onClick={() => onOpen(row)}
                   className="font-semibold text-brand-900 hover:underline"
                 >
-                  {row.name}
+                  {capitalizeWords(row.name)}
                 </button>
                 <p className="text-xs text-neutral-500">
                   {classLabel(row.classLevel)}
@@ -201,9 +203,18 @@ function StudentTable({
               <TableCell className="tabular-nums">{row.rollNo}</TableCell>
               <TableCell className="text-right tabular-nums">{row.tests}</TableCell>
               <TableCell className="text-right font-semibold tabular-nums">{formatPct(row.avgPercent)}</TableCell>
+              <TableCell>
+                {row.weakSubject ? (
+                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                    {subjectName(row.weakSubject)}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </TableCell>
               {subjects.map((subject) => {
                 const hit = row.subjects.find((item) => item.subject === subject);
-                const weak = hit && row.subjects[0]?.subject === subject;
+                const weak = hit && (row.weakSubject ?? row.subjects[0]?.subject) === subject;
                 return (
                   <TableCell
                     key={subject}
@@ -243,8 +254,22 @@ function StudentFocus({ student }: { student: AnalysisStudentFocus }) {
     fill: SUBJECT_COLORS[item.subject] ?? "#191c5f",
   }));
 
+  const weak = student.subjects.find((item) => item.subject === student.weakSubject);
+
   return (
     <div className="space-y-4">
+      {student.weakSubject && (
+        <Panel title="Focus subject" description="Where extra practice will help most.">
+          <p className="text-2xl font-bold text-brand-900">
+            {capitalizeWords(student.name)} needs to improve in {subjectName(student.weakSubject)}
+          </p>
+          {weak ? (
+            <p className="mt-1 text-sm text-neutral-600">
+              Average in this subject is {formatPct(weak.avgPercent)}.
+            </p>
+          ) : null}
+        </Panel>
+      )}
       {testBar.length > 0 && subjectPie.length > 0 && (
         <ChartPair barTitle="Score by test" pieTitle="Average by subject" bar={testBar} pie={subjectPie} />
       )}
@@ -542,8 +567,8 @@ export function AnalysisBoard({
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50 px-6 py-14 text-center">
           <p className="text-base font-semibold text-neutral-950">No scores yet</p>
           <p className="max-w-md text-sm text-brand-700">
-            Analysis uses the latest OMR scans and uploaded sheets. OMR wins when both exist for the same
-            student and test.
+            Analysis uses published test scores. When a sheet and a scan exist for the same student and
+            test, the scan is used.
           </p>
         </div>
       ) : (
@@ -568,12 +593,12 @@ export function AnalysisBoard({
                 hint={role === "admin" ? `${totals.schools} schools` : "In this view"}
               />
             )}
-            <KpiTile label="Tests" value={totals.tests} hint="OMR scans and uploaded sheets" />
+            <KpiTile label="Tests" value={totals.tests} hint="Published tests in this view" />
             <KpiTile
-              label="Weakest subject"
+              label="Focus subject"
               value={totals.weakSubject ? subjectName(totals.weakSubject) : "—"}
-              hint={report.focus ? "Lowest average for this student" : "Lowest average in this view"}
-              tone={totals.weakSubject ? "bad" : "default"}
+              hint={report.focus ? "Needs more practice" : "Needs more practice in this view"}
+              tone="brand"
             />
           </div>
 
@@ -585,7 +610,7 @@ export function AnalysisBoard({
               <Panel title="Subject performance" description="Lowest average first — those subjects need more work.">
                 <SubjectBarChart data={chart} />
               </Panel>
-              <Panel title="Where students are weak" description="Average percent by subject.">
+              <Panel title="Where to improve" description="Average percent by subject.">
                 <ul className="space-y-3">
                   {report.subjects.map((item, index) => (
                     <li key={item.subject}>
@@ -594,7 +619,7 @@ export function AnalysisBoard({
                           {subjectName(item.subject)}
                           {index === 0 && (
                             <span className="ml-2 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-rose-700 uppercase">
-                              Weakest
+                              Focus
                             </span>
                           )}
                         </span>

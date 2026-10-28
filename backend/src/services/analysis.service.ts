@@ -47,6 +47,7 @@ export type AnalysisStudentRow = {
   programName: string;
   tests: number;
   avgPercent: number | null;
+  weakSubject: Subject | null;
   subjects: AnalysisSubjectStat[];
 };
 
@@ -246,6 +247,7 @@ function studentRows(attempts: Attempt[]): AnalysisStudentRow[] {
     .map((rows) => {
       const sample = rows[0]!;
       const percents = rows.map((row) => row.percent).filter((value): value is number => value != null);
+      const subjects = subjectStats(rows);
       return {
         studentId: sample.studentId,
         name: sample.name,
@@ -255,7 +257,8 @@ function studentRows(attempts: Attempt[]): AnalysisStudentRow[] {
         programName: sample.programName,
         tests: new Set(rows.map((row) => row.testId)).size,
         avgPercent: average(percents),
-        subjects: subjectStats(rows),
+        weakSubject: weakSubjectOf(subjects),
+        subjects,
       };
     })
     .sort((a, b) => (b.avgPercent ?? -1) - (a.avgPercent ?? -1) || a.name.localeCompare(b.name));

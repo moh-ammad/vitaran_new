@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { deleteStudentInPlaceAction } from "@/features/students/actions";
 import { deleteAdminStudentInPlaceAction } from "@/features/students/admin-student-actions";
+import { capitalizeWords } from "@/features/schools/schema";
 import { cn } from "@/lib/utils";
 import type { Student } from "@/types/student";
 
@@ -121,10 +122,10 @@ export function StudentsTable({
                   </td>
                 ) : null}
                 <td className="px-4 py-2.5 font-medium text-neutral-950">{student.rollNo}</td>
-                <td className="px-4 py-2.5 capitalize">
+                <td className="px-4 py-2.5">
                   {detail ? (
                     <Link href={detail} className="font-medium text-brand-900 hover:underline">
-                      {student.name}
+                      {capitalizeWords(student.name)}
                     </Link>
                   ) : onView ? (
                     <button
@@ -132,10 +133,10 @@ export function StudentsTable({
                       className="font-medium text-brand-900 hover:underline"
                       onClick={() => onView(student.id)}
                     >
-                      {student.name}
+                      {capitalizeWords(student.name)}
                     </button>
                   ) : (
-                    <span className="font-medium text-neutral-950">{student.name}</span>
+                    <span className="font-medium text-neutral-950">{capitalizeWords(student.name)}</span>
                   )}
                 </td>
                 <td className="hidden px-4 py-2.5 text-neutral-600 sm:table-cell">

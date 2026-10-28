@@ -22,14 +22,29 @@ export const classFileField = (level: number) => `class_${level}` as `class_${Cl
 export const resultUploadHrefFor = (schoolId: string) =>
   `${RESULT_UPLOAD_PATH}?${new URLSearchParams({ schoolId })}`;
 
-/** `basePath` is `/admin/results` or `/results`. */
-export const resultSetHref = (basePath: string, id: string, classLevel?: number) => {
+/** School/teacher URLs: `ADVANCED~23462`. Admin keeps the database id. */
+export function resultPublicSlug(resultSet: Pick<ResultSet, "program" | "programName" | "testId">) {
+  const program = (resultSet.program || resultSet.programName || "test")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "TEST";
+  return `${program}~${resultSet.testId.trim()}`;
+}
+
+function resultLinkId(basePath: string, resultSet: ResultSet) {
+  return basePath === RESULTS_PATH ? resultSet.id : resultPublicSlug(resultSet);
+}
+
+/** `basePath` is `/admin/results`, `/school/results`, or `/teacher/results`. */
+export const resultSetHref = (basePath: string, resultSet: ResultSet | string, classLevel?: number) => {
+  const id = typeof resultSet === "string" ? resultSet : resultLinkId(basePath, resultSet);
   const path = `${basePath}/${encodeURIComponent(id)}`;
   return classLevel ? `${path}?class=${classLevel}` : path;
 };
 export const resultEditHref = (id: string) => `${RESULTS_PATH}/${id}/edit`;
 export const resultSheetDownloadHref = (basePath: string, id: string, classLevel: number) =>
-  `${basePath}/${id}/classes/${classLevel}/file`;
+  `${basePath}/${encodeURIComponent(id)}/classes/${classLevel}/file`;
 
 export const resultProgramLabel = ({ program, programName }: Pick<ResultSet, "program" | "programName">) =>
   program ? programLabel(program) : (programName ?? "");

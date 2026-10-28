@@ -145,6 +145,11 @@ export function StudentAnalysisBoard({ tests }: { tests: StudentTest[] }) {
     }
   }
 
+  const weakest =
+    subject === "ALL" && subjectBar.length > 0
+      ? [...subjectBar].sort((a, b) => a.value - b.value)[0]
+      : null;
+
   if (tests.length === 0) {
     return (
       <StudentEmpty
@@ -185,11 +190,18 @@ export function StudentAnalysisBoard({ tests }: { tests: StudentTest[] }) {
         </div>
       </Panel>
 
+      {weakest && (
+        <Panel title="Focus subject" description="A little extra practice here will lift your overall score.">
+          <p className="text-2xl font-bold text-brand-900">You need to improve in {weakest.name}</p>
+          <p className="mt-1 text-sm text-neutral-600">Your average in {weakest.name} is {weakest.value}%.</p>
+        </Panel>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiTile label="Tests in view" value={filtered.length} hint={`${tests.length} published`} />
         <KpiTile label="Average" value={avg != null ? `${avg}%` : "—"} tone="brand" hint={subject === "ALL" ? "All subjects" : SUBJECT_LABELS[subject]} />
-        <KpiTile label="Correct" value={mixAsked ? mixTotals.correct : "—"} tone="good" hint={accuracy != null ? `${accuracy}% accuracy` : "From OMR scans"} />
-        <KpiTile label="Wrong" value={mixAsked ? mixTotals.wrong : "—"} tone="bad" hint={mixAsked ? `${mixTotals.blank} blank · ${mixTotals.invalid} invalid` : "From OMR scans"} />
+        <KpiTile label="Correct" value={mixAsked ? mixTotals.correct : "—"} tone="good" hint={accuracy != null ? `${accuracy}% accuracy` : "From published tests"} />
+        <KpiTile label="Wrong" value={mixAsked ? mixTotals.wrong : "—"} tone="bad" hint={mixAsked ? `${mixTotals.blank} blank · ${mixTotals.invalid} invalid` : "From published tests"} />
       </div>
 
       {filtered.length === 0 ? (
@@ -249,7 +261,6 @@ export function StudentAnalysisBoard({ tests }: { tests: StudentTest[] }) {
                           <span className="block text-sm font-bold text-neutral-950">{testLabel(test)}</span>
                           <span className="text-xs text-neutral-500">
                             ID {test.testId} · {formatDate(test.date)}
-                            {test.source === "omr" ? " · OMR" : ""}
                           </span>
                         </span>
                         <span className="flex items-center gap-3">

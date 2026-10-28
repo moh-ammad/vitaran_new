@@ -99,11 +99,6 @@ export function SchoolResults({
                   <div>
                     <h3 className="text-lg font-bold text-neutral-950">
                       Test ID {resultSet.testId} results
-                      {resultSet.source === "omr" && (
-                        <span className="ml-2 align-middle text-[11px] font-semibold tracking-wide text-emerald-800 uppercase">
-                          OMR
-                        </span>
-                      )}
                     </h3>
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-600">
                       <Users className="size-3.5 text-brand-700" />
@@ -129,7 +124,7 @@ export function SchoolResults({
                 {resultSet.classes.map((item) => (
                   <li key={item.classLevel}>
                     <Link
-                      href={resultSetHref(basePath, resultSet.id, item.classLevel)}
+                      href={resultSetHref(basePath, resultSet, item.classLevel)}
                       className="group flex items-center justify-between gap-3 rounded-xl border border-brand-100 bg-white px-4 py-3 transition-colors hover:border-brand-900 hover:bg-brand-50"
                     >
                       <span>

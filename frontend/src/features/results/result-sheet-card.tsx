@@ -25,20 +25,20 @@ function formatCell(value: ResultCell) {
 
 /** Columns with the same value for every student (e.g. "CLASS: 8-OLY") are shown once as tags. */
 function splitColumns({ columns, rows }: Pick<ResultSheet, "columns" | "rows">) {
+  const numericCandidate = (index: number) => {
+    const filled = rows.map((row) => row[index]).filter((value) => value !== null);
+    return filled.length > 0 && filled.every((value) => typeof value === "number");
+  };
   const constant = (index: number) => {
     const first = rows[0]?.[index] ?? null;
     return rows.length > 1 && first !== null && rows.every((row) => row[index] === first);
   };
-  const shown = columns.map((_, index) => index).filter((index) => !constant(index));
+  // Keep score columns even when every student happens to have the same mark.
+  const shown = columns.map((_, index) => index).filter((index) => !constant(index) || numericCandidate(index));
   const tags = columns
     .map((label, index) => ({ label, value: rows[0]?.[index] ?? null, index }))
     .filter(({ index }) => !shown.includes(index));
-  const numeric = new Set(
-    shown.filter((index) => {
-      const filled = rows.map((row) => row[index]).filter((value) => value !== null);
-      return filled.length > 0 && filled.every((value) => typeof value === "number");
-    }),
-  );
+  const numeric = new Set(shown.filter(numericCandidate));
   return { shown, tags, numeric };
 }
 

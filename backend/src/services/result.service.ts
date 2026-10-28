@@ -112,7 +112,7 @@ function sheetFromOmScans(scans: OmScanSummary[], classLevel: number) {
     classLevel,
     fileName: "OMR scan",
     fileSize: 0,
-    caption: [`OMR · Test ${scans[0]?.answerKey.testNumber ?? ""} · ID ${scans[0]?.testId ?? ""}`],
+    caption: [`Test ${scans[0]?.answerKey.testNumber ?? ""} · ID ${scans[0]?.testId ?? ""}`],
     columns,
     rows,
     rowCount: rows.length,
@@ -192,13 +192,91 @@ function toResultSetDto({ school, sheets, createdAt, updatedAt, publishedAt, pro
 
 type ResultSetDto = ReturnType<typeof toResultSetDto> | ReturnType<typeof toOmrResultSetDto>;
 
-function coversOmr(excel: ResultSetDto, omr: ResultSetDto) {
-  return excel.school.id === omr.school.id && excel.testId === omr.testId && excel.programCode === omr.programCode;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function foldTestId(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function foldProgramCode(row: ResultSetDto) {
+  return (row.programCode || row.program || "").trim().toUpperCase();
+}
+
+function foldProgramName(row: ResultSetDto) {
+  return (row.programName ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function sameProgram(a: ResultSetDto, b: ResultSetDto) {
+  const codeA = foldProgramCode(a);
+  const codeB = foldProgramCode(b);
+  if (codeA && codeB) return codeA === codeB;
+  const nameA = foldProgramName(a);
+  const nameB = foldProgramName(b);
+  if (nameA && nameB) return nameA === nameB;
+  const code = codeA || codeB;
+  const name = nameA || nameB;
+  if (!code || !name) return false;
+  const fromCode = code.replaceAll("_", " ").toLowerCase();
+  return name === fromCode || name.includes(fromCode) || fromCode.includes(name);
+}
+
+function sameTest(a: ResultSetDto, b: ResultSetDto) {
+  return a.school.id === b.school.id && foldTestId(a.testId) === foldTestId(b.testId) && sameProgram(a, b);
+}
+
+function laterIso(a: string, b: string) {
+  return Date.parse(a) >= Date.parse(b) ? a : b;
+}
+
+function absorbOmr(excel: ResultSetDto, omr: ResultSetDto): ResultSetDto {
+  const classes = new Map(excel.classes.map((row) => [row.classLevel, { ...row }]));
+  for (const row of omr.classes) {
+    const current = classes.get(row.classLevel);
+    if (!current) {
+      classes.set(row.classLevel, row);
+      continue;
+    }
+    current.rowCount = Math.max(current.rowCount, row.rowCount);
+    current.updatedAt = laterIso(current.updatedAt, row.updatedAt);
+  }
+  return {
+    ...excel,
+    classes: [...classes.values()].sort((a, b) => a.classLevel - b.classLevel),
+    updatedAt: laterIso(excel.updatedAt, omr.updatedAt),
+  };
 }
 
 function mergeOmrSets(excel: ResultSetDto[], omr: ResultSetDto[]) {
-  const extra = omr.filter((row) => !excel.some((item) => coversOmr(item, row)));
-  return [...excel, ...extra].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  const used = new Set<string>();
+  const merged = excel.map((item) => {
+    const match = omr.find((row) => sameTest(item, row));
+    if (!match) return item;
+    used.add(match.id);
+    return absorbOmr(item, match);
+  });
+  const extra = omr.filter((row) => !used.has(row.id));
+  return [...merged, ...extra].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+}
+
+function slugProgram(row: Pick<ResultSetDto, "program" | "programCode" | "programName">) {
+  const code = (row.programCode || row.program || "").trim().toUpperCase();
+  if (code) return code.replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "") || "TEST";
+  return (row.programName ?? "test")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "TEST";
+}
+
+function parsePublicSlug(id: string) {
+  const at = id.indexOf("~");
+  if (at <= 0 || at === id.length - 1) return null;
+  if (UUID_RE.test(id) || isOmrResultId(id)) return null;
+  return { program: id.slice(0, at).toUpperCase(), testId: id.slice(at + 1) };
+}
+
+function matchesPublicSlug(row: ResultSetDto, slug: { program: string; testId: string }) {
+  return foldTestId(row.testId) === foldTestId(slug.testId) && slugProgram(row) === slug.program;
 }
 
 function scansForTeacher(scans: OmScanSummary[], actor?: ContentActor) {
@@ -407,26 +485,61 @@ function toContentActor(actor?: ContentActor | SchoolAccountDto): ContentActor |
   return { kind: "school", school: actor };
 }
 
-export async function getResultSet(id: string, actor?: ContentActor | SchoolAccountDto) {
-  const contentActor = toContentActor(actor);
-  if (isOmrResultId(id)) return getOmrResultSet(id, contentActor);
+async function getUploadedResultSet(id: string, actor?: ContentActor) {
   const resultSet = await resultRepository.findResultSet({
     id,
-    ...(contentActor && resultSetAccessFilter(contentActor)),
+    ...(actor && resultSetAccessFilter(actor)),
   });
   if (!resultSet) throw new AppError(404, "Result not found");
-  if (contentActor?.kind === "teacher" && !resultSetVisibleToTeacher(contentActor.teacher, resultSet)) {
+  if (actor?.kind === "teacher" && !resultSetVisibleToTeacher(actor.teacher, resultSet)) {
     throw new AppError(404, "Result not found");
   }
-  const dto = withActorSheetFilter(toResultSetDto(resultSet), contentActor);
-  if (contentActor?.kind === "teacher" && dto.classes.length === 0) {
+  const dto = withActorSheetFilter(toResultSetDto(resultSet), actor);
+  if (actor?.kind === "teacher" && dto.classes.length === 0) {
     throw new AppError(404, "Result not found");
   }
   return dto;
 }
 
+async function resolveResultSet(id: string, actor?: ContentActor): Promise<ResultSetDto> {
+  const slug = parsePublicSlug(id);
+  if (slug) {
+    const schoolId = actor ? contentSchool(actor).id : undefined;
+    const list = actor
+      ? await listVisibleResultSets(actor)
+      : mergeOmrSets(
+          (await resultRepository.findResultSets({})).map(toResultSetDto),
+          await listPublishedOmrResultSets(),
+        );
+    const hit = list.find(
+      (row) => matchesPublicSlug(row, slug) && (!schoolId || row.school.id === schoolId),
+    );
+    if (!hit) throw new AppError(404, "Result not found");
+    return hit;
+  }
+  if (isOmrResultId(id)) return getOmrResultSet(id, actor);
+  return getUploadedResultSet(id, actor);
+}
+
+export async function getResultSet(id: string, actor?: ContentActor | SchoolAccountDto) {
+  return resolveResultSet(id, toContentActor(actor));
+}
+
+async function assertUniqueResultTestId(meta: ResultSetMeta, exceptId?: string) {
+  const existing = await resultRepository.findResultSets({
+    schoolId: meta.schoolId,
+    programKey: meta.programKey,
+    testId: meta.testId,
+    ...(exceptId ? { id: { not: exceptId } } : {}),
+  });
+  if (existing.length > 0) {
+    throw fieldError(409, "testId", "This test ID already exists for this program. Use a different test ID.");
+  }
+}
+
 export async function uploadResultSet(fields: ResultSetFields, files?: UploadedFiles) {
   const meta = await resolveMeta(fields);
+  await assertUniqueResultTestId(meta);
   const sheets = await readSheets(files);
   requireClasses(sheets.length);
 
@@ -442,6 +555,7 @@ export async function uploadResultSet(fields: ResultSetFields, files?: UploadedF
 export async function updateResultSet(id: string, fields: ResultSetFields, files?: UploadedFiles) {
   rejectOmrMutation(id);
   const meta = await resolveMeta(fields);
+  await assertUniqueResultTestId(meta, id);
   const sheets = await readSheets(files);
 
   let resultSet: ResultSetSummary;
@@ -506,13 +620,17 @@ async function overlayOmrForTest(
 
 export async function getResultSheet(params: ResultSheetParams, actor?: ContentActor | SchoolAccountDto) {
   const contentActor = toContentActor(actor);
-  if (isOmrResultId(params.id)) return getOmrResultSheet(params, contentActor);
+  const resolved = parsePublicSlug(params.id) ? await resolveResultSet(params.id, contentActor) : null;
+  const id = resolved?.id ?? params.id;
+  if (isOmrResultId(id) || resolved?.source === "omr") {
+    return getOmrResultSheet({ ...params, id }, contentActor);
+  }
   assertSheetClassAllowed(params.classLevel, contentActor);
-  const sheet = await resultRepository.findResultSheet(sheetWhere(params, contentActor));
+  const sheet = await resultRepository.findResultSheet(sheetWhere({ ...params, id }, contentActor));
   if (!sheet) throw new AppError(404, "Result not found");
 
   const resultSet = await resultRepository.findResultSet({
-    id: params.id,
+    id,
     ...(contentActor && resultSetAccessFilter(contentActor)),
   });
   const ranges = resultSet ? await paperRangesForTest(resultSet.testId) : [];
@@ -558,10 +676,12 @@ export async function getResultSheetFile(
   params: ResultSheetParams,
   actor?: ContentActor | SchoolAccountDto,
 ) {
-  rejectOmrMutation(params.id);
   const contentActor = toContentActor(actor);
+  const resolved = parsePublicSlug(params.id) ? await resolveResultSet(params.id, contentActor) : null;
+  const id = resolved?.id ?? params.id;
+  rejectOmrMutation(id);
   assertSheetClassAllowed(params.classLevel, contentActor);
-  const file = await resultRepository.findResultSheetFile(sheetWhere(params, contentActor));
+  const file = await resultRepository.findResultSheetFile(sheetWhere({ ...params, id }, contentActor));
   if (!file) throw new AppError(404, "Result not found");
   return file;
 }

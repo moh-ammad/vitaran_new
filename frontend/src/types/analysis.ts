@@ -31,6 +31,7 @@ export type AnalysisStudentRow = {
   programName: string;
   tests: number;
   avgPercent: number | null;
+  weakSubject: Subject | null;
   subjects: AnalysisSubjectStat[];
 };
 

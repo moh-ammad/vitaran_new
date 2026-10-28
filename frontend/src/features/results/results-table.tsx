@@ -102,7 +102,7 @@ export function ResultsTable({
                       <span className="min-w-0 lg:hidden">
                         <span className="block truncate text-sm font-medium text-neutral-950 group-hover:underline">{program}</span>
                         <span className="text-xs text-neutral-500">
-                          {resultSet.classes.length} classes{omr ? " · OMR" : ""}
+                          {resultSet.classes.length} classes
                         </span>
                       </span>
                     </Link>
