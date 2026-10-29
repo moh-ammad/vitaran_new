@@ -3,7 +3,7 @@ import * as omScanRepository from "../repositories/om-scan.repository.js";
 import * as resultRepository from "../repositories/result.repository.js";
 import * as schoolRepository from "../repositories/school.repository.js";
 import * as studentRepository from "../repositories/student.repository.js";
-import type { AnalysisQuery } from "../schemas/analysis.schema.js";
+import type { AnalysisQuery, RankingQuery } from "../schemas/analysis.schema.js";
 import type { CellValue } from "../utils/excel.js";
 import type { SubjectScore } from "../utils/omr-score.js";
 import {
@@ -12,6 +12,8 @@ import {
   type RosterStudent,
 } from "../utils/result-sheet-scope.js";
 import { assignedSubjects, isClassTeacherOf } from "./content-access.js";
+import type { SchoolProgramDto } from "./school.service.js";
+import type { StudentAccountDto } from "./student.service.js";
 import type { TeacherAccountDto } from "./teacher.service.js";
 
 const WHOLE_CLASS = "none";
@@ -106,8 +108,17 @@ export type AnalysisReport = {
 };
 
 export type AnalysisActor =
-  | { kind: "school"; schoolId: string }
-  | { kind: "teacher"; teacher: TeacherAccountDto };
+  | {
+      kind: "school";
+      schoolId: string;
+      schoolName: string;
+      schoolCode: string;
+      programs: SchoolProgramDto[];
+    }
+  | { kind: "teacher"; teacher: TeacherAccountDto }
+  | { kind: "student"; student: StudentAccountDto };
+
+const SUBJECT_ORDER: Subject[] = ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "SCIENCE"];
 
 type Attempt = {
   schoolId: string;
@@ -572,5 +583,301 @@ export async function getAnalysis(query: AnalysisQuery, actor?: AnalysisActor): 
     tests: showTests ? testRows : [],
     students: showStudents ? studentRows(scoped) : [],
     focus,
+  };
+}
+
+export type RankingSubjectScore = { subject: Subject; score: number | null; max: number | null };
+
+export type RankingRow = {
+  rank: number;
+  studentId: string;
+  name: string;
+  rollNo: string;
+  schoolId: string;
+  schoolName: string;
+  schoolCode: string;
+  sectionName: string | null;
+  tests: number;
+  score: number | null;
+  max: number | null;
+  subjects: RankingSubjectScore[];
+};
+
+export type RankingReport = {
+  viewer: {
+    kind: "admin" | "school" | "class-teacher" | "subject-teacher" | "student";
+    selfStudentId: string | null;
+  };
+  scope: {
+    schoolId: string | null;
+    schoolName: string | null;
+    program: string | null;
+    programName: string | null;
+    classLevel: number | null;
+    mode: "test" | "overall";
+    testId: string | null;
+    testLabel: string | null;
+  };
+  filters: {
+    schools: Array<{ id: string; name: string; code: string }>;
+    programs: Array<{ code: string; name: string; hasScores: boolean }>;
+    classes: Array<{ level: number; hasScores: boolean }>;
+    ranked: Array<{ program: string; programName: string; classLevel: number }>;
+    tests: Array<{ id: string; label: string; testNumber: number; latest: boolean }>;
+  };
+  subjects: Subject[];
+  rows: RankingRow[];
+};
+
+type RankingSlot = { programCode: string; programName: string; classLevel: number };
+
+function rankingSlotKey(programCode: string, classLevel: number) {
+  return `${programCode}:${classLevel}`;
+}
+
+function actorRankingSlots(actor?: AnalysisActor): RankingSlot[] | null {
+  if (!actor) return null;
+  if (actor.kind === "school") {
+    return actor.programs.flatMap((program) =>
+      program.classes.map((cls) => ({
+        programCode: program.programCode,
+        programName: program.programName,
+        classLevel: cls.classLevel,
+      })),
+    );
+  }
+  if (actor.kind === "teacher") {
+    const byKey = new Map<string, RankingSlot>();
+    const add = (slot: RankingSlot) => byKey.set(rankingSlotKey(slot.programCode, slot.classLevel), slot);
+    for (const row of actor.teacher.assignments) {
+      add({ programCode: row.programCode, programName: row.programName, classLevel: row.classLevel });
+    }
+    for (const row of actor.teacher.classTeacherSections) {
+      add({ programCode: row.programCode, programName: row.programName, classLevel: row.classLevel });
+    }
+    return [...byKey.values()];
+  }
+  return [
+    {
+      programCode: actor.student.programCode,
+      programName: actor.student.programName,
+      classLevel: actor.student.classLevel,
+    },
+  ];
+}
+
+function lockedSchoolRef(actor?: AnalysisActor) {
+  if (actor?.kind === "school") {
+    return { id: actor.schoolId, name: actor.schoolName, code: actor.schoolCode };
+  }
+  if (actor?.kind === "teacher") {
+    return { id: actor.teacher.schoolId, name: actor.teacher.school.name, code: actor.teacher.school.code };
+  }
+  if (actor?.kind === "student") {
+    return { id: actor.student.schoolId, name: actor.student.school.name, code: actor.student.school.code };
+  }
+  return null;
+}
+
+function isClassTeacherForClass(teacher: TeacherAccountDto, programCode: string, classLevel: number) {
+  return teacher.classTeacherSections.some(
+    (slot) => slot.programCode === programCode && slot.classLevel === classLevel,
+  );
+}
+
+function rankingViewer(
+  actor: AnalysisActor | undefined,
+  programCode: string | null,
+  classLevel: number | null,
+): RankingReport["viewer"] {
+  if (actor?.kind === "student") {
+    return { kind: "student", selfStudentId: actor.student.id };
+  }
+  if (actor?.kind === "teacher" && programCode && classLevel != null) {
+    if (isClassTeacherForClass(actor.teacher, programCode, classLevel)) {
+      return { kind: "class-teacher", selfStudentId: null };
+    }
+    return { kind: "subject-teacher", selfStudentId: null };
+  }
+  if (actor?.kind === "school") return { kind: "school", selfStudentId: null };
+  return { kind: "admin", selfStudentId: null };
+}
+
+function rankRows(rows: Omit<RankingRow, "rank">[]): RankingRow[] {
+  const sorted = [...rows].sort(
+    (a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name),
+  );
+  return sorted.map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function subjectColumns(attempts: Attempt[]): Subject[] {
+  const present = new Set(attempts.flatMap((row) => row.subjects.map((item) => item.subject)));
+  return [...SUBJECT_ORDER.filter((item) => present.has(item)), ...[...present].filter((item) => !SUBJECT_ORDER.includes(item))];
+}
+
+function attemptMarks(attempt: Attempt) {
+  const scores = attempt.subjects.map((item) => item.score);
+  const maxes = attempt.subjects
+    .map((item) => item.max)
+    .filter((value): value is number => value != null && value > 0);
+  return {
+    score: scores.length > 0 ? round1(scores.reduce((sum, value) => sum + value, 0)) : null,
+    max: maxes.length === attempt.subjects.length ? round1(maxes.reduce((sum, value) => sum + value, 0)) : null,
+  };
+}
+
+function rankingSubjectMarks(attempts: Attempt[], subject: Subject): RankingSubjectScore {
+  const hits = attempts.flatMap((row) => row.subjects.filter((item) => item.subject === subject));
+  const scores = hits.map((item) => item.score);
+  const maxes = hits.map((item) => item.max).filter((value): value is number => value != null && value > 0);
+  return {
+    subject,
+    score: average(scores),
+    max: average(maxes),
+  };
+}
+
+function toRankingRows(attempts: Attempt[], subjects: Subject[]): Omit<RankingRow, "rank">[] {
+  const groups = new Map<string, Attempt[]>();
+  for (const attempt of attempts) {
+    const list = groups.get(attempt.studentId);
+    if (list) list.push(attempt);
+    else groups.set(attempt.studentId, [attempt]);
+  }
+  return [...groups.values()].map((rows) => {
+    const sample = rows[0]!;
+    const totals = rows.map(attemptMarks);
+    return {
+      studentId: sample.studentId,
+      name: sample.name,
+      rollNo: sample.rollNo,
+      schoolId: sample.schoolId,
+      schoolName: sample.schoolName,
+      schoolCode: sample.schoolCode,
+      sectionName: sample.sectionName,
+      tests: new Set(rows.map((row) => row.testId)).size,
+      score: average(totals.map((item) => item.score).filter((value): value is number => value != null)),
+      max: average(totals.map((item) => item.max).filter((value): value is number => value != null)),
+      subjects: subjects.map((subject) => rankingSubjectMarks(rows, subject)),
+    };
+  });
+}
+
+export async function getRanking(query: RankingQuery, actor?: AnalysisActor): Promise<RankingReport> {
+  const student = actor?.kind === "student" ? actor.student : null;
+  const locked = lockedSchoolRef(actor);
+  const lockedSchoolId = locked?.id;
+  const rawAttempts = await collectAttempts(lockedSchoolId);
+  let published =
+    actor?.kind === "teacher"
+      ? (await forTeacher(rawAttempts, actor.teacher)).filter((row) => row.published)
+      : rawAttempts.filter((row) => row.published);
+
+  const slots = actorRankingSlots(actor);
+  if (slots) {
+    const allowed = new Set(slots.map((slot) => rankingSlotKey(slot.programCode, slot.classLevel)));
+    published = published.filter((row) => allowed.has(rankingSlotKey(row.programCode, row.classLevel)));
+  }
+
+  const home = lockedSchoolId ? published.filter((row) => row.schoolId === lockedSchoolId) : published;
+  const ranked = [
+    ...new Map(
+      home.map((row) => [
+        rankingSlotKey(row.programCode, row.classLevel),
+        { program: row.programCode, programName: row.programName, classLevel: row.classLevel },
+      ]),
+    ).values(),
+  ].sort((a, b) => a.programName.localeCompare(b.programName) || a.classLevel - b.classLevel);
+  const programOptions = (
+    slots
+      ? [...new Map(slots.map((slot) => [slot.programCode, { code: slot.programCode, name: slot.programName }])).values()]
+      : [...new Map(home.map((row) => [row.programCode, { code: row.programCode, name: row.programName }])).values()]
+  )
+    .map((item) => ({ ...item, hasScores: ranked.some((row) => row.program === item.code) }))
+    .sort((a, b) => Number(b.hasScores) - Number(a.hasScores) || a.name.localeCompare(b.name));
+
+  const requestedProgram = student?.programCode ?? query.program;
+  const program =
+    requestedProgram && programOptions.some((item) => item.code === requestedProgram)
+      ? requestedProgram
+      : (ranked[0]?.program ?? programOptions[0]?.code ?? null);
+  const inProgram = program ? home.filter((row) => matchesProgram(row, program)) : [];
+  const rankedInProgram = ranked.filter((row) => row.program === program);
+  const classOptions = (
+    slots && program
+      ? [...new Set(slots.filter((slot) => slot.programCode === program).map((slot) => slot.classLevel))]
+      : [...new Set([...inProgram.map((row) => row.classLevel), ...rankedInProgram.map((row) => row.classLevel)])]
+  )
+    .sort((a, b) => a - b)
+    .map((level) => ({ level, hasScores: rankedInProgram.some((row) => row.classLevel === level) }));
+  const requestedClass = student?.classLevel ?? query.class;
+  const classLevel =
+    requestedClass != null && classOptions.some((item) => item.level === requestedClass)
+      ? requestedClass
+      : (rankedInProgram[0]?.classLevel ?? classOptions[0]?.level ?? null);
+  const inClassAllSchools = classLevel != null ? inProgram.filter((row) => row.classLevel === classLevel) : [];
+  const schoolId = lockedSchoolId ?? query.school;
+  const inClass = schoolId ? inClassAllSchools.filter((row) => row.schoolId === schoolId) : inClassAllSchools;
+
+  const tests = [
+    ...new Map(
+      inClass.map((row) => [
+        row.testId,
+        {
+          id: row.testId,
+          testNumber: row.testNumber,
+          label: `Test ${row.testNumber} · ID ${row.testId}`,
+        },
+      ]),
+    ).values(),
+  ].sort((a, b) => b.testNumber - a.testNumber || a.id.localeCompare(b.id));
+  const latestId = tests[0]?.id ?? null;
+  const mode = query.mode === "overall" ? "overall" : "test";
+  const testId = mode === "test" ? (tests.some((item) => item.id === query.test) ? query.test! : latestId) : null;
+  const scoped = mode === "overall" ? inClass : inClass.filter((row) => row.testId === testId);
+  const subjects = subjectColumns(scoped);
+  const rows = rankRows(toRankingRows(scoped, subjects));
+  const programName = inProgram[0]?.programName ?? programOptions.find((item) => item.code === program)?.name ?? null;
+  const testMeta = tests.find((item) => item.id === testId);
+  const schoolOptions = locked
+    ? [{ id: locked.id, name: locked.name, code: locked.code }]
+    : [
+        ...new Map(
+          inClassAllSchools.map((row) => [row.schoolId, { id: row.schoolId, name: row.schoolName, code: row.schoolCode }]),
+        ).values(),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+  const schoolName = schoolId
+    ? (inClass[0]?.schoolName ??
+      home.find((row) => row.schoolId === schoolId)?.schoolName ??
+      schoolOptions.find((row) => row.id === schoolId)?.name ??
+      locked?.name ??
+      null)
+    : null;
+
+  return {
+    viewer: rankingViewer(actor, program, classLevel),
+    scope: {
+      schoolId: schoolId ?? null,
+      schoolName,
+      program,
+      programName,
+      classLevel,
+      mode,
+      testId,
+      testLabel: testMeta ? `${testMeta.label}${testMeta.id === latestId ? " · Latest" : ""}` : null,
+    },
+    filters: {
+      schools: schoolOptions,
+      programs: programOptions,
+      classes: classOptions,
+      ranked,
+      tests: tests.map((item) => ({
+        ...item,
+        label: item.id === latestId ? `${item.label} · Latest` : item.label,
+        latest: item.id === latestId,
+      })),
+    },
+    subjects,
+    rows,
   };
 }

@@ -10,7 +10,12 @@ import { authRouter } from "./auth.routes.js";
 import { healthRouter } from "./health.routes.js";
 import { adminEventsRouter, schoolEventsRouter, studentEventsRouter, teacherEventsRouter } from "./live.routes.js";
 import { studentOmScanRouter, teacherOmScanRouter } from "./om-scan.routes.js";
-import { analysisRouter, schoolAnalysisRouter, teacherAnalysisRouter } from "./analysis.routes.js";
+import {
+  analysisRouter,
+  schoolAnalysisRouter,
+  studentAnalysisRouter,
+  teacherAnalysisRouter,
+} from "./analysis.routes.js";
 import {
   resultRouter,
   schoolResultRouter,
@@ -60,3 +65,4 @@ apiRouter.use("/teacher/students", teacherStudentRouter);
 apiRouter.use("/teacher/omr-scans", teacherOmScanRouter);
 apiRouter.use("/student/omr-scans", studentOmScanRouter);
 apiRouter.use("/student/results", studentResultRouter);
+apiRouter.use("/student/analysis", studentAnalysisRouter);

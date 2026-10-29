@@ -1,4 +1,4 @@
-import { BookOpen, ChartPie, LayoutDashboard, Trophy, type LucideIcon } from "lucide-react";
+import { BookOpen, ChartPie, LayoutDashboard, Medal, Trophy, type LucideIcon } from "lucide-react";
 
 export type StudentNavItem = {
   title: string;
@@ -45,6 +45,7 @@ export function isStudentNavActive(href: string, pathname: string): boolean {
 const SEGMENT_LABELS: Record<string, string> = {
   results: "Results",
   analysis: "Analysis",
+  rankings: "Rankings",
   resources: "Resources",
   review: "Answer review",
 };

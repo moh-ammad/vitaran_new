@@ -3,6 +3,7 @@ import {
   ChartColumn,
   KeyRound,
   LayoutDashboard,
+  Medal,
   School2,
   Trophy,
   Users,
@@ -74,6 +75,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   "answer-keys": "Answer Keys",
   results: "Results",
   analysis: "Analysis",
+  rankings: "Rankings",
 };
 
 function crumbLabel(segment: string, previous: string | undefined) {
