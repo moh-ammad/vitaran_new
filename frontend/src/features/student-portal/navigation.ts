@@ -20,6 +20,7 @@ export const studentNavGroups: StudentNavGroup[] = [
     label: "Learning",
     items: [
       { title: "Results", href: "/student/results", icon: Trophy },
+      { title: "Rankings", href: "/student/rankings", icon: Medal },
       { title: "Analysis", href: "/student/analysis", icon: ChartPie },
       { title: "Resources", href: "/student/resources", icon: BookOpen },
     ],

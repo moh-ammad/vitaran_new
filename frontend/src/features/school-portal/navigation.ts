@@ -39,6 +39,7 @@ export const schoolNavGroups: SchoolNavGroup[] = [
       { title: "Resources", href: "/school/resources", icon: BookOpen },
       { title: "Answer Keys", href: "/school/answer-keys", icon: KeyRound },
       { title: "Results", href: "/school/results", icon: Trophy },
+      { title: "Rankings", href: "/school/rankings", icon: Medal },
       { title: "Analysis", href: "/school/analysis", icon: ChartColumn },
     ],
   },
