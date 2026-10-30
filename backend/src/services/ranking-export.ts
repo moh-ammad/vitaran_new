@@ -51,7 +51,7 @@ function scopeTitle(report: RankingReport) {
 
 function scopeSubtitle(report: RankingReport) {
   return [
-    report.scope.schoolName ? titleCase(report.scope.schoolName) : report.scope.schoolId ? null : "All schools",
+    report.scope.schoolName ? titleCase(report.scope.schoolName) : "All schools",
     report.scope.programName ? titleCase(report.scope.programName) : report.scope.program,
     report.scope.classLevel != null ? `Class ${report.scope.classLevel}` : null,
   ]

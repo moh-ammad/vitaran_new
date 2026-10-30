@@ -1,4 +1,5 @@
 import { SUBJECT_LABELS } from "@/features/schools/constants";
+import { capitalizeWords } from "@/features/schools/schema";
 import { cn } from "@/lib/utils";
 import type { OmScan, OmScanResult } from "@/types/om-scan";
 
@@ -8,7 +9,9 @@ export function OmScorecard({ scan }: { scan: OmScan; read?: OmScanResult["read"
     <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:space-y-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-bold text-neutral-950 sm:text-xl">{student.name}</h2>
+          <h2 className="truncate text-lg font-bold text-neutral-950 sm:text-xl">
+            {capitalizeWords(student.name)}
+          </h2>
           <p className="text-sm text-neutral-600">
             {student.rollNo} · {student.classLevel}
             {student.sectionName ? `-${student.sectionName}` : ""}

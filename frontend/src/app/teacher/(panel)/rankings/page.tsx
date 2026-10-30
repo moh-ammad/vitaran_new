@@ -12,7 +12,7 @@ export default async function TeacherRankingsPage() {
     <>
       <PageHeader
         title="Rankings"
-        description="Class teachers see every subject in their class. Subject teachers see only their subject."
+        description="Class teachers see overall marks for their class and program across schools. Subject teachers see only their subject."
       />
       <RankingBoard role="teacher" report={report} />
     </>

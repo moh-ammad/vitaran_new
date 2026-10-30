@@ -1,5 +1,6 @@
 import { SchoolStatus, type Subject } from "../generated/prisma/enums.js";
 import * as omScanRepository from "../repositories/om-scan.repository.js";
+import * as programRepository from "../repositories/program.repository.js";
 import * as resultRepository from "../repositories/result.repository.js";
 import * as schoolRepository from "../repositories/school.repository.js";
 import * as studentRepository from "../repositories/student.repository.js";
@@ -9,6 +10,7 @@ import type { SubjectScore } from "../utils/omr-score.js";
 import {
   matchRosterStudent,
   parseScoreRow,
+  sheetRowIdentity,
   type RosterStudent,
 } from "../utils/result-sheet-scope.js";
 import { assignedSubjects, isClassTeacherOf } from "./content-access.js";
@@ -323,12 +325,50 @@ async function forTeacher(attempts: Attempt[], teacher: TeacherAccountDto): Prom
   return visible;
 }
 
+function foldLabel(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function resolveSheetProgram(
+  set: { programCode: string | null; programName: string | null; programKey: string },
+  student: { programId: string; program: { code: string; name: string } } | undefined,
+  catalog: Array<{ id: string; code: string; name: string }>,
+) {
+  if (set.programCode) {
+    const hit = catalog.find((row) => row.code === set.programCode);
+    return {
+      programId: hit?.id ?? student?.programId ?? set.programCode,
+      programCode: set.programCode,
+      programName: hit?.name ?? set.programName ?? set.programCode,
+    };
+  }
+  if (set.programName) {
+    const hit = catalog.find((row) => foldLabel(row.name) === foldLabel(set.programName!));
+    if (hit) {
+      return { programId: hit.id, programCode: hit.code, programName: hit.name };
+    }
+  }
+  if (student) {
+    return {
+      programId: student.programId,
+      programCode: student.program.code,
+      programName: student.program.name,
+    };
+  }
+  return {
+    programId: set.programKey,
+    programCode: set.programKey,
+    programName: set.programName ?? set.programKey,
+  };
+}
+
 async function collectAttempts(schoolId?: string): Promise<Attempt[]> {
-  const [scans, students, sets, releases] = await Promise.all([
+  const [scans, students, sets, releases, catalog] = await Promise.all([
     omScanRepository.findOmScans(schoolId ? { schoolId } : {}),
     studentRepository.listAnalysisStudents(schoolId),
     resultRepository.findResultSets(schoolId ? { schoolId } : {}),
     omScanRepository.findOmResultReleases({ published: true, ...(schoolId ? { schoolId } : {}) }),
+    programRepository.findPrograms(),
   ]);
 
   const released = new Set(
@@ -337,6 +377,7 @@ async function collectAttempts(schoolId?: string): Promise<Attempt[]> {
   const byKey = new Map<string, Attempt>();
 
   for (const scan of scans) {
+    if (!scan.student?.id || !scan.student.program || !scan.school) continue;
     const scores = Array.isArray(scan.subjectScores) ? (scan.subjectScores as SubjectScore[]) : [];
     const attempt: Attempt = {
       schoolId: scan.schoolId,
@@ -397,24 +438,28 @@ async function collectAttempts(schoolId?: string): Promise<Attempt[]> {
       const columns = sheet.columns as string[];
       for (const row of sheet.rows) {
         const values = row.values as CellValue[];
+        const identity = sheetRowIdentity(columns, values);
         const student = matchRosterStudent(values, columns, rosterView);
-        if (!student?.id) continue;
-        const full = roster.find((item) => item.id === student.id);
-        if (!full) continue;
+        const full = student?.id ? roster.find((item) => item.id === student.id) : undefined;
+        if (!full && !identity.rollNo && !identity.name) continue;
         const parsed = parseScoreRow(columns, values);
+        if (parsed.subjects.length === 0 && parsed.total == null) continue;
+        const program = resolveSheetProgram(set, full, catalog);
         const attempt: Attempt = {
-          schoolId: full.schoolId,
-          schoolName: full.school.name,
-          schoolCode: full.school.code,
-          studentId: full.id,
-          name: full.name,
-          rollNo: full.rollNo,
-          programId: full.programId,
-          programCode: set.programCode ?? full.program.code,
-          programName: set.programName ?? full.program.name,
-          classLevel: full.classLevel,
-          sectionId: full.sectionId,
-          sectionName: full.section?.name ?? null,
+          schoolId: full?.schoolId ?? set.school.id,
+          schoolName: full?.school.name ?? set.school.name,
+          schoolCode: full?.school.code ?? set.school.code,
+          studentId:
+            full?.id ??
+            `sheet:${set.school.id}:${sheet.classLevel}:${identity.rollNo || foldLabel(identity.name)}`,
+          name: full?.name ?? identity.name,
+          rollNo: full?.rollNo ?? identity.rollNo,
+          programId: program.programId,
+          programCode: program.programCode,
+          programName: program.programName,
+          classLevel: full?.classLevel ?? sheet.classLevel,
+          sectionId: full?.sectionId ?? null,
+          sectionName: full?.section?.name ?? null,
           testId: set.testId,
           testNumber: set.testNumber,
           source: "upload",
@@ -616,6 +661,7 @@ export type RankingReport = {
     classLevel: number | null;
     mode: "test" | "overall";
     testId: string | null;
+    testNumber: number | null;
     testLabel: string | null;
   };
   filters: {
@@ -635,7 +681,12 @@ function rankingSlotKey(programCode: string, classLevel: number) {
   return `${programCode}:${classLevel}`;
 }
 
-function actorRankingSlots(actor?: AnalysisActor): RankingSlot[] | null {
+function addRankingSlot(into: Map<string, RankingSlot>, slot: RankingSlot) {
+  const key = rankingSlotKey(slot.programCode, slot.classLevel);
+  if (!into.has(key)) into.set(key, slot);
+}
+
+function assignedRankingSlots(actor?: AnalysisActor): RankingSlot[] | null {
   if (!actor) return null;
   if (actor.kind === "school") {
     return actor.programs.flatMap((program) =>
@@ -648,12 +699,19 @@ function actorRankingSlots(actor?: AnalysisActor): RankingSlot[] | null {
   }
   if (actor.kind === "teacher") {
     const byKey = new Map<string, RankingSlot>();
-    const add = (slot: RankingSlot) => byKey.set(rankingSlotKey(slot.programCode, slot.classLevel), slot);
     for (const row of actor.teacher.assignments) {
-      add({ programCode: row.programCode, programName: row.programName, classLevel: row.classLevel });
+      addRankingSlot(byKey, {
+        programCode: row.programCode,
+        programName: row.programName,
+        classLevel: row.classLevel,
+      });
     }
     for (const row of actor.teacher.classTeacherSections) {
-      add({ programCode: row.programCode, programName: row.programName, classLevel: row.classLevel });
+      addRankingSlot(byKey, {
+        programCode: row.programCode,
+        programName: row.programName,
+        classLevel: row.classLevel,
+      });
     }
     return [...byKey.values()];
   }
@@ -666,17 +724,70 @@ function actorRankingSlots(actor?: AnalysisActor): RankingSlot[] | null {
   ];
 }
 
-function lockedSchoolRef(actor?: AnalysisActor) {
-  if (actor?.kind === "school") {
-    return { id: actor.schoolId, name: actor.schoolName, code: actor.schoolCode };
+function mergeHomePublishedSlots(assigned: RankingSlot[], published: Attempt[], schoolId: string) {
+  const byKey = new Map<string, RankingSlot>();
+  for (const slot of assigned) addRankingSlot(byKey, slot);
+  for (const row of published) {
+    if (row.schoolId !== schoolId) continue;
+    addRankingSlot(byKey, {
+      programCode: row.programCode,
+      programName: row.programName,
+      classLevel: row.classLevel,
+    });
   }
-  if (actor?.kind === "teacher") {
-    return { id: actor.teacher.schoolId, name: actor.teacher.school.name, code: actor.teacher.school.code };
+  return [...byKey.values()];
+}
+
+function actorRankingSlots(actor: AnalysisActor | undefined, published: Attempt[]): RankingSlot[] | null {
+  const assigned = assignedRankingSlots(actor);
+  if (assigned == null) return null;
+  if (actor?.kind === "school") return mergeHomePublishedSlots(assigned, published, actor.schoolId);
+  return assigned;
+}
+
+function adminSchoolSlots(
+  school: {
+    id: string;
+    schoolPrograms: Array<{
+      program: { code: string; name: string };
+      classes: Array<{ classLevel: number }>;
+    }>;
+  } | undefined,
+  published: Attempt[],
+): RankingSlot[] | null {
+  if (!school) return null;
+  const assigned = school.schoolPrograms.flatMap((program) =>
+    program.classes.map((cls) => ({
+      programCode: program.program.code,
+      programName: program.program.name,
+      classLevel: cls.classLevel,
+    })),
+  );
+  return mergeHomePublishedSlots(assigned, published, school.id);
+}
+
+function rankedSlots(attempts: Attempt[]): RankingSlot[] {
+  const buckets = new Map<string, { slot: RankingSlot; students: Set<string>; schools: Set<string> }>();
+  for (const row of attempts) {
+    const key = rankingSlotKey(row.programCode, row.classLevel);
+    const bucket = buckets.get(key) ?? {
+      slot: { programCode: row.programCode, programName: row.programName, classLevel: row.classLevel },
+      students: new Set<string>(),
+      schools: new Set<string>(),
+    };
+    bucket.students.add(row.studentId);
+    bucket.schools.add(row.schoolId);
+    buckets.set(key, bucket);
   }
-  if (actor?.kind === "student") {
-    return { id: actor.student.schoolId, name: actor.student.school.name, code: actor.student.school.code };
-  }
-  return null;
+  return [...buckets.values()]
+    .sort(
+      (a, b) =>
+        b.students.size - a.students.size ||
+        b.schools.size - a.schools.size ||
+        a.slot.programName.localeCompare(b.slot.programName) ||
+        a.slot.classLevel - b.slot.classLevel,
+    )
+    .map((bucket) => bucket.slot);
 }
 
 function isClassTeacherForClass(teacher: TeacherAccountDto, programCode: string, classLevel: number) {
@@ -765,43 +876,42 @@ function toRankingRows(attempts: Attempt[], subjects: Subject[]): Omit<RankingRo
 
 export async function getRanking(query: RankingQuery, actor?: AnalysisActor): Promise<RankingReport> {
   const student = actor?.kind === "student" ? actor.student : null;
-  const locked = lockedSchoolRef(actor);
-  const lockedSchoolId = locked?.id;
-  const rawAttempts = await collectAttempts(lockedSchoolId);
-  let published =
-    actor?.kind === "teacher"
-      ? (await forTeacher(rawAttempts, actor.teacher)).filter((row) => row.published)
-      : rawAttempts.filter((row) => row.published);
-
-  const slots = actorRankingSlots(actor);
+  const [rawAttempts, catalogSchools] = await Promise.all([
+    collectAttempts(),
+    actor ? Promise.resolve([]) : schoolRepository.findSchoolOptions({}),
+  ]);
+  const allPublished = rawAttempts.filter((row) => row.published);
+  const adminSchool = catalogSchools.find((row) => row.id === query.school);
+  const slots = actor
+    ? actorRankingSlots(actor, allPublished)
+    : adminSchoolSlots(adminSchool, allPublished);
+  let published = allPublished;
   if (slots) {
     const allowed = new Set(slots.map((slot) => rankingSlotKey(slot.programCode, slot.classLevel)));
     published = published.filter((row) => allowed.has(rankingSlotKey(row.programCode, row.classLevel)));
   }
 
-  const home = lockedSchoolId ? published.filter((row) => row.schoolId === lockedSchoolId) : published;
-  const ranked = [
-    ...new Map(
-      home.map((row) => [
-        rankingSlotKey(row.programCode, row.classLevel),
-        { program: row.programCode, programName: row.programName, classLevel: row.classLevel },
-      ]),
-    ).values(),
-  ].sort((a, b) => a.programName.localeCompare(b.programName) || a.classLevel - b.classLevel);
+  const ranked = rankedSlots(published).map((slot) => ({
+    program: slot.programCode,
+    programName: slot.programName,
+    classLevel: slot.classLevel,
+  }));
   const programOptions = (
     slots
       ? [...new Map(slots.map((slot) => [slot.programCode, { code: slot.programCode, name: slot.programName }])).values()]
-      : [...new Map(home.map((row) => [row.programCode, { code: row.programCode, name: row.programName }])).values()]
+      : [...new Map(published.map((row) => [row.programCode, { code: row.programCode, name: row.programName }])).values()]
   )
     .map((item) => ({ ...item, hasScores: ranked.some((row) => row.program === item.code) }))
     .sort((a, b) => Number(b.hasScores) - Number(a.hasScores) || a.name.localeCompare(b.name));
 
   const requestedProgram = student?.programCode ?? query.program;
-  const program =
-    requestedProgram && programOptions.some((item) => item.code === requestedProgram)
-      ? requestedProgram
-      : (ranked[0]?.program ?? programOptions[0]?.code ?? null);
-  const inProgram = program ? home.filter((row) => matchesProgram(row, program)) : [];
+  const keepRequestedProgram = Boolean(
+    requestedProgram && programOptions.some((item) => item.code === requestedProgram),
+  );
+  const program = keepRequestedProgram
+    ? requestedProgram!
+    : (ranked[0]?.program ?? programOptions[0]?.code ?? null);
+  const inProgram = program ? published.filter((row) => matchesProgram(row, program)) : [];
   const rankedInProgram = ranked.filter((row) => row.program === program);
   const classOptions = (
     slots && program
@@ -811,13 +921,19 @@ export async function getRanking(query: RankingQuery, actor?: AnalysisActor): Pr
     .sort((a, b) => a - b)
     .map((level) => ({ level, hasScores: rankedInProgram.some((row) => row.classLevel === level) }));
   const requestedClass = student?.classLevel ?? query.class;
-  const classLevel =
-    requestedClass != null && classOptions.some((item) => item.level === requestedClass)
-      ? requestedClass
-      : (rankedInProgram[0]?.classLevel ?? classOptions[0]?.level ?? null);
+  const keepRequestedClass = requestedClass != null && classOptions.some((item) => item.level === requestedClass);
+  const classLevel = keepRequestedClass
+    ? requestedClass
+    : (rankedInProgram[0]?.classLevel ?? classOptions[0]?.level ?? null);
   const inClassAllSchools = classLevel != null ? inProgram.filter((row) => row.classLevel === classLevel) : [];
-  const schoolId = lockedSchoolId ?? query.school;
-  const inClass = schoolId ? inClassAllSchools.filter((row) => row.schoolId === schoolId) : inClassAllSchools;
+  const viewer = rankingViewer(actor, program, classLevel);
+  const rowSchoolId =
+    viewer.kind === "student" || viewer.kind === "subject-teacher" ? (query.school ?? null) : null;
+  const pickerSchoolId =
+    viewer.kind === "admin" || viewer.kind === "student" || viewer.kind === "subject-teacher"
+      ? (query.school ?? null)
+      : null;
+  const inClass = rowSchoolId ? inClassAllSchools.filter((row) => row.schoolId === rowSchoolId) : inClassAllSchools;
 
   const tests = [
     ...new Map(
@@ -833,37 +949,54 @@ export async function getRanking(query: RankingQuery, actor?: AnalysisActor): Pr
   ].sort((a, b) => b.testNumber - a.testNumber || a.id.localeCompare(b.id));
   const latestId = tests[0]?.id ?? null;
   const mode = query.mode === "overall" ? "overall" : "test";
-  const testId = mode === "test" ? (tests.some((item) => item.id === query.test) ? query.test! : latestId) : null;
-  const scoped = mode === "overall" ? inClass : inClass.filter((row) => row.testId === testId);
+  const testsForNumber =
+    query.testNumber != null ? tests.filter((item) => item.testNumber === query.testNumber) : tests;
+  const testId =
+    mode === "test"
+      ? testsForNumber.some((item) => item.id === query.test)
+        ? query.test!
+        : (testsForNumber[0]?.id ?? latestId)
+      : null;
+  const testMeta = tests.find((item) => item.id === testId);
+  let scoped = mode === "overall" ? inClass : inClass.filter((row) => row.testId === testId);
+  if (
+    actor?.kind === "teacher" &&
+    program &&
+    classLevel != null &&
+    !isClassTeacherForClass(actor.teacher, program, classLevel)
+  ) {
+    const taught = assignedSubjects(actor.teacher, { programCode: program, classLevel });
+    scoped = scoped.map((row) => withSubjects(row, taught)).filter((row) => row.subjects.length > 0);
+  }
   const subjects = subjectColumns(scoped);
   const rows = rankRows(toRankingRows(scoped, subjects));
   const programName = inProgram[0]?.programName ?? programOptions.find((item) => item.code === program)?.name ?? null;
-  const testMeta = tests.find((item) => item.id === testId);
-  const schoolOptions = locked
-    ? [{ id: locked.id, name: locked.name, code: locked.code }]
-    : [
-        ...new Map(
-          inClassAllSchools.map((row) => [row.schoolId, { id: row.schoolId, name: row.schoolName, code: row.schoolCode }]),
-        ).values(),
-      ].sort((a, b) => a.name.localeCompare(b.name));
-  const schoolName = schoolId
-    ? (inClass[0]?.schoolName ??
-      home.find((row) => row.schoolId === schoolId)?.schoolName ??
-      schoolOptions.find((row) => row.id === schoolId)?.name ??
-      locked?.name ??
-      null)
+  const schoolOptions =
+    viewer.kind === "admin"
+      ? catalogSchools.map((row) => ({ id: row.id, name: row.name, code: row.code }))
+      : [
+          ...new Map(
+            inClassAllSchools.map((row) => [
+              row.schoolId,
+              { id: row.schoolId, name: row.schoolName, code: row.schoolCode },
+            ]),
+          ).values(),
+        ].sort((a, b) => a.name.localeCompare(b.name));
+  const schoolName = rowSchoolId
+    ? (inClass[0]?.schoolName ?? schoolOptions.find((row) => row.id === rowSchoolId)?.name ?? null)
     : null;
 
   return {
-    viewer: rankingViewer(actor, program, classLevel),
+    viewer,
     scope: {
-      schoolId: schoolId ?? null,
+      schoolId: pickerSchoolId,
       schoolName,
       program,
       programName,
       classLevel,
       mode,
       testId,
+      testNumber: testMeta?.testNumber ?? null,
       testLabel: testMeta ? `${testMeta.label}${testMeta.id === latestId ? " · Latest" : ""}` : null,
     },
     filters: {

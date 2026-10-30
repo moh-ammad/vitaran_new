@@ -79,7 +79,7 @@ function FilterSelect({
 }: {
   label: string;
   value: string;
-  items: { value: string; label: string }[];
+  items: { value: string; label: string; hint?: string }[];
   onChange: (value: string) => void;
   className?: string;
 }) {
@@ -89,16 +89,28 @@ function FilterSelect({
       <SelectTrigger
         aria-label={label}
         className={cn(
-          "h-9 rounded-lg border-neutral-200 bg-white text-sm text-neutral-700 shadow-none hover:border-brand-300",
+          "h-9 max-w-[14rem] min-w-0 shrink-0 rounded-lg border-neutral-200 bg-white text-sm text-neutral-700 shadow-none hover:border-brand-300",
+          "*:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate",
           className,
         )}
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent
+        align="start"
+        alignItemWithTrigger={false}
+        className="w-64 max-w-[min(16rem,calc(100vw-1.5rem))] min-w-[var(--anchor-width)]"
+      >
         {items.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
+          <SelectItem
+            key={item.value}
+            value={item.value}
+            className="items-start py-1.5 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:whitespace-normal"
+          >
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate">{item.label}</span>
+              {item.hint ? <span className="font-mono text-[11px] text-neutral-500">{item.hint}</span> : null}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>
@@ -120,6 +132,7 @@ export function RankingBoard({
     class: initialReport.scope.classLevel,
     mode: initialReport.scope.mode,
     test: initialReport.scope.testId,
+    testNumber: initialReport.scope.testNumber,
   });
   const paramsRef = useRef(params);
   paramsRef.current = params;
@@ -144,14 +157,24 @@ export function RankingBoard({
 
   const { scope, filters, rows, subjects, viewer } = report;
   const locked = viewer.kind === "student";
-  const canPickSchool = viewer.kind === "admin";
+  const canPickSchool =
+    viewer.kind === "admin" || viewer.kind === "student" || viewer.kind === "subject-teacher";
+  const canRedirectEmpty =
+    viewer.kind === "admin" ||
+    viewer.kind === "school" ||
+    viewer.kind === "class-teacher" ||
+    viewer.kind === "subject-teacher";
+  const subjectClassWindow =
+    viewer.kind === "subject-teacher" && (filters.programs.length > 1 || filters.classes.length > 1);
   const programItems = filters.programs.map((item) => ({
     value: item.code,
-    label: item.hasScores ? `${programLabel(item.code, item.name)} · ranked` : programLabel(item.code, item.name),
+    label: programLabel(item.code, item.name),
+    hint: item.hasScores ? "Has results" : undefined,
   }));
   const classItems = filters.classes.map((item) => ({
     value: String(item.level),
-    label: item.hasScores ? `${classLabel(item.level)} · ranked` : classLabel(item.level),
+    label: classLabel(item.level),
+    hint: item.hasScores ? "Has results" : undefined,
   }));
   const otherRanked = filters.ranked.filter(
     (item) => item.program !== scope.program || item.classLevel !== scope.classLevel,
@@ -159,16 +182,23 @@ export function RankingBoard({
   const subjectMax = (subject: Subject) =>
     sharedMax(rows.map((row) => row.subjects.find((item) => item.subject === subject)?.max));
   const totalMax = sharedMax(rows.map((row) => row.max));
-  const testItems = filters.tests.map((item) => ({ value: item.id, label: item.label }));
-  const schoolItems = canPickSchool
-    ? [
-        { value: "ALL", label: "All schools" },
-        ...filters.schools.map((item) => ({ value: item.id, label: `${capitalizeWords(item.name)} · ${item.code}` })),
-      ]
-    : filters.schools.map((item) => ({
-        value: item.id,
-        label: `${capitalizeWords(item.name)} · ${item.code}`,
-      }));
+  const testNumberItems = [...new Set(filters.tests.map((item) => item.testNumber))]
+    .sort((a, b) => b - a)
+    .map((value) => ({ value: String(value), label: `Test ${value}` }));
+  const testIdItems = filters.tests
+    .filter((item) => scope.testNumber == null || item.testNumber === scope.testNumber)
+    .map((item) => ({
+      value: item.id,
+      label: item.latest ? `ID ${item.id} · Latest` : `ID ${item.id}`,
+    }));
+  const schoolItems = [
+    { value: "ALL", label: "All schools" },
+    ...filters.schools.map((item) => ({
+      value: item.id,
+      label: capitalizeWords(item.name),
+      hint: item.code,
+    })),
+  ];
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -188,7 +218,7 @@ export function RankingBoard({
         ? scope.testLabel
         : "Latest test";
   const description = [
-    scope.schoolName ? capitalizeWords(scope.schoolName) : canPickSchool && !scope.schoolId ? "All schools" : null,
+    scope.schoolName ? capitalizeWords(scope.schoolName) : "All schools",
     scope.programName ? capitalizeWords(scope.programName) : null,
     scope.classLevel != null ? classLabel(scope.classLevel) : null,
   ]
@@ -200,49 +230,62 @@ export function RankingBoard({
     class: scope.classLevel,
     mode: scope.mode,
     test: scope.testId,
+    testNumber: scope.testNumber,
   };
 
   return (
     <div className={cn("space-y-4", pending && "opacity-70 transition-opacity")}>
       <div className="flex flex-wrap items-center gap-2">
-        <FilterSelect
-          label="School"
-          value={scope.schoolId ?? (canPickSchool ? "ALL" : "")}
-          items={schoolItems}
-          onChange={(value) => {
-            if (!canPickSchool) return;
-            go({
-              ...params,
-              school: value === "ALL" ? null : value,
-              test: null,
-            });
-          }}
-          className="min-w-52"
-        />
+        {canPickSchool ? (
+          <FilterSelect
+            label="School"
+            value={scope.schoolId ?? "ALL"}
+            items={schoolItems}
+            onChange={(value) => {
+              const school = value === "ALL" ? null : value;
+              go(
+                viewer.kind === "admin"
+                  ? { school, program: null, class: null, mode: params.mode, test: null, testNumber: null }
+                  : { ...params, school, test: null, testNumber: null },
+              );
+            }}
+            className="w-[13.5rem] max-w-[13.5rem]"
+          />
+        ) : null}
         {!locked && (
           <>
+            {subjectClassWindow ? (
+              <span className="text-xs font-semibold tracking-wide text-brand-700 uppercase">Your classes</span>
+            ) : null}
             <FilterSelect
               label="Program"
               value={scope.program ?? ""}
               items={programItems}
-              onChange={(value) => go({ ...params, program: value, class: null, test: null })}
-              className="min-w-48"
+              onChange={(value) => go({ ...params, program: value, class: null, test: null, testNumber: null })}
+              className="w-[12.5rem] max-w-[12.5rem]"
             />
             <FilterSelect
               label="Class"
               value={scope.classLevel != null ? String(scope.classLevel) : ""}
               items={classItems}
-              onChange={(value) => go({ ...params, class: Number(value), test: null })}
-              className="min-w-32"
+              onChange={(value) => go({ ...params, class: Number(value), test: null, testNumber: null })}
+              className="w-[7.25rem] max-w-[7.25rem]"
             />
           </>
         )}
-        <div className="flex rounded-xl border border-brand-100 bg-white p-1">
+        <div className="flex h-9 items-center rounded-lg border border-brand-100 bg-white p-0.5">
           <button
             type="button"
-            onClick={() => go({ ...params, mode: "test", test: filters.tests.find((item) => item.latest)?.id ?? params.test })}
+            onClick={() =>
+              go({
+                ...params,
+                mode: "test",
+                test: filters.tests.find((item) => item.latest)?.id ?? params.test,
+                testNumber: filters.tests.find((item) => item.latest)?.testNumber ?? params.testNumber,
+              })
+            }
             className={cn(
-              "rounded-lg px-3 py-1.5 text-sm font-semibold",
+              "h-8 rounded-md px-3 text-sm font-semibold",
               scope.mode === "test" ? "bg-brand-900 text-white" : "text-brand-800 hover:bg-brand-50",
             )}
           >
@@ -250,9 +293,9 @@ export function RankingBoard({
           </button>
           <button
             type="button"
-            onClick={() => go({ ...params, mode: "overall", test: null })}
+            onClick={() => go({ ...params, mode: "overall", test: null, testNumber: null })}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-sm font-semibold",
+              "h-8 rounded-md px-3 text-sm font-semibold",
               scope.mode === "overall" ? "bg-brand-900 text-white" : "text-brand-800 hover:bg-brand-50",
             )}
           >
@@ -260,16 +303,34 @@ export function RankingBoard({
           </button>
         </div>
         {scope.mode === "test" && (
-          <FilterSelect
-            label="Test"
-            value={scope.testId ?? ""}
-            items={testItems}
-            onChange={(value) => go({ ...params, mode: "test", test: value })}
-            className="min-w-56"
-          />
+          <>
+            <FilterSelect
+              label="Test number"
+              value={scope.testNumber != null ? String(scope.testNumber) : ""}
+              items={testNumberItems}
+              onChange={(value) => {
+                const testNumber = Number(value);
+                const next =
+                  filters.tests.find((item) => item.testNumber === testNumber && item.latest) ??
+                  filters.tests.find((item) => item.testNumber === testNumber);
+                go({ ...params, mode: "test", testNumber, test: next?.id ?? null });
+              }}
+              className="w-[6.75rem] max-w-[6.75rem]"
+            />
+            <FilterSelect
+              label="Test ID"
+              value={scope.testId ?? ""}
+              items={testIdItems}
+              onChange={(value) => {
+                const hit = filters.tests.find((item) => item.id === value);
+                go({ ...params, mode: "test", test: value, testNumber: hit?.testNumber ?? params.testNumber });
+              }}
+              className="w-[8.5rem] max-w-[8.5rem]"
+            />
+          </>
         )}
         {role !== "student" && scope.program ? (
-          <div className="ml-auto">
+          <div className="ml-auto shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -324,15 +385,17 @@ export function RankingBoard({
                   ? "No students match that search."
                   : "No published scores for this program and class."}
               </p>
-              {!query.trim() && otherRanked.length > 0 ? (
+              {!query.trim() && canRedirectEmpty && otherRanked.length > 0 ? (
                 <div className="mt-4">
-                  <p className="text-sm font-medium text-neutral-800">Rankings are here:</p>
+                  <p className="text-sm font-medium text-neutral-800">These programs have results:</p>
                   <div className="mt-2 flex flex-wrap justify-center gap-2">
                     {otherRanked.map((item) => (
                       <button
                         key={`${item.program}:${item.classLevel}`}
                         type="button"
-                        onClick={() => go({ ...params, program: item.program, class: item.classLevel, test: null })}
+                        onClick={() =>
+                          go({ ...params, program: item.program, class: item.classLevel, test: null, testNumber: null })
+                        }
                         className="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-brand-50"
                       >
                         {programLabel(item.program, item.programName)} · {classLabel(item.classLevel)}

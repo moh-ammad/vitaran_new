@@ -12,7 +12,7 @@ export default async function SchoolRankingsPage() {
     <>
       <PageHeader
         title="Rankings"
-        description="Performance for your programs and classes. Pick the latest test, an earlier test, or the overall average."
+        description="Overall ranking for the programs and classes assigned to your school, across every school that has published scores."
       />
       <RankingBoard role="school" report={report} />
     </>

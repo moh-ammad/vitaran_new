@@ -19,6 +19,7 @@ export const rankingQuerySchema = z.object({
   class: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(12).optional()),
   mode: z.preprocess(emptyToUndefined, z.enum(["test", "overall"]).optional()),
   test: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(64).optional()),
+  testNumber: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(100).optional()),
 });
 
 export type RankingQuery = z.infer<typeof rankingQuerySchema>;

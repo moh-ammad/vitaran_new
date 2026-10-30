@@ -9,6 +9,7 @@ export const resultSetSummarySelect = {
   id: true,
   programCode: true,
   programName: true,
+  programKey: true,
   testId: true,
   testNumber: true,
   published: true,

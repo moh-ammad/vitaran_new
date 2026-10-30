@@ -90,17 +90,24 @@ function studentScope(student: RosterStudent): StudentScope {
   };
 }
 
-export function matchRosterStudent(row: CellValue[], columns: string[], roster: RosterStudent[]) {
+export function sheetRowIdentity(columns: string[], row: CellValue[]) {
   const rollCol = colIndex(columns, [/^roll/, /regd/, /registration/]);
   const nameCol = colIndex(columns, [/candidate\s*name/, /student\s*name/, /^name$/, /name of/]);
-  const roll = rollCol >= 0 ? normalizeRoll(row[rollCol] ?? null) : "";
-  if (roll) {
-    const hit = roster.find((student) => normalizeRoll(student.rollNo) === roll);
+  return {
+    rollNo: rollCol >= 0 ? normalizeRoll(row[rollCol] ?? null) : "",
+    name: nameCol >= 0 ? String(row[nameCol] ?? "").trim() : "",
+  };
+}
+
+export function matchRosterStudent(row: CellValue[], columns: string[], roster: RosterStudent[]) {
+  const { rollNo, name } = sheetRowIdentity(columns, row);
+  if (rollNo) {
+    const hit = roster.find((student) => normalizeRoll(student.rollNo) === rollNo);
     if (hit) return hit;
   }
-  const name = nameCol >= 0 ? fold(String(row[nameCol] ?? "")) : "";
-  if (name) {
-    const hits = roster.filter((student) => fold(student.name) === name);
+  const folded = name ? fold(name) : "";
+  if (folded) {
+    const hits = roster.filter((student) => fold(student.name) === folded);
     if (hits.length === 1) return hits[0];
   }
   return null;

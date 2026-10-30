@@ -6,6 +6,7 @@ export type RankingParams = {
   class?: number | string | null;
   mode?: "test" | "overall" | null;
   test?: string | null;
+  testNumber?: number | string | null;
   format?: "xlsx" | "pdf" | null;
 };
 
@@ -24,6 +25,7 @@ export function rankingApiQuery(params: RankingParams) {
   if (params.class != null && params.class !== "") search.set("class", String(params.class));
   if (params.mode) search.set("mode", params.mode);
   if (params.test) search.set("test", params.test);
+  if (params.testNumber != null && params.testNumber !== "") search.set("testNumber", String(params.testNumber));
   if (params.format) search.set("format", params.format);
   const query = search.toString();
   return query ? `?${query}` : "";

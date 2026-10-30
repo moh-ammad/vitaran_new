@@ -38,6 +38,7 @@ export type RankingReport = {
     classLevel: number | null;
     mode: RankingMode;
     testId: string | null;
+    testNumber: number | null;
     testLabel: string | null;
   };
   filters: {

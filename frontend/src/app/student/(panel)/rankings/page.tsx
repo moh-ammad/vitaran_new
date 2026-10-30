@@ -9,7 +9,7 @@ export default async function StudentRankingsPage() {
     <>
       <PageHeader
         title="Class ranking"
-        description="Your place in your program and class. Switch between the latest test and your overall average."
+        description="Your place in your program and class across schools. Switch between the latest test and your overall average."
       />
       <RankingBoard role="student" report={report} />
     </>

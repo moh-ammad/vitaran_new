@@ -4,6 +4,10 @@ import { Pool, type PoolConfig } from "pg";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { env } from "./env.js";
 
+function isLocalDbHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
 /**
  * Neon hostnames are CNAMEs. On some Windows setups `dns.lookup` / getaddrinfo
  * returns ENOTFOUND while `resolve4` works — Prisma then reports P1001.
@@ -16,12 +20,28 @@ function preferPublicDnsResolvers() {
 }
 
 async function buildPoolConfig(connectionString: string): Promise<PoolConfig> {
-  preferPublicDnsResolvers();
-
   const url = new URL(connectionString);
   const hostname = url.hostname;
-  let host = hostname;
+  const sslmode = url.searchParams.get("sslmode");
+  const shared: PoolConfig = {
+    connectionTimeoutMillis: 20_000,
+    idleTimeoutMillis: 30_000,
+    max: 10,
+  };
 
+  // Local Postgres (psql -p 5433) has no TLS. Neon and other remotes require it.
+  if (isLocalDbHost(hostname) || sslmode === "disable") {
+    url.searchParams.set("sslmode", "disable");
+    return {
+      ...shared,
+      connectionString: url.toString(),
+      ssl: false,
+    };
+  }
+
+  preferPublicDnsResolvers();
+
+  let host = hostname;
   try {
     const addresses = await dnsPromises.resolve4(hostname);
     if (addresses[0]) host = addresses[0];
@@ -30,6 +50,7 @@ async function buildPoolConfig(connectionString: string): Promise<PoolConfig> {
   }
 
   return {
+    ...shared,
     host,
     port: Number(url.port || 5432),
     user: decodeURIComponent(url.username),
@@ -39,9 +60,6 @@ async function buildPoolConfig(connectionString: string): Promise<PoolConfig> {
       host === hostname
         ? { rejectUnauthorized: true }
         : { rejectUnauthorized: true, servername: hostname },
-    connectionTimeoutMillis: 20_000,
-    idleTimeoutMillis: 30_000,
-    max: 10,
   };
 }
 

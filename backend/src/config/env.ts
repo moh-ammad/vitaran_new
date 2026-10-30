@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -6,6 +6,9 @@ import { z } from "zod";
 const envPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../.env");
 if (existsSync(envPath)) {
   process.loadEnvFile(envPath);
+  const match = readFileSync(envPath, "utf8").match(/^\s*DATABASE_URL\s*=\s*(.*)$/m);
+  const fromFile = match?.[1]?.trim().replace(/^['"]|['"]$/g, "");
+  if (fromFile) process.env.DATABASE_URL = fromFile;
 }
 
 const envSchema = z.object({

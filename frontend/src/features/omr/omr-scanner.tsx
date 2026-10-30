@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { capitalizeWords } from "@/features/schools/schema";
 import { cn } from "@/lib/utils";
 import { omScanTargetAction, scanOmrAction } from "./actions";
 import { checkFrame } from "./sheet-align";
@@ -220,7 +221,7 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
         }
         onScanned(result.result);
         toast.success(
-          `${result.result.scan.student.name} · ${result.result.scan.total}/${result.result.scan.maxTotal}`,
+          `${capitalizeWords(result.result.scan.student.name)} · ${result.result.scan.total}/${result.result.scan.maxTotal}`,
         );
         setLive(false);
         setRollNo("");
@@ -308,7 +309,7 @@ export function OmrScanner({ onScanned }: OmrScannerProps) {
         ) : target ? (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-emerald-50 px-3 py-2 text-sm">
             <CheckCircle2 className="size-4 shrink-0 text-emerald-700" />
-            <span className="font-semibold text-emerald-950">{target.student.name}</span>
+            <span className="font-semibold text-emerald-950">{capitalizeWords(target.student.name)}</span>
             <span className="min-w-0 text-emerald-800">
               Class {target.student.classLevel}
               {target.student.sectionName ? `-${target.student.sectionName}` : ""}
